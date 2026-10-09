@@ -52,10 +52,20 @@ public sealed partial class FluidSimulation
     {
         ArgumentOutOfRangeException.ThrowIfNegative(millilitres);
         RefuseMidTick(nameof(Pour));
+        long accepted = FillFromOutside(voxel, millilitres);
+        PouredMillilitres += accepted;
+        return millilitres - accepted;
+    }
 
+    /// <summary>
+    /// The pour's path, shared with the dump's door (IM-5a): the live terrain's <c>CanHold</c>, the
+    /// room, the fill and the wake. Returns what landed; the caller counts it in its own term.
+    /// </summary>
+    private long FillFromOutside(VoxelPos voxel, long millilitres)
+    {
         if (millilitres == 0 || !_terrain.CanHold(voxel))
         {
-            return millilitres;
+            return 0;
         }
 
         long offered = Math.Min(millilitres, RoomAt(voxel));
@@ -63,13 +73,12 @@ public sealed partial class FluidSimulation
         long accepted = millilitres - overflow;
         if (accepted > 0)
         {
-            PouredMillilitres += accepted;
             NoteInflow(voxel, accepted);
             Wake(voxel);
             WakeNeighboursOf(voxel);
         }
 
-        return overflow;
+        return accepted;
     }
 
     /// <summary>What a pour into <paramref name="voxel"/> would accept now: zero where the live terrain holds no water.</summary>

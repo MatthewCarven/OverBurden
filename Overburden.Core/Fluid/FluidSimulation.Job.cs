@@ -340,7 +340,8 @@ public sealed partial class FluidSimulation
             undergroundPanels,
             LiftDisplacedMillilitres,
             SiphonedMillilitres,
-            PouredMillilitres);
+            PouredMillilitres,
+            DumpedMillilitres);
     }
 
     /// <summary>Refuses a read of state a worker is writing.</summary>
@@ -399,16 +400,17 @@ public readonly record struct FluidPublished(
     int UndergroundPanels = 0,
     long LiftDisplaced = 0,
     long Siphoned = 0,
-    long Poured = 0)
+    long Poured = 0,
+    long Dumped = 0)
 {
     /// <summary><c>lifted == returned + lift-displaced</c> — the falls' and the displacing fills' line, from one snapshot.</summary>
     public bool LiftExact => Lifted == Returned + LiftDisplaced;
 
     /// <summary>
-    /// <c>held == injected + drawn + loaded + emitted + poured − removed − displaced − handed − evicted − pumped − siphoned</c>,
-    /// from one snapshot; the siphon's pair since IM-4a (its pass, decision 3).
+    /// <c>held == injected + drawn + loaded + emitted + poured + dumped − removed − displaced − handed − evicted − pumped − siphoned</c>,
+    /// from one snapshot; the siphon's pair since IM-4a (its pass, decision 3), the dump's door since IM-5a.
     /// </summary>
-    public bool IdentityExact => TotalMillilitres == Added + Loaded + Emitted + Poured - Removed - Displaced - Handed - Evicted - Pumped - Siphoned;
+    public bool IdentityExact => TotalMillilitres == Added + Loaded + Emitted + Poured + Dumped - Removed - Displaced - Handed - Evicted - Pumped - Siphoned;
 }
 
 /// <summary>One tick of the automaton as a job on the scheduler. See <see cref="FluidSimulation.BeginTick"/>.</summary>

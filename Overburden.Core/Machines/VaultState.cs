@@ -29,7 +29,11 @@ public sealed class VaultContents
 
     public VaultPhase Phase { get; set; }
 
-    /// <summary>What is left of a burning fuse, in boundary milliseconds; zero unless <see cref="VaultPhase.Fusing"/>.</summary>
+    /// <summary>
+    /// What is left of a burning fuse, in boundary milliseconds, while <see cref="VaultPhase.Fusing"/>; while
+    /// <see cref="VaultPhase.Dumping"/>, what is left of the release clock a lake's share is paced by (IM-5a,
+    /// its pass's decision 3). Zero while <see cref="VaultPhase.Holding"/>.
+    /// </summary>
     public int FuseMillisLeft { get; set; }
 
     /// <summary>

@@ -631,6 +631,7 @@ public class VaultTests
         Assert.Equal((length + 499) / 500, boundaries);
         VaultContents dumping = rig.Contents(A);
         Assert.Equal(VaultPhase.Dumping, dumping.Phase);
+        Assert.Equal(VaultDump.ReleaseMillis, dumping.FuseMillisLeft); // IM-5a: the burnt fuse's field is the release clock
         Assert.Equal(64, dumping.VoxelsOf(Dirt));
         Assert.Equal(64, rig.Set.OwedVoxels);
         Assert.Equal(0, rig.Set.HeldVoxels);
@@ -1131,6 +1132,31 @@ public class VaultTests
         rig.Place(C, Small);
         Assert.Equal(1, rig.Fall(C).DestroyedAtDrain);
         Assert.False(rig.Set.TryGet(C, out _));
+    }
+
+    [Fact]
+    public void AFallStartsAWrecksReleaseClockButAVaultMidReleaseKeepsItsOwn()
+    {
+        // IM-5's pass, decision 3, with the re-read's eighth point: a wreck's clock starts at the fall, unless
+        // the vault was already dumping, when its ten seconds must not start again.
+        var rig = new Rig();
+        rig.Place(A, Small);
+        rig.Fill(A, Dirt, 40);
+        rig.Fall(A, voxels: 20);
+        Assert.True(rig.Contents(A).Wreck);
+        Assert.Equal(VaultDump.ReleaseMillis, rig.Contents(A).FuseMillisLeft);
+
+        rig.Place(C, Small);
+        rig.Fill(C, Dirt, 10);
+        VaultContents dumping = rig.Contents(C);
+        dumping.Phase = VaultPhase.Dumping;
+        dumping.FuseMillisLeft = 4_000;
+        VaultState.Write(rig.Row(C), dumping);
+
+        rig.Fall(C, voxels: 20);
+        Assert.True(rig.Contents(C).Wreck);
+        Assert.Equal(4_000, rig.Contents(C).FuseMillisLeft);
+        rig.AssertBooks();
     }
 
     [Fact]

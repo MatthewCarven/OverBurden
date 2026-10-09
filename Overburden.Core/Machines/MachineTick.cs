@@ -990,7 +990,10 @@ public sealed class MachineTick : IChannelBank
                     contents.FuseMillisLeft = (int)Math.Max(0, contents.FuseMillisLeft - _boundaryMillis);
                     if (contents.FuseMillisLeft == 0)
                     {
+                        // IM-5's pass, decision 3: the burnt fuse's field becomes the release clock, so a
+                        // lake's share lands over ten seconds with no codec change.
                         contents.Phase = VaultPhase.Dumping;
+                        contents.FuseMillisLeft = VaultDump.ReleaseMillis;
                         FusesBurnt++;
                     }
                 }

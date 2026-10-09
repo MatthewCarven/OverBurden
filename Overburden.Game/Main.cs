@@ -659,6 +659,10 @@ public partial class Main : Node3D
     // this number over a millisecond on the played world.
     private double _bMachines, _bMachinesMax, _bMachinesAtWarm;
 
+    // IM-5a: the dump's bracket — what owing vaults release, after the machine tick and before the
+    // table check; its own term, never folded into machines, pour or collapse (IM-5's pass, decision 9).
+    private double _bDump, _bDumpMax, _bDumpAtWarm;
+
     /// <summary>The tick interval: 2 Hz, the rate M8-PLAN costed the active set against and M8a measured at.</summary>
     /// <remarks>
     /// <b>The automaton is rate-free, so this is the caller's number and nothing in Core reads
@@ -867,6 +871,8 @@ public partial class Main : Node3D
     // IM-4a: the siphon's queue, drained in the boundary's window before the machine tick. Nothing
     // enqueues yet: the siphon on T and its clicks are IM-6's.
     private Siphon? _siphon;
+    private VaultDump? _vaultDump;
+    private long _dumpPrints;
 
     /// <summary>The live simulation terrain the tick reads — the field wrapped in the lake ceiling, never a captured view.</summary>
     private IFluidTerrain? _machineTerrain;
@@ -4436,6 +4442,12 @@ public partial class Main : Node3D
 
             // IM-4a: the siphon — the miner's ray world, the lake bands it covers, the store and the bank.
             _siphon = new Siphon(_fluid, _water, _lakeCeiling, _pipeline!, _machines, _machineTick, _fluid.WakeCell);
+
+            // IM-5a: the dump — the tick's terrain, the seed surface that decides a mouth's tier, the lakes,
+            // and the bands a ball covers before it pours.
+            _vaultDump = new VaultDump(
+                _machines, _fluid, _machineTerrain, _seedHeights, _water, _lakeCeiling,
+                boundaryMillis: (long)Math.Round(_fluidTickSeconds * 1000.0), submerged: _fluid.WakeCell);
             if (_noGate)
             {
                 GD.Print("M10: --nogate — the pool is off and every pump is free (the pre-M10c arm)");
@@ -4513,6 +4525,37 @@ public partial class Main : Node3D
         if (!_machineTick.PowerExact)
         {
             GD.PushError($"M10: the pool identity broke — {report}");
+        }
+    }
+
+    /// <summary>
+    /// IM-5a: the dump's bracket (its pass, decision 9) — after the machine tick, so a fuse that burns out
+    /// releases in the same boundary, and before the table check, so a lake's rise is compared at this
+    /// boundary. Its own <c>Exact</c> checked every boundary it moved anything (decision 10). Printed when a
+    /// vault starts or ends its dump, and every tenth boundary in between, since a dump into the cells can
+    /// run for minutes.
+    /// </summary>
+    private void RunDump()
+    {
+        if (_vaultDump is null || _machines is null || _machines.Count == 0)
+        {
+            return;
+        }
+
+        DumpReport report = _vaultDump.Run();
+        if (!report.DidAnything)
+        {
+            return;
+        }
+
+        if (report.Admitted + report.Ended + report.WrecksRemoved > 0 || _dumpPrints++ % 10 == 0)
+        {
+            GD.Print($"M10: dump — {report}");
+        }
+
+        if (!_vaultDump.Exact)
+        {
+            GD.PushError($"M10: dump — a twin or the store's water line disagrees with the dump's own counters after {report}");
         }
     }
 
@@ -5956,6 +5999,7 @@ public partial class Main : Node3D
                + $"{water.ReceivedLitres:N0} L received from it, "
                + $"{water.PumpedLitres:N0} L pumped out and {water.EmittedLitres:N0} L emitted in by machines, "
                + $"{water.SiphonedLitres:N0} L siphoned out and {water.PouredLitres:N0} L poured in, "
+               + (water.DumpedLitres > 0 ? $"{water.DumpedLitres:N0} L dumped in by vaults, " : string.Empty)
                + $"{water.RainDivertedMicrolitres / 1_000_000.0:N1} L rained into it as cells ({water.RainOwedMicrolitres / 1_000_000.0:N1} L still owed) | "
                + $"window {water.SpanMetres} m x{water.WindowsInstalled}, "
                + $"{_lastAnalysisMillis:F1} ms to analyse, scale x{water.RainfallScale}"
@@ -6124,6 +6168,7 @@ public partial class Main : Node3D
                + $"{_water.SeepedLitres:N0} L seeped into it, {_water.ReceivedLitres:N0} L received from it, "
                + $"{_water.PumpedLitres:N0} L pumped out of lakes, {_water.EmittedLitres:N0} L emitted into basins, "
                + (_water.SiphonedLitres + _water.PouredLitres > 0 ? $"{_water.SiphonedLitres:N0} L siphoned out of lakes, {_water.PouredLitres:N0} L poured into them, " : string.Empty)
+               + (_water.DumpedLitres > 0 ? $"{_water.DumpedLitres:N0} L dumped into them by vaults, " : string.Empty)
                + $"{_water.RainDivertedMicrolitres / 1_000_000.0:N1} L rained into Tier B as {_rainDrops:N0} cell(s) + {_rainDropsOntoPlaced:N0} onto the player's material ({_water.RainOwedMicrolitres / 1_000_000.0:N1} L still owed, {_rainDropsSkipped:N0} drop(s) skipped of which {_rainDropsUnderARoof:N0} under a roof; "
                + $"placed {_rainOnPlaced?.PlacedColumns ?? 0:N0} column(s) in {_rainOnPlaced?.ChunkColumnsWithPlaced ?? 0:N0} chunk column(s), {_rainOnPlaced?.Rescans ?? 0:N0} rescan(s), {_rainOnPlaced?.Backlog ?? 0:N0} owed, {_rainOnPlaced?.Forfeited ?? 0:N0} forfeited), "
                + $"{held * 60.0 / seconds:N0} L per wall-clock minute at scale "
@@ -7101,6 +7146,7 @@ public partial class Main : Node3D
             _bBeginAtWarm = _bBegin;
             _boundariesAtWarm = _boundaries;
             _bMachinesAtWarm = _bMachines;
+            _bDumpAtWarm = _bDump;
             _machineTickCallsAtWarm = _machineTickCalls;
             _machineTickMillisSumAtWarm = _machineTickMillisSum;
             _pumpedBAtWarm = _machineTick?.PumpedMillilitres ?? 0;
@@ -7217,6 +7263,16 @@ public partial class Main : Node3D
             double machines = Milliseconds(t2m, t3);
             _bMachines += machines;
             _bMachinesMax = Math.Max(_bMachinesMax, machines);
+
+            // IM-5a, decision 9: the dump, after the tick so a fuse that burns out releases in the same
+            // boundary, and before the table check so a lake's rise lands before the ceiling's refresh.
+            // Its own term; t3 is stamped again after it, or with the table check off it reads as collapse.
+            RunDump();
+            long t3d = Stopwatch.GetTimestamp();
+            double dump = Milliseconds(t3, t3d);
+            _bDump += dump;
+            _bDumpMax = Math.Max(_bDumpMax, dump);
+            t3 = t3d;
 
             // M9d, decision 1: the table-move sweep, after every pass that moves a level — the
             // hand-off, the drains, the pour — and before the collapse sweep, so a roof whose lake
@@ -8485,7 +8541,8 @@ public partial class Main : Node3D
                   + $" widest open {_enclosure.WidestOpen:N0} / closed {_enclosure.WidestClosed:N0} voxel(s) across of {Enclosure.ExtentVoxels}), {_enclosure.Regions:N0} region(s) / {_enclosure.CachedCells:N0} cell(s) cached, {_enclosure.Evicted:N0} evicted, {_lakeCeiling?.RebuiltForEnclosure ?? 0:N0} band(s) rebuilt for it") + ") — "
                + $"pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
                + (p.Siphoned + p.Poured > 0 ? $"siphoned {p.Siphoned / litre:N0} L, poured {p.Poured / litre:N0} L — " : string.Empty)
-               + $"held == injected + rained + drawn + seeped + loaded + emitted{(p.Siphoned + p.Poured > 0 ? " + poured" : string.Empty)} − removed − displaced − handed − evicted − pumped{(p.Siphoned + p.Poured > 0 ? " − siphoned" : string.Empty)}: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
+               + (p.Dumped > 0 ? $"dumped {p.Dumped / litre:N0} L by vaults — " : string.Empty)
+               + $"held == injected + rained + drawn + seeped + loaded + emitted{(p.Siphoned + p.Poured > 0 ? " + poured" : string.Empty)}{(p.Dumped > 0 ? " + dumped" : string.Empty)} − removed − displaced − handed − evicted − pumped{(p.Siphoned + p.Poured > 0 ? " − siphoned" : string.Empty)}: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
                + $"received == handed: {HandoffIdentity()}, "
                + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L + displaced {p.LiftDisplaced / litre:N0} L by falls and fills: {(p.LiftExact ? "exact" : "*** NO ***")}; "
                + seep
@@ -8512,7 +8569,7 @@ public partial class Main : Node3D
 
     /// <summary>The worst single pass of each kind over the run — the frame a boundary can cost.</summary>
     private string BoundaryWorst() =>
-        $"settle {_bSettleMax:F1} ms, hand-off and drain {_bHandoffMax:F1} ms, pour {_bPourMax:F1} ms, machines {_bMachinesMax:F2} ms, "
+        $"settle {_bSettleMax:F1} ms, hand-off and drain {_bHandoffMax:F1} ms, pour {_bPourMax:F1} ms, machines {_bMachinesMax:F2} ms, dump {_bDumpMax:F2} ms, "
         + $"table {_bTableMax:F2} ms, collapse {_bCollapseMax:F1} ms, lake {_bLakeMax:F1} ms, field sync {_bSyncMax:F1} ms, publish {_bPublishMax:F1} ms";
 
     /// <summary>
@@ -8611,7 +8668,7 @@ public partial class Main : Node3D
 
         return $"boundary  {n:N0} in the window, mean per boundary: settle {(_bSettle - _bSettleAtWarm) / n:F2} ms, "
                + $"hand-off and drain {(_bHandoff - _bHandoffAtWarm) / n:F2} ms, pour {(_bPour - _bPourAtWarm) / n:F2} ms, "
-               + $"machines {(_bMachines - _bMachinesAtWarm) / n:F3} ms, "
+               + $"machines {(_bMachines - _bMachinesAtWarm) / n:F3} ms, dump {(_bDump - _bDumpAtWarm) / n:F3} ms, "
                + $"table {(_bTable - _bTableAtWarm) / n:F3} ms, collapse {(_bCollapse - _bCollapseAtWarm) / n:F2} ms, "
                + $"lake {(_bLake - _bLakeAtWarm) / n:F2} ms, "
                + $"field sync {(_bSync - _bSyncAtWarm) / n:F2} ms, publish {(_bPublish - _bPublishAtWarm) / n:F2} ms, "
@@ -8759,7 +8816,8 @@ public partial class Main : Node3D
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
                + $"handed {p.Handed / litre:N0} L, pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
                + (p.Siphoned + p.Poured > 0 ? $"siphoned {p.Siphoned / litre:N0} L, poured {p.Poured / litre:N0} L — " : string.Empty)
-               + $"held == injected + drawn + seeped + loaded + emitted{(p.Siphoned + p.Poured > 0 ? " + poured" : string.Empty)} − removed − displaced − handed − evicted − pumped{(p.Siphoned + p.Poured > 0 ? " − siphoned" : string.Empty)}: {(p.IdentityExact ? "exact" : "*** NO ***")}; "
+               + (p.Dumped > 0 ? $"dumped {p.Dumped / litre:N0} L by vaults — " : string.Empty)
+               + $"held == injected + drawn + seeped + loaded + emitted{(p.Siphoned + p.Poured > 0 ? " + poured" : string.Empty)}{(p.Dumped > 0 ? " + dumped" : string.Empty)} − removed − displaced − handed − evicted − pumped{(p.Siphoned + p.Poured > 0 ? " − siphoned" : string.Empty)}: {(p.IdentityExact ? "exact" : "*** NO ***")}; "
                + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L + displaced {p.LiftDisplaced / litre:N0} L by falls and fills: {(p.LiftExact ? "exact" : "*** NO ***")}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {p.Paused:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
@@ -9042,8 +9100,16 @@ public partial class Main : Node3D
                           : string.Empty)
                       + (_machines.VaultWaterEntering + _machines.WaterDepositedMillilitres + _machines.WaterVaultedMillilitres > 0
                           ? $"vaults    water held {_machines.HeldWaterMillilitres:N0} + owed {_machines.OwedWaterMillilitres:N0} mL == entering {_machines.VaultWaterEntering:N0} − leaving {_machines.VaultWaterLeaving:N0} "
-                            + $"+ siphoned {_machines.WaterDepositedMillilitres:N0} − poured {_machines.WaterWithdrawnMillilitres:N0} + vaulted by pumps {_machines.WaterVaultedMillilitres:N0}: "
+                            + $"+ siphoned {_machines.WaterDepositedMillilitres:N0} − poured {_machines.WaterWithdrawnMillilitres:N0} + vaulted by pumps {_machines.WaterVaultedMillilitres:N0} "
+                            + $"− dumped {_machines.WaterDumpedMillilitres:N0} − decohered {_machines.WaterDecoheredMillilitres:N0}: "
                             + $"{(_machines.StoreWaterExact ? "exact" : "*** NO ***")}\n"
+                          : string.Empty)
+                      + (_vaultDump is { Admitted: > 0 } dump
+                          ? $"dump      {dump.Admitted:N0} vault(s) seen owing; {dump.DumpedLitres:N0} L into lakes ({dump.SpilledLitres:N0} spilled), "
+                            + $"{dump.DumpedMillilitres:N0} mL into cells over {dump.CellsVisited:N0} cell(s) visited, decohered {dump.DecoheredMillilitres:N0} mL "
+                            + $"({dump.CeilingDecoheredMillilitres:N0} past the ceiling); owed {dump.OwedUnloaded:N0} unloaded and {dump.OwedUnanalysed:N0} unanalysed vault-boundary(ies), "
+                            + $"{dump.NoRoomRests:N0} no-room rest(s); {_machines.DumpsEnded:N0} back to holding, {_machines.WrecksRemoved:N0} wreck(s) removed: "
+                            + $"{(dump.Exact ? "exact" : "*** NO ***")}\n"
                           : string.Empty);
         if (_machineTick is null)
         {

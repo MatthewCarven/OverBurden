@@ -487,13 +487,13 @@ public class MachineTickTests(ITestOutputHelper output)
         {
             long a = Water.StoredLitres;
             Assert.Equal(
-                Water.ReceivedLitres + Water.InjectedLitres + Water.EmittedLitres + Water.PouredLitres
+                Water.ReceivedLitres + Water.InjectedLitres + Water.EmittedLitres + Water.PouredLitres + Water.DumpedLitres
                     - Water.SpilledLitres - Water.DrawnLitres - Water.SeepedLitres - Water.PumpedLitres - Water.SiphonedLitres,
                 a);
 
             long b = Fluid.TotalMillilitres;
             Assert.Equal(
-                Fluid.AddedMillilitres + Fluid.EmittedMillilitres + Fluid.PouredMillilitres - Fluid.RemovedMillilitres
+                Fluid.AddedMillilitres + Fluid.EmittedMillilitres + Fluid.PouredMillilitres + Fluid.DumpedMillilitres - Fluid.RemovedMillilitres
                     - Fluid.DisplacedMillilitres - Fluid.HandedMillilitres - Fluid.PumpedMillilitres - Fluid.SiphonedMillilitres,
                 b);
             Fluid.Publish();
@@ -513,10 +513,11 @@ public class MachineTickTests(ITestOutputHelper output)
 
             // The whole world: every transfer between the tiers and within them cancels, so a
             // pump is invisible here. Injected water enters, spilled, removed and displaced water
-            // leaves, and nothing else moves the sum.
+            // leaves, and so does what a dump decohered (IM-5a); nothing else moves the sum.
             Assert.Equal(
                 ((Water.InjectedLitres - Water.SpilledLitres) * Litre)
-                    + Fluid.AddedMillilitres - Drain.DrawnMillilitres - Fluid.RemovedMillilitres - Fluid.DisplacedMillilitres,
+                    + Fluid.AddedMillilitres - Drain.DrawnMillilitres - Fluid.RemovedMillilitres - Fluid.DisplacedMillilitres
+                    - Machines.WaterDecoheredMillilitres,
                 (a * Litre) + Handoff.PendingMillilitres + b
                     + Machines.HeldWaterMillilitres + Machines.OwedWaterMillilitres - Machines.VaultWaterEntering + Machines.VaultWaterLeaving);
         }

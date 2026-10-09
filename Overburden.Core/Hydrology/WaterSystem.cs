@@ -671,6 +671,35 @@ public sealed class WaterSystem : IWaterTable
         return spilled;
     }
 
+    /// <summary>
+    /// Litres a dumping vault released into lakes, over the lifetime, spilled ones included (IM-5a; IM-5's
+    /// pass, decision 3). A term of Tier A's identity beside <see cref="PouredLitres"/>, and its own for the
+    /// reason the siphon got one: the siphon's <c>Exact</c> reads every litre of <c>poured</c> as its own.
+    /// <c>held == rained + injected + received + emitted + poured + dumped − spilled − drawn − seeped −
+    /// pumped − siphoned</c>.
+    /// </summary>
+    public long DumpedLitres { get; private set; }
+
+    /// <summary>
+    /// Releases whole litres a vault owed the world into the lake this basin is part of, or out of the
+    /// world when the basin is <see cref="Watershed.Outlet"/>. Returns what spilled, which
+    /// <see cref="SpilledLitres"/> counts as an outlet's spill is. <see cref="Pour"/>'s shape with its own
+    /// counter; the caller asks for the basin every boundary, because an install renumbers them.
+    /// </summary>
+    public long Dump(int basin, long litres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(litres);
+        if (Water is null)
+        {
+            throw new InvalidOperationException("No window is installed, so there is no basin to dump into.");
+        }
+
+        DumpedLitres += litres;
+        long spilled = basin == Watershed.Outlet ? litres : Water.Add(basin, litres);
+        SpilledLitres += spilled;
+        return spilled;
+    }
+
     /// <summary>Pours litres into a basin from nothing — the debug seam for Tier A. Returns what spilled.</summary>
     public long Inject(int basin, long litres)
     {

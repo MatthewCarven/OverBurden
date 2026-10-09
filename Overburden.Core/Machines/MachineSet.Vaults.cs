@@ -63,6 +63,20 @@ public sealed partial class MachineSet
     /// </summary>
     public long WaterVaultedMillilitres { get; private set; }
 
+    /// <summary>
+    /// Millilitres of owed water the dump released into the world, on either tier, over the session (IM-5a;
+    /// IM-5's pass, decision 10) — a door of its own, so neither the siphon's seam nor the pump's reads it.
+    /// Equals the dump's Tier B millilitres plus its Tier A litres, a thousand to the litre.
+    /// </summary>
+    public long WaterDumpedMillilitres { get; private set; }
+
+    /// <summary>
+    /// Millilitres of owed water the dump decohered instead, over the session: the part of a new dump past
+    /// the 10 ML ceiling, and what is under a litre at the end of a release into a lake (IM-5's pass,
+    /// decisions 3 and 5). It leaves the world, printed, never a tolerance.
+    /// </summary>
+    public long WaterDecoheredMillilitres { get; private set; }
+
     /// <summary>Water in vaults that are stores, over every channel.</summary>
     public long HeldWaterMillilitres => SumVaultWater(owed: false);
 
@@ -70,12 +84,99 @@ public sealed partial class MachineSet
     public long OwedWaterMillilitres => SumVaultWater(owed: true);
 
     /// <summary>
-    /// The store's water line: <c>held + owed == entering − leaving + deposited − withdrawn + vaulted</c>,
-    /// the siphon's two doors and the pump's; the dump adds its terms in IM-5.
+    /// The store's water line: <c>held + owed == entering − leaving + deposited − withdrawn + vaulted −
+    /// dumped − decohered</c>, the siphon's two doors, the pump's, and the dump's two (IM-5a).
     /// </summary>
     public bool StoreWaterExact =>
         HeldWaterMillilitres + OwedWaterMillilitres
-        == VaultWaterEntering - VaultWaterLeaving + WaterDepositedMillilitres - WaterWithdrawnMillilitres + WaterVaultedMillilitres;
+        == VaultWaterEntering - VaultWaterLeaving + WaterDepositedMillilitres - WaterWithdrawnMillilitres + WaterVaultedMillilitres
+            - WaterDumpedMillilitres - WaterDecoheredMillilitres;
+
+    /// <summary>Owing vaults a dump brought back to <see cref="VaultPhase.Holding"/> once empty, over the session (IM-5's pass, decision 6).</summary>
+    public long DumpsEnded { get; private set; }
+
+    /// <summary>Wrecks the dump removed once empty, with the journal paused, over the session (decision 6).</summary>
+    public long WrecksRemoved { get; private set; }
+
+    /// <summary>
+    /// The dump's door out of an owing vault (IM-5a): takes <paramref name="dumped"/> millilitres that
+    /// landed in the world and <paramref name="decohered"/> that did not, and sets the release clock to
+    /// <paramref name="clockMillis"/>, in one read and one write. A vault left empty ends its dump there:
+    /// a standing one goes back to <see cref="VaultPhase.Holding"/>, and a wreck answers
+    /// <see cref="DumpEnd.SpentWreck"/> for the caller to remove after its walk, through
+    /// <see cref="RemoveSpentWreck"/>.
+    /// </summary>
+    /// <remarks>
+    /// The dump read the vault this boundary and nothing has written it since, so asking for more than it
+    /// owes is the wiring being wrong, and it throws rather than takes what is there — the outlet's rule.
+    /// </remarks>
+    internal DumpEnd ReleaseWater(MachineRow row, long dumped, long decohered, int clockMillis)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(dumped);
+        ArgumentOutOfRangeException.ThrowIfNegative(decohered);
+        ArgumentOutOfRangeException.ThrowIfNegative(clockMillis);
+        if (!IsVault(row) || !VaultState.TryRead(row, out VaultContents contents) || !contents.Owes
+            || dumped + decohered > contents.WaterMillilitres)
+        {
+            throw new InvalidOperationException(
+                $"Vault at {row.Cell}: the dump released {dumped:N0} mL and decohered {decohered:N0} from a vault that does not owe that much; it was read this boundary.");
+        }
+
+        contents.WaterMillilitres -= dumped + decohered;
+        contents.FuseMillisLeft = clockMillis;
+        WaterDumpedMillilitres += dumped;
+        WaterDecoheredMillilitres += decohered;
+
+        DumpEnd end = DumpEnd.Owing;
+        if (contents.IsEmpty)
+        {
+            if (contents.Wreck)
+            {
+                end = DumpEnd.SpentWreck;
+            }
+            else
+            {
+                // Decision 6: a standing vault outlives its dump — empty, billing nothing, its own charge
+                // back to the pool at the next boundary, as any empty vault's is.
+                contents.Phase = VaultPhase.Holding;
+                contents.FuseMillisLeft = 0;
+                DumpsEnded++;
+                end = DumpEnd.Holding;
+            }
+        }
+
+        VaultState.Write(row, contents);
+        return end;
+    }
+
+    /// <summary>
+    /// Removes a wreck the dump emptied (IM-5's pass, decision 6), with the journal paused, so Ctrl+Z has no
+    /// row to bring back and re-mint its own charge through <c>entering</c>. Its own charge leaves through
+    /// <c>leaving</c>, as any removed row's does. False, and nothing removed, for a row that is not a known,
+    /// empty wreck.
+    /// </summary>
+    /// <remarks>Never while a caller walks <see cref="Rows"/>: the set has no tick guard, and this changes it.</remarks>
+    internal bool RemoveSpentWreck(MachineRow row)
+    {
+        if (!IsKnownWreck(row) || !VaultState.TryRead(row, out VaultContents contents) || !contents.IsEmpty
+            || !_rows.TryGetValue(row.Cell, out MachineRow? standing) || !ReferenceEquals(standing, row))
+        {
+            return false;
+        }
+
+        bool recording = PauseJournal();
+        try
+        {
+            Remove(row.Cell);
+        }
+        finally
+        {
+            ResumeJournal(recording);
+        }
+
+        WrecksRemoved++;
+        return true;
+    }
 
     /// <summary>
     /// What a pump may put into <paramref name="row"/>, a vault in its ring, this boundary (IM-4's pass,
@@ -579,12 +680,20 @@ public sealed partial class MachineSet
         VaultState.Write(row, new VaultContents { OwnChargeMillijoules = contents.OwnChargeMillijoules });
     }
 
-    /// <summary>Makes a wreck of a vault that holds what it holds: flagged, dumping, its contents owed (decision 17).</summary>
+    /// <summary>
+    /// Makes a wreck of a vault that holds what it holds: flagged, dumping, its contents owed (decision 17).
+    /// Its release clock starts here (IM-5's pass, decision 3), unless it was dumping already: a vault that
+    /// falls mid-release keeps its clock rather than starting its ten seconds again.
+    /// </summary>
     private void MakeWreck(MachineRow row, VaultContents contents)
     {
         contents.Wreck = true;
+        if (contents.Phase != VaultPhase.Dumping)
+        {
+            contents.FuseMillisLeft = VaultDump.ReleaseMillis;
+        }
+
         contents.Phase = VaultPhase.Dumping;
-        contents.FuseMillisLeft = 0;
         VaultState.Write(row, contents);
         VaultsWrecked++;
         Version++;
