@@ -1,5 +1,31 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-09 (evening) — IM-5a's session opens: his two answers
+
+*"1.will replay the game now and try the clay again i might start a fresh world like if that is ok? 2. yes please
+and 3 after please"*. Read against the hand-over's order (his two answers, the re-read, the build):
+- **The clay pond leak**: he can't point at the old one, so he is building a clay pond in a fresh world to see
+  it again. Told him `start.cmd --world=<name>` (a later `--world=` beats `LakeTest`), `--clockscale=20` if he'd
+  rather not wait for rain, and the three things to capture: the HUD coordinates under the drip, a screenshot,
+  the time. No headless Godot while he plays, since each launch rotates his log.
+- **The windowed surface install: yes**, run once he's out of the game, since it takes the screen and would
+  spoil both.
+- **IM-5's re-read, then IM-5a, after**: the three read-only searches started at once (Tier A, Tier B, the vault
+  and the bracket); the build goes in a worktree, since `start.cmd` builds the main folder.
+
+**The re-read, done.** Every fact in IM-5's pass holds and every IM-5a decision still builds, so nothing goes to
+him. Nothing under `Core/Machines` has changed since the pass, the merge touched no `FluidSimulation*.cs`, and the
+boundary's order is as it was. What moved is in the plan's new "IM-5a — the re-read against the merged code"; the
+three that matter most:
+- **A vault raises its own 2 m sample** (it is solid), so a surface dump lands where that bump drains. A walled
+  pond 2 m or wider is its own basin; a roofed building's samples are raised to the roof, so a vault inside one
+  dumps outside it, as before the merge. Checked by hand: `RaisedSurface.Observe` takes `OpenAboveY`, which a
+  solid voxel closes. The tier is the mouth against the seed surface, since a lake band's floor is seed + 1.
+- **`+ dumped` has five copies of the identity to reach**, and the store's water line has no alarm today.
+- **Two corrections to the pass itself, not from the merge**: `RoomAt`'s dry room is 4 × 4 voxels (250 L), not
+  8 × 8 (1,000 L); and an emptied vault back in `Holding` returns its own charge to the pool (an empty vault's
+  own-charge capacity is zero), not "kept and refilled". Both fixed where they stood.
+
 ## 2026-10-09 — the pond branch merged into main, on his verdict
 
 *"yes only that side rose, merge it unless you think otherwise or it requires further testing"*. That was his answer

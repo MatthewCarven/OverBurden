@@ -102,8 +102,9 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       water, the end of a dump, the bracket) and 5b (the pile, with its bench first). Three amend the plan: a
       dump's end (an empty vault back to `Holding`, an empty wreck removed), decision 36's session carry
       replaced by accepting placement's crash lag (an unload batch is not a consistent cut), and machine
-      materials decohered rather than piled. **Next: IM-5a**, after "Do first" 2 and 3 above (1 and 4 are done), and after a re-read of its pass
-      against the merged watershed, which the pass (2026-09-30) predates. **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
+      materials decohered rather than piled. **Next: IM-5a**, after "Do first" 2 and 3 above (1 and 4 are done). **The re-read against the
+      merged watershed is done (2026-10-09)**: every decision still builds, nothing new for him, ten things moved
+      (the plan, "IM-5a — the re-read against the merged code"). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
       runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his

@@ -1825,8 +1825,9 @@ wait on his word.** The slice is the plan's riskiest, and the reading bears that
 4. **The siphon owns the pour twins.** `Siphon.Exact` reads every millilitre of `PouredMillilitres`,
    `PouredLitres` and the store's water doors as its own (`Siphon.cs:215–222`). A dump through any of them
    would light the siphon's error every boundary.
-5. **`RoomAt` can't be reused as it is** (`MachineTick.cs:1595–1668`, private). Its dry room is one 8 × 8
-   layer (1,000 L at most), not a ball, it never calls `Cover`, so a lake with no band reads dry, and it asks
+5. **`RoomAt` can't be reused as it is** (`MachineTick.cs:1595–1668`, private). Its dry room is one 4 × 4
+   voxel layer, `BrushCell.Voxels` square (250 L at most; this read "8 × 8, 1,000 L" until the 2026-10-09
+   re-read), not a ball, it never calls `Cover`, so a lake with no band reads dry, and it asks
    `IsLoaded` of one voxel. Its classification (lake, ground, underground, off the window) can be lifted into
    a helper; it reads only the row's cell and origin.
 6. **Decision 31 contradicts itself.** "Where an outlet's would" sends a loaded dry mouth on the ground to
@@ -1892,7 +1893,8 @@ wait on his word.** The slice is the plan's riskiest, and the reading bears that
    10,000 m³ is 5b's.)
 6. **◆ The end of a dump** (fact 1; amends decision 34, which never said what "the end" is). When the last of
    its contents has left, **a standing vault goes back to `Holding`**: empty, billing nothing, its own charge
-   kept and refilled as any vault's is. **A wreck with nothing left is removed with the journal paused**, its
+   back to the pool at the next boundary, as any empty vault's is (an empty vault's own-charge capacity is
+   zero; corrected at the 2026-10-09 re-read, which found "kept and refilled" was not what the code does). **A wreck with nothing left is removed with the journal paused**, its
    stranded own charge leaving through `leaving`. So Ctrl+Z can't revive a dead vault, and a wreck doesn't
    linger for ever.
    *The other arm:* the dump destroys the vault at its end.
@@ -1966,6 +1968,63 @@ asked for the plan only that day, and for TODO to be read for what should come f
 that is TODO's "Order and collisions". Before IM-5a: the flaky scheduler test, the clay pond's suspected
 leak, IM-0's windowed surface install (the 10 ML ceiling's render half), and main merged into the pond
 branch.
+
+### IM-5a — the re-read against the merged code (2026-10-09)
+
+The pass predates the raised watershed's merge (`aadf38a`). Three read-only searches re-checked it at
+`0d6e4ef`: Tier A, Tier B, and the vault with the bracket. The load-bearing facts were checked by hand.
+**Every fact holds, every IM-5a decision is still buildable, and nothing new needs his word.** Nothing
+under `Overburden.Core/Machines` has changed since the pass, the merge touched no `FluidSimulation*.cs`,
+and the boundary's order is as it was (`Main.cs:7204–7281`). What moved:
+
+1. **Decision 2 is simpler than it reads.** A lake band's floor is the seed surface plus one
+   (`LakeCeiling.cs:344`, `:463`), so "in a lake" already means "above the seed surface". The tier is chosen
+   by the mouth against the seed surface at the origin, as `RoomAt`'s unloaded branch already does
+   (`MachineTick.cs:1653`): above it, inside the window, Tier A. `Cover` matters only to the ball.
+2. **Where Tier A's litres land moved, and the tier did not.** A vault is solid, so it raises its own 2 m sample
+   (`RaisedSurface.cs:116–119`, `SkyColumn.cs:400`), and the basin `TryBasinAtSample` gives is where that bump
+   drains. A walled pond at least one sample (2 m) wide is its own basin, and the dump fills it. Under a roof,
+   every sample is raised to the roof (the raise can't tell a roof from a wall, the pond pass's stated cost), so
+   a vault inside a roofed building on the surface dumps outside it, where the roof's rain runs. Before the
+   merge, the analytic ground sent it outside too, so decision 2's cost ("may be some way off") stands as
+   written.
+3. **Look the basin up every boundary.** Basins are renumbered at every `Install`, once a frame
+   (`Main.cs:3948`, `:4157`), so a release over 10 s never stores one on the row. `WaterSystem.Pour` throws
+   with no window installed (`WaterSystem.cs:663–666`), so the dump asks first. A dump in the 1.1–1.2 s between
+   a wall and its re-analysis goes to the old lake, and `ShareByLevel` spreads it by level (`BasinLedger.cs:153`).
+   Nothing is lost, and a share that leaves the window goes out through `SeedOverflowLitres`, which is the
+   lake's term, not the dump's.
+4. **The ball covers its whole box, and asks `IsReady` of every chunk it touches.** `PourB` never covers: the
+   siphon's lattice shapes never cross a chunk column, and a ball can cross four (the relay covers its box,
+   `Main.cs:8289`). `RoomFor` can't stand in for "loaded", because on the field arm it answers from baked bits
+   for a chunk that has gone (`FluidField.cs:140–165`). Only `PourB`'s ten-line loop (`Siphon.cs:458–469`) is
+   worth sharing. The siphon's budget is first come, first served (`:282–303`); the dump's own is round-robin,
+   as decision 4 says.
+5. **`+ dumped` reaches five copies of the identity**, not one: `IdentityExact` (`FluidSimulation.Job.cs:411`),
+   `MachineTickTests.cs:495–497`, `PumpBench.cs:332–334`, and the `M8b:` and quit prints (`Main.cs:8488`, `:8762`).
+6. **The store's water line has no alarm.** `StoreWaterExact` (`MachineSet.Vaults.cs:76–78`, whose comment
+   already waits for IM-5's terms) prints only in the profile's machines block. The siphon's `Exact` runs only
+   while its queue is non-empty (`Main.cs:4472–4475`), so the dump's `Exact` gets its own gate, and checks the
+   store's line beside its own counters.
+7. **A wreck is removed after the tick, never during it.** `MachineSet.Add` and `Remove` have no tick guard
+   (`MachineSet.cs:197–241`), and `Remove` changes `_rows`. A spent wreck goes from a collected list after
+   `Run`, through a `MachineSet` method that uses its own `PauseJournal` (`:686–704`).
+8. **`MakeWreck` must not restart a dump's clock.** When a dumping vault falls, `MakeWreck` runs on it
+   (`MachineSet.Vaults.cs:583–604`). The 10,000 ms clock is set only for a vault not already dumping.
+9. **The bracket re-stamps `t3`.** `collapse` is timed from `t3` (`Main.cs:7286`), which only the table block
+   re-stamps (`:7232`). With the table check off, a dump that doesn't re-stamp it is billed to `collapse`.
+10. **Tests run with the pool on.** Under `PowerOff` `PayHolds` never runs (`MachineTick.cs:718`), so no fuse
+    burns.
+
+**For 5b:**
+- **Crates are outside the tick's vault list.** `_vaults` holds only channel vaults (`MachineTick.cs:1279`), and
+  a crate can be wrecked. A crate holds no water, so 5a never meets one; 5b's pile walks every dumping row.
+- **A vault row this build can't read never dumps.** It is counted in `VaultsWrecked`, and it stays out of
+  every sum (`MachineSet.Vaults.cs:606–609`), as IM-3's decision 8 meant.
+
+**The hand-off, checked.** Water under the seed surface is never handed (`SurfaceHandoff.cs:179`), so a vault in
+the workings stays Tier B's whole. The merge's one change: ball water that reaches seed + 1 on an unraised
+sample is handed even when walled in.
 
 ## Must not ship
 
