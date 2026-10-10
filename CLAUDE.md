@@ -114,7 +114,7 @@ dotnet run --project Overburden.Bench -c Release -- --light
 
 The arms (`--light`, `--blob`, `--store`, `--watershed`, `--portal`, `--seep`, `--surface`,
 `--seepawake`, `--support`, `--solve`, `--fluid`, `--spill`, `--lake`, `--evict`, `--terrain`,
-`--front`, `--pump`) and their sweep flags are in COMMANDS.md. **`--support` wants
+`--front`, `--pump`, `--pile`) and their sweep flags are in COMMANDS.md. **`--support` wants
 `DOTNET_TieredCompilation=0`**. **Read the machine-control line before quoting a bench figure**:
 this machine has measured 2.5× slower hours apart with identical binaries.
 

@@ -2129,6 +2129,109 @@ bowl's columns out of the reach.
 **On main** (fast-forwarded the same night): the r6 control to the digit, 2601 / 325 / 3446 at 411, no
 `ERROR`. **Owed:** IM-0's windowed surface install, which sets the render half of the 10 ML ceiling.
 
+## IM-5b — the re-read against the code (2026-10-11)
+
+His *"yes as built please Claude, go on IM-5b"*. Decisions 11–16 re-read at `fd3d695` (main with IM-5a) by three
+read-only searches: the write path and its cost, the heap's site search and refusals, and the undo, the collapse
+and the boundary's writes. The load-bearing facts were checked by hand. **Every decision still builds except
+decision 11's rule, which needed a shape; he gave it.** What moved:
+
+1. **Decision 11, read literally, builds a tower or a pancake.** Machine voxels are solid and only the cell is
+   refused, so "nearest column first" fills the vault's own roof upward; "lowest first" lays one voxel over
+   the whole 32 m disc before the second. **Taken 2026-10-11, his word: the cone, one up for one out.** Each
+   voxel goes to the free slot with the least *height above the vault's floor plus horizontal distance from the
+   vault*. It fills hollows by the vault first, then covers it, and grows a round heap at 45°. A cone with
+   height equal to radius puts 100 m³ in about 4.6 m of radius, the demo's 700 m³ in 8.7 m and the ceiling's
+   10,000 m³ in 21 m (arithmetic), all inside decision 11's 32 m. The other arms were two up for one out
+   (17 m for 10,000 m³, fewer chunks a boundary) and one up for two out (27 m, more). His look at the pile
+   is still the revisit.
+2. **A dump that owes only blocks is invisible today.** `Run` collects a row only if it owes water
+   (`VaultDump.cs:270–280`), and `DidAnything`, `Exact` and the profile's gate ignore voxels. A wrecked crate
+   holds no water ever (`MachineDefinition.cs:579–586`), so it is seen and skipped for ever. 5b collects every
+   owing row.
+3. **The store's voxel line has no dumped or decohered term.** `StoreExact` is `held + owed == entering −
+   leaving + deposited − withdrawn` (`MachineSet.Vaults.cs:354–355`), and `VaultDump.Exact` doesn't read it.
+   5b adds both terms, a per-material record of what was decohered, and the check.
+4. **The pile's writes would be journalled.** `RunDump` (`Main.cs:4538–4560`) has no recording-off bracket,
+   unlike `SweepCollapse` (`:6422–6432`). `Forget` is on `EditHistory`, not on `IEditJournal`, so Core can't
+   call it: `VaultDump` reports the chunks it wrote and Main forgets them, with a counter of its own
+   (`ClearedByForget` is shared with "left the loaded box").
+5. **There is one write path and no batch.** `ChunkPipeline.SetVoxel` (`ChunkPipeline.cs:926–988`, Core), and
+   every writer calls it a voxel at a time. Per voxel: the field's 4 KiB clone, only in a chunk that has a
+   field (`FluidField.cs:297–319`); the seep index, up to 64 a chunk, then one whole-chunk rescan at the next
+   `Flush` (`PortalTracker.cs:149–184`); the portal index; `Disturb`, cheap. **Once per chunk per batch:**
+   copy-on-write; light, run on the sim thread under its 4 ms budget, and a whole tracked chunk column when a
+   pile raises the sky (`:1044–1048`); a remesh of up to eight chunks (a worker job); a support derive of the
+   chunk and its six neighbours (a worker job). **So a boundary's cost is mostly chunks touched, not
+   voxels.** The bench sweeps both.
+6. **Its costs land in two boundaries.** The seep `Flush` runs before `RunDump` (`Main.cs:7234`), so boundary
+   k's rescan is paid at k + 1. `Field.Sync` runs after it (`:7321`).
+7. **The lake bands are dropped every boundary** for columns with no Tier B water near
+   (`LakeCeiling.cs:200–212`, refreshed at `Main.cs:7302–7306`). So the pile `Cover`s the box it writes into
+   every boundary it writes, where the ball covers once a pass.
+8. **Each refusal has a predicate callable at the bracket:**
+   - loaded to the water: `Ready` (`VaultDump.cs:618–627`);
+   - wet: the live grid's `FluidSimulation.HeldAt` (`FluidSimulation.Siphon.cs:92–96`). `HoldsWater` reads the
+     published copy and misses this boundary's ball;
+   - in a lake band: `LakeCeiling.InLake` after `Cover`;
+   - a machine's or a wreck's cell: `MachineSet.TryGet` (wrecks are rows). A write into a standing machine's
+     cell marks it damaged (`MachineSet.cs:359–360`), so this refusal is what keeps a pile from killing a pump;
+   - reserved by a landing collapse: `CollapseDirector.Reserved` (`CollapseDirector.cs:127`; there is none in
+     sweep mode);
+   - inside the player: only Main holds the body, and only while walking (`Main.cs:8122–8123`), so `Run` takes
+     the box as a parameter.
+9. **"Can lie loose" has no predicate today.** `Place.Validate` refuses air, unplaceable and out-of-table IDs
+   (`Place.cs:1077–1108`), not fluids or machines. 5b's is `id != air && (uint)id < Count && IsPlaceable(id) &&
+   !IsFluid(id) && !IsMachine(id)` (`MaterialTable.cs:73, 85, 98`). The range guard matters because the codec
+   reads any int32 (`VaultState.cs:183–191`). A removed mod's stand-in reads solid, placeable and not a
+   machine, so it piles, as decision 12 says.
+10. **A fuse in or beside a pile waits while the pile writes.** Every write queues its chunk and six
+    neighbours (`SupportRegion.cs:277–309`), and `SweepCollapse` runs right after `RunDump` (`Main.cs:7295`)
+    and reads `TryReadSettled`. A live collapse event does not wait; it replots from the last settled snapshot
+    (`CollapseDirector.cs:570, 728`). A solid voxel in a reserved rest makes a flight replot (`:895–898`), so
+    the reservation refusal is a courtesy, not a guard.
+11. **A dumping vault can't be picked** (`MachineSet.Vaults.cs:555–566`), so a dump waiting on `no room` keeps
+    its vault until the player digs room. That is decision 11's "it waits".
+
+**The bench (decision 15), as it can be built.** `Overburden.Bench` has never built a `ChunkPipeline`; every
+arm uses a hand-made world. But every type the real one needs is public, and the bench references Core. So
+`--pile` copies the tests' `PipelineHarness` (`ChunkPipelineTests.cs:646–762`) and Main's observer wiring
+(`Main.cs:1532–1547`, `:6893–7009`), and writes N voxels a boundary over K chunks, dry and wet (a dry pile pays
+no clone). It times the write loop, the pipeline's update after it (light), the seep flush and the field's
+sync, and counts the remesh and support jobs. **It can't see** the game's mesh installs on the main thread, so
+the in-game probe owes the `dump` term and the frame line beside it.
+
+**The bench, run (2026-10-11):** `--pile`, Release, two full runs at a machine control of 1.08× and 1.09×,
+twelve boundaries an arm, a fresh world each. The two runs agree arm for arm. The boundary is flush + write
++ sync, ms mean / worst over boundaries 2–12:
+
+| Voxels a boundary | 1 chunk column, dry / wet | 4 (6 chunks) | 16 (17–21 chunks) |
+|---|---|---|---|
+| 128 | 0.8–1.0 / 3.9 · 0.6–0.8 / 2.4 | 0.2 / 0.4 · 0.3–0.4 / 0.8 | 0.4 / 2.1 · 0.6–0.8 / 2.1 |
+| **512** | **0.7–0.9 / 1.9 · 1.2 / 2.3** | **1.7–2.0 / 4.2 · 2.0–2.3 / 4.0** | **0.6–0.8 / 1.5 · 1.2–1.6 / 3.3** |
+| 2,048 | 2.7–3.0 / 10.3 · 2.9–3.8 / 7.8 | 2.5–3.2 / 5.6 · 4.0 / 6.0 | 7.3–7.4 / 15.9 · 8.1–9.3 / 17.8 |
+
+- **512 a boundary stands** (decision 33's 5–8 ms): 2.3 ms mean and 4.2 worst at most, however it spreads,
+  dry or wet. At 2,048 over sixteen chunk columns the seep rescan alone is 5.6–5.7 ms mean, and the bracket
+  passes the budget.
+- **The first boundary in fresh chunks pays the portal tracker's first-edit scans:** 1–16 ms, once a chunk a
+  load.
+- **The frames after a boundary scale with chunk columns, not voxels.** Light and the mesh apply on the sim
+  thread: about 3–5 ms a boundary at one chunk column, 11–12 ms at four, 35–39 ms at sixteen. Light builds:
+  12–18, 41–45 and 148–154 a boundary, because a pile raising the sky rebuilds its whole tracked chunk column.
+  From four columns up the worst frame reaches the 16 ms light budget. Support derives: 10, 30 and 75–90 a
+  boundary, 6–66 ms of worker.
+- **Wet costs the clone:** 2 MiB allocated a boundary at 512 voxels (8 MiB at 2,048), and the write goes from
+  0.6–1.8 to 1.3–2.3 µs a voxel.
+
+**What the build takes from it** (build choices, for his word at "built"):
+- **512 voxels a boundary across every dump, and at most 8 chunks written a boundary.** The chunk cap is what
+  bounds the frames after, since chunk columns are the cost; 8 sits between the four-column arm (6 chunks) and
+  the sixteen (17–21).
+- **Each one-voxel shell of the cone is filled by angle around the vault**, so a boundary's 512 voxels work
+  a wedge from the top of the heap to its foot, a few chunk columns, rather than a ring round the whole
+  heap. The heap is still the cone at every shell.
+
 ## Must not ship
 
 1. A reserve floor under any name: a percentage kept back, a quarry that stops itself without a sensor he

@@ -101,6 +101,10 @@ internal static class Program
           --pumplitres <n>     the flood, in litres (default 200000, a 3 m depth over the chamber's floor)
           --pumprate <L/s>     every pump's rate in place of the content's 100 (default: the content's)
           --pumpboundaries <n> boundaries to run the delivery arms for (default 4000; the loop runs at least 10000)
+          --pile               IM-5b, decision 15: a dump's pile written through a real ChunkPipeline and the game's hook, N voxels a boundary over K chunk columns, dry and wet
+          --pilevoxels a,b     voxels a boundary to sweep (default 128,512,2048)
+          --pilecolumns a,b    chunk columns the pile spreads over, squares (default 1,4,16)
+          --pileboundaries <n> boundaries an arm (default 12)
         """;
 
     private static int Main(string[] args)
@@ -169,6 +173,10 @@ internal static class Program
         long pumpLitres = 200_000;
         double? pumpRate = null;
         int pumpBoundaries = 4_000;
+        bool pile = false;
+        int[] pileVoxels = [128, 512, 2_048];
+        int[] pileColumns = [1, 4, 16];
+        int pileBoundaries = 12;
         int restRefund = Overburden.Core.Structure.SupportRule.Default.RestRefundVoxels;
         float supportScale = 1f;
 
@@ -393,6 +401,18 @@ internal static class Program
                     case "--pumpboundaries":
                         pumpBoundaries = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
+                    case "--pile":
+                        pile = true;
+                        break;
+                    case "--pilevoxels":
+                        pileVoxels = Next(args, ref i).Split(',').Select(s => int.Parse(s, CultureInfo.InvariantCulture)).ToArray();
+                        break;
+                    case "--pilecolumns":
+                        pileColumns = Next(args, ref i).Split(',').Select(s => int.Parse(s, CultureInfo.InvariantCulture)).ToArray();
+                        break;
+                    case "--pileboundaries":
+                        pileBoundaries = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
                     case "--help" or "-h":
                         Console.WriteLine(Usage);
                         return 0;
@@ -520,6 +540,34 @@ internal static class Program
         if (seepAwake)
         {
             return SeepAwakeBench.Run(seepTicks);
+        }
+
+        if (pile)
+        {
+            // The real mod, as --support: the pile is stone because stone.json says what stone is to
+            // light and to the support field, and the strata carry the shipped IDs.
+            var pileContent = new GameContent();
+            LoadResult pileLoaded = pileContent.Load(new DirectoryContentSource(ModsDirectory()));
+            if (!pileLoaded.Success)
+            {
+                Console.Error.WriteLine($"content: {string.Join("; ", pileLoaded.Errors)}");
+                return 1;
+            }
+
+            int pileGrass = pileContent.Materials.GetNumericId(Identifier.Parse("overburden:grass"));
+            int pileDirt = pileContent.Materials.GetNumericId(Identifier.Parse("overburden:dirt"));
+            int pileStone = pileContent.Materials.GetNumericId(Identifier.Parse("overburden:stone"));
+            var pileStrata = new StrataTable([new StrataLayer(pileGrass, 1), new StrataLayer(pileDirt, 3)], pileStone);
+            var pileGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, pileStrata);
+            return PileBench.Run(
+                pileGenerator,
+                MaterialTable.From(pileContent.Materials),
+                pileStone,
+                MachineControl(pileGenerator),
+                IsDebug(),
+                pileVoxels,
+                pileColumns,
+                pileBoundaries);
         }
 
         if (support)

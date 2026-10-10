@@ -1073,6 +1073,24 @@ inside the chamber, 10,000 boundaries, the world's total unchanged to the millil
 dotnet run --project Overburden.Bench -c Release -- --pump
 ```
 
+**IM-5b adds `--pile` (2026-10-11), decision 15's bench, and the first arm to build a real
+`ChunkPipeline`** (a scheduler, streaming and light, with Main's hook wired: the field's invalidation,
+`Disturb`, the portal tracker with its seep index, the machine set and the enclosure, and the support
+region). It writes N stone voxels a boundary over K chunk columns on generated ground, a layer at a
+time, dry and then wet (one cell of water in each chunk column, so the field holds them and every
+write clones). A boundary is timed in the game's order: the tracker's `Flush`, the writes, the field's
+`Sync`. The frames between boundaries are timed apart: 500 ms of `Update`, under the 16 ms light budget
+`start.cmd` passes. Each arm prints chunks written, the boundary's mean and worst (and its first, which
+pays the tracker's first-edit scans), µs a voxel, KiB allocated, and the frames' update ms and worst
+frame, with light builds, remeshes, meshes, support derives and their worker ms a boundary. **It cannot
+see the game's mesh installs on the main thread**; the remesh count is there to read the in-game probe
+against. `--pilevoxels a,b` (128,512,2048), `--pilecolumns a,b` (squares; 1,4,16) and
+`--pileboundaries n` (12) size it. About three minutes:
+
+```bash
+dotnet run --project Overburden.Bench -c Release -- --pile
+```
+
 **The world file lives at `user://worlds/<name>/world.db`** — on Windows,
 `%APPDATA%/Godot/app_userdata/Overburden/worlds/`. `--world=<name>` picks one, `--nosave` opens
 none at all, and `--autosave=<seconds>` moves the 30 s flush. **A run that is a measurement or a
