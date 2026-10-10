@@ -1,5 +1,14 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-10 (evening) — his glass rain pool holds
+
+On `LakeTest`, around x −12, z −63, he built a pool of glass nearly a chunk across to fill with rain: *"its pretty
+full so i'd say a win all around"*. The live log at 21:58 agrees: no `ERROR` lines, and 1,338 rain drops onto the
+player's material this session. Rain on a placed top lands as Tier B cells, so the pool's water is Tier B's. That
+is why the `M7d:` line's "under you" read his raised basin dry (`pit (-56, -312), saddle 4, 0 of 351,000 L`).
+Glass and clay are both permeability 0, so this is the sealed, rain-fed pond the clay leak question was
+waiting for, and it held. Whether that closes the leak (TODO's "Do first" 2) is his to say. Asked.
+
 ## 2026-10-10 — IM-5a built: the dump's water
 
 In the worktree `im5a`, while he was set to play. A burnt-out vault or a wreck now releases its water at the
