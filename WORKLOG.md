@@ -33,6 +33,8 @@ bench, the pile. The plan's "IM-5b — the re-read", "The bench, run" and "IM-5b
   run: with the waiting columns dropped, the heap's queue ran dry, it rested as "no room", and a new seed
   reached the floor ten seconds later, so the test still passed. A fallback route hid the hole. The test now
   wants the floor the very next boundary with no rest, and the recipe went red.
+- **On main**, fast-forwarded with the game closed: the r6 control to the digit, 2601 / 325 / 3446 at 411, no
+  `ERROR` lines.
 
 ## 2026-10-11 (just past midnight) — IM-0's windowed surface install, run
 

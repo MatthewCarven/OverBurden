@@ -22,6 +22,18 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
+- [ ] **Seven small choices I made building IM-5b** (the pile). The plan didn't settle them. Say "as built" or
+      name one to change (the plan's "IM-5b — built" has them):
+      1. at most 512 blocks a boundary across every dump, written into at most 8 chunks (the speed test's numbers);
+      2. a big heap grows in narrow wedges round its vault, so each boundary touches only a few chunks;
+      3. a heap only goes where a block could roll: never through rock; it climbs a wall only once it's piled as
+         high, and spills over a sill;
+      4. a shaft deeper than 8 m beside a vault is left open, and the heap stands round its mouth;
+      5. the materials are piled mixed, each block the one there's most of;
+      6. **a pile can rest on a machine**, so it can bury an outlet's mouth or a pump's intake, which then stalls
+         as it would under any block;
+      7. past 10,000 m³, the excess is lost from the highest-numbered material first.
+
 - [ ] **The hotbar's unit** is due before IM-6, which shows water in the hotbar, so the "L doesn't fit"
       question arrives with IM-6, not the inventory screen.
 
@@ -135,6 +147,10 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **The pile's shape** (2026-10-11): *"Cone, 1 up : 1 out"*. Each block goes to the free spot lowest in height
+  above the vault's floor plus distance out, so a heap fills the hollows by its vault first, covers it, and grows
+  at 45°. About 4.6 m across its radius for 100 m³, 8.7 m for the demo's 700 m³, 21 m for 10,000 m³. Built.
 
 - **IM-5a's six build choices** (2026-10-11): *"yes as built please Claude, go on IM-5b"*. All six stay: the 2 m
   minimum ball, the 10 s rest when a ball finds no room, the 10 ML limit checked when a vault first owes, the
@@ -278,22 +294,28 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-11**. **Main is ahead of GitHub by two commits (the windowed run and your answer): a `git
-push` whenever suits.**
+Updated **2026-10-11, session close**. **Main is ahead of GitHub by this session's commits since your last push: a
+`git push` whenever suits.**
 
-- **The windowed run is done and your answer taken**: the 10 ML limit stays, and we look again at IM-6.
-
-- **IM-5a is built: the dump's water.** When a vault's fuse burns out, or a fall wrecks it, its water goes back
-  into the world. On the surface it goes into the lake that ground drains to, over about ten seconds. In the
-  mine it pours out around the vault, a little each half second.
-  - More than 10 ML waiting to pour in the mine is lost at once.
-  - An emptied vault works again; an emptied wreck disappears, and Ctrl+Z can't bring it back.
-  - **Nothing you play changes yet:** no vault ships until IM-6.
-  - First I re-checked the plan against your merged walls and lakes. It all still held, and two small mistakes
-    in my own plan got fixed.
-  - All 2,261 tests pass, and I broke the code 28 deliberate ways to check the tests notice: every one did.
+- **IM-5b is built: the dump's blocks.** When a vault's fuse burns out, or a fall wrecks it, its blocks come back
+  into the world as a heap round it, your cone, after its water.
+  - It never builds into water, a lake, a machine, you, or where a falling piece is about to land; it waits a
+    moment and tries again.
+  - Machines, packs and anything that can't lie loose are lost, and the log names them. So is anything past
+    10,000 m³.
+  - Ctrl+Z can't touch a pile: a step you took where the pile lands is dropped, so it can't write over it.
+  - **Nothing you play changes yet:** no vault ships until IM-6. The cyan glitch as blocks appear comes with
+    IM-6 too.
+  - First a speed test: 512 blocks every half second costs about 2 ms, but the more chunks a pile touches, the
+    more relighting follows, so it writes into at most 8 chunks at a time.
+  - All 2,278 tests pass, and I broke the code 42 deliberate ways: every one was caught (one only after I made
+    its test stricter).
   - The game's quick check reads exactly as recorded.
-- **Next: IM-5b**, the dumped blocks as a pile, its speed test first.
+- **The windowed run is done and your answer taken**: the 10 ML limit stays, and we look again at IM-6.
+- **IM-5a is built: the dump's water** (2026-10-10). On the surface it goes into the lake that ground drains to,
+  over about ten seconds; in the mine it pours out round the vault, a little each half second. An emptied vault
+  works again; an emptied wreck disappears.
+- **Next: IM-6**, the first thing you can play with a vault. Before it: the hotbar's unit (yours, top of "Now").
 - **The clay leak is closed, not reproduced** (your word): your glass rain pool filled and held, and glass and
   clay are the same to the water. The 09-26 clay-roof drip closes with it; that day's look had already found the
   roof sound and the drip running off the eave outside your glass.

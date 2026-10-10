@@ -203,8 +203,8 @@ playable.** This session:
   stands, chunks touched are the cost, so at most 8 a boundary), and the pile itself.
 
 The record is [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-5b — the re-read", "The bench,
-run" and "IM-5b — built". Suite **2,278**, forty-two mutations red. **Main is ahead of its remote** by this
-session's commits; he pushes. Nothing he plays changes until IM-6 ships a vault.
+run" and "IM-5b — built". Suite **2,278**, forty-two mutations red, r6 to the digit on main. **Main is ahead of
+its remote** by this session's commits; he pushes. Nothing he plays changes until IM-6 ships a vault.
 
 **Next session, in order:**
 1. **The seven choices IM-5b's build made** go to him with the status (the plan's "IM-5b — built"). The one

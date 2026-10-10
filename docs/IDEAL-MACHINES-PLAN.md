@@ -2321,8 +2321,9 @@ again, and the fluid clause (shadowed by placeable in every fixture). The sevent
 rested as "no room", and reached the floor ten seconds later from a new seed. A fallback route hid the hole.
 The test now insists the floor is reached the very next boundary with no rest, and the recipe went red.
 
-**Owed:** the r6 control on main after the merge; and at IM-6, the in-game read of a real dump (the `dump`
-term, the frame line, and the remeshes against the bench), with the pile's cyan glitch (decision 16).
+**On main** (fast-forwarded the same night): the r6 control to the digit, 2601 / 325 / 3446 at 411, no
+`ERROR`. **Owed at IM-6:** the in-game read of a real dump (the `dump` term, the frame line, and the remeshes
+against the bench), with the pile's cyan glitch (decision 16).
 
 ## Must not ship
 
