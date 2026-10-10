@@ -2232,6 +2232,98 @@ twelve boundaries an arm, a fresh world each. The two runs agree arm for arm. Th
   a wedge from the top of the heap to its foot, a few chunk columns, rather than a ring round the whole
   heap. The heap is still the cone at every shell.
 
+## IM-5b — built (2026-10-11)
+
+Built in a worktree (`im5b`), so `start.cmd` kept building the clean main folder. **Nothing he plays changes
+yet:** no vault ships until IM-6.
+
+**What is there** (decisions 11–14 and 16, with the re-read and the bench):
+- **The pile, `VaultDump.Pile.cs`**, the other half of `VaultDump`, run last in the dump's bracket, after the
+  balls (decision 37). The heap is kept by column: a column's slot is the air voxel its next block takes, one
+  resting on something solid. The queue is ordered by the cone's shell, `floor(height above the vault's floor
+  + distance)`, then the angle round the vault. A heap is seeded from the vault's cell and the ring round it,
+  each opened at the first height from the mouth's layer down to the floor where it is open: the vault's top
+  for its own columns, the floor beside it.
+- **A column joins the heap when a neighbour's block lands at a height the column is open at**, and the block
+  falls to what it rests on there. So a heap never passes through rock, climbs a wall only once it is piled as
+  high, and spills over a sill. A drop past `DropDepth` (8 m) under the vault's floor is no slot, and nothing
+  past `HeapRadius` (32 m) is reached. A machine's or a wreck's cell is solid to the heap, never a slot.
+- **Refusals**, each waiting for the next boundary: the slot's chunk not loaded to the water, the live grid's
+  `HeldAt`, a lake band (each chunk column covered the first time a boundary asks), the player's box (passed
+  by Main, walking only), and `CollapseDirector.Reserved`. **A slot the world changed under is looked for
+  again**: filled, up to a metre above; dug from under, it falls. The vault's own chunk gates its heap, so an
+  unloaded vault waits rather than reading as "no room".
+- **Admission** (decisions 12 and 14), when a vault is first seen owing: every material that cannot lie loose
+  (`CanLieLoose`: placeable, not air, not a fluid, not a machine, inside the table) is decohered whole, then
+  whatever is past `HeapCeilingVoxels` (640,000), from the highest material ID down.
+- **The doors.** `MachineSet.ReleaseVoxels(row, material, dumped, decohered)` beside the water's, with
+  `VoxelsDumped`, `VoxelsDecohered` and `VoxelsDecoheredByMaterial`. The end of a dump is one rule for both
+  doors (`EndIfEmpty`). `StoreExact` gains `− dumped − decohered`, and the dump's `Exact` checks both twins and
+  the voxel line.
+- **The undo** (decision 13): the dump turns `EditHistory.Recording` off around its writes and forgets every
+  chunk it wrote, counted apart (`PileStepsForgotten`), in Core, so a test can break it. Main hands it the
+  history.
+- **The walk.** `Run` collects every vault owing anything, so a vault owing only blocks, and a wrecked crate,
+  are seen at last (the re-read's fact 2). `Run` takes the player's box.
+- **The game.** `RunDump` passes the box; the `M10: dump —` line carries piling, voxels, chunks, waiting, no
+  room, decohered and steps forgotten, and a second line names what was decohered by material. Decision 16:
+  the pile appears plain; the cyan glitch is IM-6's.
+
+**Choices the pass left open, made in the build** (for his word):
+1. **512 voxels and at most 8 chunks a boundary** (the bench's), shared round-robin by position.
+2. **Each shell filled by angle**, so a boundary works a wedge (the bench's).
+3. **A heap joins a column only through the air**: it never passes through rock, climbs a wall only once it
+   is piled as high, and spills over a sill.
+4. **A shaft deeper than 8 m beside a vault is left open**: no slot, and the heap stands round its mouth.
+5. **The materials are piled mixed**, each voxel the one with the most left.
+6. **A pile can rest on a machine**: a machine's cell is solid to it. So a pile can cover an outlet's mouth or
+   a pump's intake, which then stalls as it would under any block.
+7. **The excess past 10,000 m³ goes from the highest material ID down.**
+
+**Tests:** seventeen in `VaultPileTests`, on VaultDumpTests' fixture with the terrain as a world too:
+- a room takes every voxel once, resting on something solid, as a cone (no free slot in a shell below the
+  highest filled), and the vault holds again;
+- three piles share the budget, the remainder to the first; nine piles in nine chunks, eight written;
+- what cannot lie loose decohered by material; the ceiling from the highest material down, once, idempotent
+  across a reopen;
+- never into water (the vault's own ball pouring first), never into a lake (the pile's own cover, the bowl out
+  of the reach), never into a machine's cell, the player or a reserved rest; a chunk with its voxels but not
+  its water passed over; a column that waited asked again;
+- an unloaded vault waits; no slot rests the heap and starts it again once the cell beside is dug;
+- a hollow by the vault fills first and a shaft past 8 m is no slot;
+- a slot filled between boundaries moves up, never overwritten, and one dug from under falls;
+- the undo: a step in a chunk the pile wrote is forgotten; a player's open step elsewhere survives the
+  pile's writes, and its undo restores the player's voxel;
+- a wreck owing only blocks removed once its last voxel lands, with nothing for Ctrl+Z.
+Every test checks the fluid identity, both store lines, the dump's `Exact`, that every voxel the store says was
+dumped is in the world, and that no write went into water. **Suite 2,278.**
+
+**The mutation battery: 42 of 42 red**, in three chunks of about 2.5 minutes, each mutation restored from the
+file's bytes and the tree checked clean after. It covered:
+- the undo: recording left on, the forget skipped;
+- each refusal, the cover skipped, a machine's cell read as open, the vault's chunk gate, a slot whose water is
+  not home;
+- the budget: the chunk cap off, the share not split, the remainder to the last;
+- the cone: the shell ignored, the distance ignored, the height ignored;
+- the heap: no fall at discovery, the 8 m drop unbounded, a filled slot overwritten, a floating slot written,
+  neighbours never joined, a waiting column never asked again, the rest never set, no room never noticed;
+- what can lie loose: the check skipped, and each of its five clauses;
+- the ceiling skipped, and taken from the lowest material;
+- the doors: piled and not released, not counted, decohered and not counted, the voxel line without either term,
+  a release that never ends a dump, the store's counter and its by-material record skipped;
+- the walk: a vault owing only voxels skipped, the admission skipped, the pile never run.
+
+**Seven holes were found before or during it, each closed with a test first.** Six came from planning the
+recipes: the remainder (two piles split 512 evenly), the 8 m drop (no shaft in any fixture), a slot the world
+changed (never exercised), a chunk whose water is not home (the test world could not say so), a column asked
+again, and the fluid clause (shadowed by placeable in every fixture). The seventh survived the run:
+`waiting-not-asked-again` went green, because a heap that lost its waiting columns found its queue empty,
+rested as "no room", and reached the floor ten seconds later from a new seed. A fallback route hid the hole.
+The test now insists the floor is reached the very next boundary with no rest, and the recipe went red.
+
+**Owed:** the r6 control on main after the merge; and at IM-6, the in-game read of a real dump (the `dump`
+term, the frame line, and the remeshes against the bench), with the pile's cyan glitch (decision 16).
+
 ## Must not ship
 
 1. A reserve floor under any name: a percentage kept back, a quarry that stops itself without a sensor he

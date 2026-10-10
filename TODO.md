@@ -38,9 +38,13 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 8. **The engine-wide pin — before IM-7.** A chunk any door wrote stays loaded until the next autosave (IM-5's
    decision 8, its lever). IM-5 accepted the crash duplicate for the dump, as for placement; the quarry writes
    every boundary across many chunks and would multiply it. Its own pass (Levers).
-9. **The `FluidField.Invalidate` lever and "a chunk-aware write path" — measured in IM-5b's bench first.**
-   The pile writes up to 512 voxels a boundary, each cloning 4 KiB, and the quarry bites the same way. Design
-   the bulk write once, for the pile, the quarry and the fill.
+9. ~~**The `FluidField.Invalidate` lever and "a chunk-aware write path" — measured in IM-5b's bench first.**~~
+   **Measured 2026-10-11** (`--pile`; the plan's "IM-5b — the re-read", "The bench, run"): the clone is 2 MiB
+   allocated a boundary at 512 wet voxels and about 1 µs a voxel more; the whole boundary stays under 2.3 ms
+   mean. What a write really costs is per chunk column touched, in the frames after (light above all: 3–5,
+   11–12 and 35–39 ms a boundary at one, four and sixteen columns). So the pile needs no bulk write, and caps
+   chunks instead (8 a boundary). **The quarry's pass reads the bench**: it writes every boundary across many
+   chunks, and its lever is the chunk count, not the clone.
 10. **The quantum rate that reads low on a profile — before IM-7's bench** quotes a rate.
 
 **Collisions, two planned works on one code path or one question:**
@@ -105,7 +109,11 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       "IM-5a — built"; suite 2,261, twenty-eight mutations red). Six choices the pass left open were made in the
       build, taken as built 2026-10-11. On main, the r6 control to the digit. "Do first" 3, the windowed surface
       install, ran 2026-10-11 (the ceiling stands, taken as recommended); 2, the clay pond, closed
-      not reproduced (2026-10-10). **Next: IM-5b**, the pile, with its bench first (decision 15). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
+      not reproduced (2026-10-10). **IM-5b is built (2026-10-11)**: the re-read (decision 11 needed a shape; his
+      word, the cone, one up for one out), the bench (`--pile`: 512 voxels a boundary stands, chunks are the
+      cost, so at most 8 a boundary), and the pile (the plan's "IM-5b — built"; suite 2,278). Seven choices the
+      build made are listed there for his word. **Into IM-6:** the pile's cyan glitch (decision 16), and the
+      in-game read of a real dump (the `dump` term, the frame line, remeshes against the bench). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
       runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** a real dump read windowed at IM-6, a fuse

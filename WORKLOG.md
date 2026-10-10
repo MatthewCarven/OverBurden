@@ -1,5 +1,39 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-11 — IM-5b built: the dump's blocks, a cone
+
+His *"yes as built please Claude, go on IM-5b"*. In the worktree `im5b`, in three steps: the re-read, the
+bench, the pile. The plan's "IM-5b — the re-read", "The bench, run" and "IM-5b — built" have the whole account.
+
+- **The re-read** (three read-only searches at `fd3d695`, the load-bearing facts checked by hand). Every decision
+  still builds except decision 11's rule: read literally it builds a tower on the vault's roof ("nearest
+  first", and machine voxels are solid) or a one-voxel pancake 32 m wide ("lowest first"). Asked, with the
+  arithmetic for each arm, **he chose the cone, one up for one out**. The rest of what moved: a vault owing only
+  blocks was invisible to the dump, the store's voxel line had no dumped or decohered term, the pile's writes
+  would have been journalled, and the lake bands drop every boundary, so the pile covers them itself.
+- **The bench** (`--pile`, the first arm to build a real `ChunkPipeline` with Main's hook wired; two runs at a
+  machine control of 1.08× and 1.09× agree arm for arm). 512 voxels a boundary stays inside decision 33's
+  5–8 ms however it spreads (2.3 ms mean and 4.2 worst at most, dry or wet); 2,048 over sixteen chunk columns
+  passes it. **What grows with spread is the frames after the boundary**, light above all, because a pile that
+  raises the sky rebuilds its whole tracked chunk column: 3–5, 11–12 and 35–39 ms of sim thread a boundary at
+  one, four and sixteen chunk columns. So the build caps chunks (8 a boundary) and fills each shell of the cone
+  by angle, so a boundary works a wedge. It answers TODO's "Do first" 9 too: the field's clone is 2 MiB a
+  boundary and no bulk write is needed.
+- **The pile** (`VaultDump.Pile.cs`). Slots by column, queued by shell then angle; a column joins through the
+  air only (a heap never passes through rock and spills over a sill); 8 m of drop, 32 m of reach; refusals wait
+  a boundary; a slot the world changed is looked for again; what cannot lie loose and what is past 10,000 m³
+  decohered at admission by material; recording off and every written chunk forgotten, in Core.
+  `MachineSet.ReleaseVoxels` and the voxel line's two new terms; the dump's `Exact` checks them.
+- **Seven choices the build made** are listed in the plan for his word. The one with a consequence in play: a
+  pile can rest on a machine, so it can cover an outlet's mouth or a pump's intake, which then stalls.
+- **Seventeen tests, suite 2,278.** Planning the battery found six recipes no test would have caught (the
+  remainder, the 8 m drop, a slot the world changed, a chunk whose water is not home, a column asked again, the
+  fluid rule shadowed by placeable); each got its test before the battery ran.
+- **The mutation battery: 42 of 42 red**, three chunks of about 2.5 minutes. One recipe survived the first
+  run: with the waiting columns dropped, the heap's queue ran dry, it rested as "no room", and a new seed
+  reached the floor ten seconds later, so the test still passed. A fallback route hid the hole. The test now
+  wants the floor the very next boundary with no rest, and the recipe went red.
+
 ## 2026-10-11 (just past midnight) — IM-0's windowed surface install, run
 
 His yes was given 2026-10-09; tonight, with the game closed: *"go on the windowed run please Claude"*. The recipe,

@@ -13,6 +13,31 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md on 2026-10-11** (the 2026-10-10 close, superseded by IM-5b's build):
+
+**2026-10-10, session close — IM-5a is built and on main; the next session builds IM-5b, the pile, its bench
+first.** This session re-read IM-5's pass against the merged watershed. Every decision still builds; ten facts moved, two of them
+errors in the pass itself. Then it built IM-5a in a worktree:
+- a burnt-out vault's or a wreck's water goes to its own sample's basin over ten seconds, or, in the workings,
+  as a ball of cells within its own budget;
+- a new dump past 10 ML in the workings is decohered at once;
+- an emptied vault holds again, and an emptied wreck is removed with nothing for Ctrl+Z.
+
+The record is [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-5a — the re-read" and "IM-5a —
+built". Suite **2,261**, twenty-eight mutations red, r6 to the digit on main. **Main is ahead of its remote** by
+this session's commits; he pushes. Nothing he plays changes until IM-6 ships a vault.
+
+**The clay leak is closed, not reproduced** (his word): his glass rain pool on `LakeTest`, nearly a chunk
+across at about x −12, z −63, filled with rain and held, and glass and clay are both permeability 0. The 09-26
+clay-roof drip closed with it (WORKLOG, 2026-10-10 evening).
+
+**Next session, in order:**
+1. **The windowed surface install ran 2026-10-11** (WORKLOG): the worst case, 10 ML at once on open ground,
+   installs at 148 ms mean / 249 max on the main thread, against 23 / 137 in his own play that night. **Taken as
+   recommended**: the 10 ML ceiling stands, and a real dump is read windowed at IM-6.
+2. **The six choices IM-5a's build made: taken as built** (2026-10-11, his word).
+3. **IM-5b: its bench first** (decision 15), then the pile, in a worktree. Started 2026-10-11.
+
 **Moved from CLAUDE.md on 2026-10-10** (the 2026-10-09 close, superseded by IM-5a's build):
 
 **2026-10-09, session close — the next session builds IM-5a, the dump's water.** This session merged the pond

@@ -50,7 +50,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
 | [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. Today a block in a lake is a pier. |
 | [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) | **Walls that split a lake, the code-level pass (2026-10-01): all seven decisions taken as recommended; L-1, L-2 and E-1 built the same day; his play passed 2026-10-09, and all of it is on main since the pond branch merged.** His Tier B conversion can't separate (the hand-back rejoins the one lake); the pond branch's raise divides a lake but gives every litre to the old pit's side (fact 10). Recommended: share by the water over each cell (L-1, L-2 on the branch), and make the enclosure's answer independent of who asks first (E-1, main). |
-| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30); IM-5a built (2026-10-10, after a re-read against the merged watershed), IM-5b next; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
+| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30); IM-5a built (2026-10-10, after a re-read against the merged watershed), IM-5b built (2026-10-11: the pile, a cone at his word, its bench `--pile`), IM-6 next; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
 
@@ -192,36 +192,37 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-10-10, session close — IM-5a is built and on main; the next session builds IM-5b, the pile, its bench
-first.** This session re-read IM-5's pass against the merged watershed. Every decision still builds; ten facts moved, two of them
-errors in the pass itself. Then it built IM-5a in a worktree:
-- a burnt-out vault's or a wreck's water goes to its own sample's basin over ten seconds, or, in the workings,
-  as a ball of cells within its own budget;
-- a new dump past 10 ML in the workings is decohered at once;
-- an emptied vault holds again, and an emptied wreck is removed with nothing for Ctrl+Z.
+**2026-10-11, session close — IM-5b is built and on main; the ideal machines' next slice is IM-6, the first
+playable.** This session:
+- ran IM-0's windowed surface install, on his screen: the worst case (10 ML at once on open ground) installs at
+  148 ms mean / 249 max on the main thread, against 23 / 137 in his own play that night. A real dump pours within
+  its budget, so **the 10 ML ceiling stands** (his word), and a real dump is read windowed at IM-6;
+- took IM-5a's six build choices as built (his word);
+- built **IM-5b, the pile**, in a worktree: the re-read (decision 11 needed a shape: **his word, the cone, one
+  up for one out**), the bench (`--pile`, the first arm with a real `ChunkPipeline`: 512 voxels a boundary
+  stands, chunks touched are the cost, so at most 8 a boundary), and the pile itself.
 
-The record is [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-5a — the re-read" and "IM-5a —
-built". Suite **2,261**, twenty-eight mutations red, r6 to the digit on main. **Main is ahead of its remote** by
-this session's commits; he pushes. Nothing he plays changes until IM-6 ships a vault.
-
-**The clay leak is closed, not reproduced** (his word): his glass rain pool on `LakeTest`, nearly a chunk
-across at about x −12, z −63, filled with rain and held, and glass and clay are both permeability 0. The 09-26
-clay-roof drip closed with it (WORKLOG, 2026-10-10 evening).
+The record is [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-5b — the re-read", "The bench,
+run" and "IM-5b — built". Suite **2,278**, forty-two mutations red. **Main is ahead of its remote** by this
+session's commits; he pushes. Nothing he plays changes until IM-6 ships a vault.
 
 **Next session, in order:**
-1. **The windowed surface install ran 2026-10-11** (WORKLOG): the worst case, 10 ML at once on open ground,
-   installs at 148 ms mean / 249 max on the main thread, against 23 / 137 in his own play that night. **Taken as
-   recommended**: the 10 ML ceiling stands, and a real dump is read windowed at IM-6.
-2. **The six choices IM-5a's build made: taken as built** (2026-10-11, his word).
-3. **IM-5b: its bench first** (decision 15), then the pile, in a worktree. Started 2026-10-11.
+1. **The seven choices IM-5b's build made** go to him with the status (the plan's "IM-5b — built"). The one
+   with a consequence in play: a pile can rest on a machine, so it can cover an outlet's mouth or a pump's
+   intake.
+2. **Before IM-6** (TODO's "Do first"): the hotbar's unit (his), the ten build warnings, and ideally collapse
+   f-1.
+3. **IM-6's code-level pass**, the big wire slice and the first playable. It carries: the vault's panel (his
+   warranty line, a lock on the channel box, power auto-scaled), water in the hotbar, the pile's cyan glitch
+   (decision 16), and the windowed read of a real dump (install over ~50 ms mean or 250 ms worst means a render
+   lever, not the ceiling).
 
 Unblocked alternative if he would rather: collapse f-1 (Core and tests, thirteen decisions taken).
 
-The ideal machines plan is half built: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to
-IM-3b, IM-4a (with its mutation battery, thirty-six red), IM-4b (a vault in its pump's ring, `pumped == emitted +
-vaulted`), IM-4c, reduced at his word (a block in a lake stays a pier; Ctrl+Z cancels placements still waiting
-for the boundary), and **IM-5a, the dump's water** (2026-10-10, twenty-eight mutations red). **Taken and not
-built:** IM-5b, the pile. Suite **2,261** on main, r6 to the digit.
+The ideal machines plan: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to IM-3b,
+IM-4a (thirty-six mutations red), IM-4b, IM-4c (reduced at his word), **IM-5a, the dump's water** (2026-10-10,
+twenty-eight red) and **IM-5b, the pile** (2026-10-11, forty-two red). **Taken and not built:** IM-6 onward.
+Suite **2,278**.
 
 **The lake plan is taken (2026-10-01): [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), all seven decisions
 as recommended; one question is still his (what the walled area beneath TajMahal2 was).** His means,
@@ -241,11 +242,9 @@ machine with a shared budget, only where you are; water is an inventory item thr
 header byte and a kit. Each slice has a "code-level pass" and a "built" section in the plan; the previous
 hand-over, slice by slice, is in [docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md).
 
-**From TODO's "Order and collisions"**, at the top of TODO: IM-0's windowed surface install ran 2026-10-11
-(the 10 ML ceiling's render half; the ceiling stands, taken as recommended).
-
-Then **IM-5b** (the pile, decisions 11–16, its bench first). Before IM-6: the hotbar's unit (his) and the build
-warnings. Before IM-7: the engine-wide pin (TODO's Levers).
+**From TODO's "Order and collisions"**, at the top of TODO: before IM-6, the hotbar's unit (his) and the build
+warnings; before IM-7, the engine-wide pin (TODO's Levers), and the quarry's pass reads the `--pile` bench (its
+cost is chunks touched, not the field's clone).
 
 **His open threads:**
 - the walled area beneath TajMahal2, his question in [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md);
@@ -253,8 +252,10 @@ warnings. Before IM-7: the engine-wide pin (TODO's Levers).
 
 **How the slices have gone:** every one has had a code-level pass first. Each pass used three read-only
 searches in parallel, facts with file and line, the load-bearing ones checked by hand, then numbered decisions
-for him. IM-3b, IM-4c and IM-5 each changed the plan at that pass. And **read his list's notes before building
-on an "as recommended" from the same sitting**: at IM-4c his notes reversed the choice.
+for him. IM-3b, IM-4c and IM-5 each changed the plan at that pass, and IM-5b's re-read found decision 11
+unbuildable as written. And **read his list's notes before building on an "as recommended" from the same
+sitting**: at IM-4c his notes reversed the choice. **Plan the mutation battery before running it**: at IM-5b,
+writing the recipes found six holes, and a recipe that survives can be one a fallback route hides.
 
 IM-6's panel owes his warranty line, a lock on the channel box, and power auto-scaled on screen.
 

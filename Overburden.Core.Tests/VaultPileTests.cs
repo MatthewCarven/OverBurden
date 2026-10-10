@@ -708,11 +708,16 @@ public class VaultPileTests
         rig.Boundary();
         Assert.DoesNotContain(rig.Piled, entry => entry.Key.Y == RoomFloor);
 
+        // The very next boundary, not after a rest: a heap that lost its waiting columns would find its queue
+        // empty, rest as though the room were full, and only reach the floor ten seconds later from a new seed.
         reserved.Clear();
-        rig.RunToEnd();
-
+        DumpReport second = rig.Boundary();
+        Assert.True(second.VoxelsPiled > 0, "the floor that waited was not asked again");
         Assert.Contains(rig.Piled, entry => entry.Key.Y == RoomFloor);
+
+        rig.RunToEnd();
         Assert.Equal(600, rig.Dump.VoxelsPiled);
+        Assert.Equal(0, rig.Dump.PileNoRoomRests);
         rig.AssertBooks();
     }
 
