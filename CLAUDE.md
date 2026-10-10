@@ -207,9 +207,9 @@ run" and "IM-5b — built". Suite **2,278**, forty-two mutations red, r6 to the 
 its remote** by this session's commits; he pushes. Nothing he plays changes until IM-6 ships a vault.
 
 **Next session, in order:**
-1. **The seven choices IM-5b's build made** go to him with the status (the plan's "IM-5b — built"). The one
-   with a consequence in play: a pile can rest on a machine, so it can cover an outlet's mouth or a pump's
-   intake.
+1. **Six of the seven choices IM-5b's build made** wait on his word (the plan's "IM-5b — built"). The one with
+   a consequence in play, a pile resting on a machine and burying a pump's intake, is taken (*"yes totally
+   approve"*), with an aside recorded in M10-NOTES: an early item to breathe water.
 2. **Before IM-6** (TODO's "Do first"): the hotbar's unit (his), the ten build warnings, and ideally collapse
    f-1.
 3. **IM-6's code-level pass**, the big wire slice and the first playable. It carries: the vault's panel (his

@@ -22,16 +22,16 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **Seven small choices I made building IM-5b** (the pile). The plan didn't settle them. Say "as built" or
-      name one to change (the plan's "IM-5b — built" has them):
+- [ ] **Seven small choices I made building IM-5b** (the pile); **6 is approved**, six left. The plan didn't
+      settle them. Say "as built" or name one to change (the plan's "IM-5b — built" has them):
       1. at most 512 blocks a boundary across every dump, written into at most 8 chunks (the speed test's numbers);
       2. a big heap grows in narrow wedges round its vault, so each boundary touches only a few chunks;
       3. a heap only goes where a block could roll: never through rock; it climbs a wall only once it's piled as
          high, and spills over a sill;
       4. a shaft deeper than 8 m beside a vault is left open, and the heap stands round its mouth;
       5. the materials are piled mixed, each block the one there's most of;
-      6. **a pile can rest on a machine**, so it can bury an outlet's mouth or a pump's intake, which then stalls
-         as it would under any block;
+      6. ~~a pile can rest on a machine, so it can bury an outlet's mouth or a pump's intake~~ **approved**
+         (*"yes totally approve"*);
       7. past 10,000 m³, the excess is lost from the highest-numbered material first.
 
 - [ ] **The hotbar's unit** is due before IM-6, which shows water in the hotbar, so the "L doesn't fit"
@@ -147,6 +147,10 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **A pile resting on a machine** (2026-10-11): *"yes totally approve"*, so a pile can bury a pump's intake and
+  stall it. Your aside is recorded too: an early item to breathe water, so nobody asks why you don't drown
+  (M10-NOTES, beside your oxygen → rebreather → entangled-lungs ladder; it belongs to the first crafting tier).
 
 - **The pile's shape** (2026-10-11): *"Cone, 1 up : 1 out"*. Each block goes to the free spot lowest in height
   above the vault's floor plus distance out, so a heap fills the hollows by its vault first, covers it, and grows

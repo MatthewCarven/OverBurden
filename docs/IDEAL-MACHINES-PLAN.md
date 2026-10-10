@@ -2277,7 +2277,8 @@ yet:** no vault ships until IM-6.
 4. **A shaft deeper than 8 m beside a vault is left open**: no slot, and the heap stands round its mouth.
 5. **The materials are piled mixed**, each voxel the one with the most left.
 6. **A pile can rest on a machine**: a machine's cell is solid to it. So a pile can cover an outlet's mouth or
-   a pump's intake, which then stalls as it would under any block.
+   a pump's intake, which then stalls as it would under any block. **Taken 2026-10-11, his word:** *"yes
+   totally approve"*.
 7. **The excess past 10,000 m³ goes from the highest material ID down.**
 
 **Tests:** seventeen in `VaultPileTests`, on VaultDumpTests' fixture with the terrain as a world too:

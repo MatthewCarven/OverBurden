@@ -35,6 +35,9 @@ bench, the pile. The plan's "IM-5b — the re-read", "The bench, run" and "IM-5b
   wants the floor the very next boundary with no rest, and the recipe went red.
 - **On main**, fast-forwarded with the game closed: the r6 control to the digit, 2601 / 325 / 3446 at 411, no
   `ERROR` lines.
+- **Choice 6 taken, his word** (*"yes totally approve"*): a pile can rest on a machine and bury a pump's
+  intake. With it, an aside for the ladder: an early item to breathe water, *"so nothing gets said about the
+  fact that you don't die after staying under water"* (M10-NOTES, "Being underwater").
 
 ## 2026-10-11 (just past midnight) — IM-0's windowed surface install, run
 

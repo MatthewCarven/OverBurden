@@ -310,6 +310,13 @@ storage."* Recorded, not planned. Three things about it:
   pressure) and a body states in one subtraction. So the ladder above oxygen wants water bodies
   built first, and that is a second argument for them that is not about speed.
 
+**2026-10-11, an early rung.** Approving that a vault's pile can bury a pump's intake, he added: *"like we're
+gonna give you something to breathe water early on or something so nothing gets said about the fact that you
+don't die after staying under water"*. So the bottom of the ladder moves down: an early item that lets the
+player breathe water is the in-world reason nothing drowns you today (drowning itself is M11's, DESIGN's
+milestone table). The rebreather → entangled-lungs ladder above stays as it was. Recorded, not planned; it
+belongs to the crafting milestone's first tier (M10g), on the same survival trigger.
+
 ## Wading, and the pump ladder — 2026-09-11
 
 Matthew, the evening M8c's seepage was first played: *"it should be easy enough now for you to
