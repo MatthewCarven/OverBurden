@@ -7,7 +7,18 @@ full so i'd say a win all around"*. The live log at 21:58 agrees: no `ERROR` lin
 player's material this session. Rain on a placed top lands as Tier B cells, so the pool's water is Tier B's. That
 is why the `M7d:` line's "under you" read his raised basin dry (`pit (-56, -312), saddle 4, 0 of 351,000 L`).
 Glass and clay are both permeability 0, so this is the sealed, rain-fed pond the clay leak question was
-waiting for, and it held. Whether that closes the leak (TODO's "Do first" 2) is his to say. Asked.
+waiting for, and it held.
+
+**The clay leak is closed, not reproduced**, on his word: *"say not reproduced like they are both treated the
+same"*. TODO's "Do first" 2 is struck, and its two open items are removed:
+- **the clay pond in the rain** (his 09-30 note);
+- **the 09-26 clay-roof drip on `Regions16-pondlook`**, closed with it. That day's look on a copy had found the
+  roof sound (stone, clay, no gap) and the drip running off the clay eave outside his glass wall. The film on
+  his floor touched no outside water, and the one-voxel slot in the south glass wall carried nothing while it
+  rained.
+
+If a film comes back after a rainy session there, trace it the same way (coordinates, a screenshot, the
+`M8b:` line's `rained … onto the player's material` and `seeped`).
 
 ## 2026-10-10 — IM-5a built: the dump's water
 

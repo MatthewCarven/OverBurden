@@ -22,11 +22,8 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **Two things from your 2026-10-09 answers, and one before IM-6** (TODO's "Order and collisions" has the
+- [ ] **One thing from your 2026-10-09 answers, and one before IM-6** (TODO's "Order and collisions" has the
       whole list).
-      - **The clay, played again** (your *"will replay the game now and try the clay again"*). If it leaks, I need
-        the HUD coordinates under the drip, a screenshot, and roughly when. A fresh world is fine:
-        `start.cmd --world=ClayTest` (any name). Add `--clockscale=20` if you'd rather not wait for rain.
       - **The windowed run** (your *"yes please"*): say "done" or "run it" once you're out of the game. It
         takes the screen for about a minute.
       - **The hotbar's unit** is due sooner now: IM-6 shows water in the hotbar, so the "L doesn't fit"
@@ -71,11 +68,6 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
       the status goes amber (`OFF — holding …`), pumps that only had that cell stall. *Is a 0/1
       box good enough, or do you want a real button?*
 - [ ] **Glass, the one left.** Does water seen through glass ever draw in the wrong order?
-
-### Owed from the rain play
-
-- [ ] **1. The clay pond in the rain.** You think it leaks, and you're playing it again to see (2026-10-09).
-      Tell me the world and where, and I'll probe a copy (it's in TODO).
 
 ### M10d — the seven
 
@@ -292,7 +284,8 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-10**. **Main is ahead of GitHub by this session's commits: a `git push` whenever suits.**
+Updated **2026-10-10, session close**. **Main is ahead of GitHub by this session's commits: a `git push` whenever
+suits.**
 
 - **IM-5a is built: the dump's water.** When a vault's fuse burns out, or a fall wrecks it, its water goes back
   into the world. On the surface it goes into the lake that ground drains to, over about ten seconds. In the
@@ -304,8 +297,11 @@ Updated **2026-10-10**. **Main is ahead of GitHub by this session's commits: a `
     in my own plan got fixed.
   - All 2,261 tests pass, and I broke the code 28 deliberate ways to check the tests notice: every one did.
   - The game's quick check reads exactly as recorded.
-- **Next: IM-5b**, the dumped blocks as a pile, its speed test first. Before that: the clay and the windowed run
-  (top of "Now").
+- **Next: IM-5b**, the dumped blocks as a pile, its speed test first. Before that: the windowed run (top of
+  "Now").
+- **The clay leak is closed, not reproduced** (your word): your glass rain pool filled and held, and glass and
+  clay are the same to the water. The 09-26 clay-roof drip closes with it; that day's look had already found the
+  roof sound and the drip running off the eave outside your glass.
 
 - **Walls that split a lake are on main now** (L-1, L-2 and E-1). A wall across a full lake leaves each side the
   water that stood over it. The water the wall stands in goes to the side it drains to, which rises a little:

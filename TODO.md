@@ -20,8 +20,8 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 
 **Do first, before the slice named:**
 1. ~~The flaky `JobSchedulerTests` test~~ — done 2026-10-01 (WORKLOG).
-2. **The clay pond's suspected leak — before IM-5a.** IM-5a floods through the same Tier B engine, and a leak
-   under it would read as the dump's. Blocked on his answer: which world, and where.
+2. ~~**The clay pond's suspected leak**~~ — **closed, not reproduced (2026-10-10, his word)**: his glass rain pool
+   on `LakeTest` filled and held, and glass and clay are the same to the water (WORKLOG).
 3. **IM-0's windowed surface install — before IM-5a fixes the 10 ML ceiling.** The ceiling rests on IM-0's
    headless half (385 ms of tick wall, about 16 ms of main thread a boundary). Drawing a 10 ML flood's
    surface is unmeasured, and a dump underground is exactly that. It takes his screen for about a minute.
@@ -105,7 +105,8 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       materials decohered rather than piled. **IM-5a is built (2026-10-10)** (the plan, "IM-5a — the re-read against the merged code" and
       "IM-5a — built"; suite 2,261, twenty-eight mutations red). Six choices the pass left open were made in the
       build and are listed there for his word. On main, the r6 control to the digit. **Still standing:** "Do first"
-      2 and 3 (the clay pond, the windowed surface install) before the 10 ML ceiling is called measured. **Next: IM-5b**, the pile, with its bench first (decision 15). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
+      3 (the windowed surface install) before the 10 ML ceiling is called measured; 2, the clay pond, closed
+      not reproduced (2026-10-10). **Next: IM-5b**, the pile, with its bench first (decision 15). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
       runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
@@ -241,33 +242,6 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 - [ ] **What drained a paused cell is unproved.** If the `M6:` count of awake indexes dropped for
       holding nothing keeps climbing on a world written entirely after the fix, look at the
       hand-off taking from a cell the worker levelled on its captured view after the chunk left.
-- [ ] **The clay pond in the rain may leak** — his note (2026-09-30): *"IDK i think we have a leak
-      bug"*, on the rain play's clay pond check. Ask which world and where before probing; then a copy,
-      the `seep` line's face count and the pond's litres over a storm (`--clockscale=20`).
-- [ ] **Water under his clay roof (2026-09-26, `start5` on `Regions16-pondlook`; found on the pond branch,
-      brought over when main was merged into it, 2026-10-01)** — may be the clay pond above's — *"water seems
-      to be leaking through my clay roof not sure why it might be residual or horizontal travel
-      idk honestly"*. Clay is permeability 0 and a Tier B cell cannot enter a solid voxel, so the
-      question is where the water is born, not the roof. Candidates, cheapest first:
-      (1) **rain on placed tops lands on the roof as cells** and runs off an open edge or a gap
-      into the room;
-      (2) **Tier B travelling sideways** in from an opening — his pours and the diggings under
-      the pond were moving 1.7 ML;
-      (3) **sweat seepage from natural faces in a dug chunk** under the table (71 L that
-      session);
-      (4) water that was inside before the roof closed.
-      **What to capture next time**: the coordinates under the drip (the HUD line), a
-      screenshot looking up at it, and the `M8b:` line's `rained … onto the player's material`
-      and `seeped` terms at that moment. Not the overhang pass's; see POND-PLAN's last section.
-      **Looked at the same day on a copy, from his position (x -849 m, y 34 m, z 283 m), with
-      temporary probes (not committed): the roof is sound (stone 148-151, clay 152-155, no gap).
-      The drip he saw is rain running off the clay eave 2 m past his glass wall, falling outside
-      and seen through the glass. Separately the south glass wall (z 1140-1143) has a one-voxel
-      slot at y 134 through its whole thickness, found at x -3413, so the room's air reaches
-      open sky. The floor holds a sealed 1,550 L film (1 L a cell, y 128) that touches no outside
-      water, and nothing flowed through the slot while it rained, so the film most likely
-      predates the roof or came in from a ledge elsewhere along the slot. Told him: fill the
-      slot; a film that returns after a rainy session is a real path, traced the same way.**
 - [ ] **The ten build warnings `start.cmd` prints** (his question, 2026-09-30; he took them for lint, and
       they are): eight nullable ones in `Main.cs` (CS8618, CS8602), `MapPanel.Scale` hiding Godot's
       `Control.Scale` (CS0108), and CA2014 on a `stackalloc` in a loop in `LightPropagator.ForEachCellAround`

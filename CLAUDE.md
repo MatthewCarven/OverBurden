@@ -192,8 +192,8 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-10-10 — IM-5a is built and on main; the next session builds IM-5b, the pile, its bench first.** This
-session re-read IM-5's pass against the merged watershed. Every decision still builds; ten facts moved, two of them
+**2026-10-10, session close — IM-5a is built and on main; the next session builds IM-5b, the pile, its bench
+first.** This session re-read IM-5's pass against the merged watershed. Every decision still builds; ten facts moved, two of them
 errors in the pass itself. Then it built IM-5a in a worktree:
 - a burnt-out vault's or a wreck's water goes to its own sample's basin over ten seconds, or, in the workings,
   as a ball of cells within its own budget;
@@ -204,15 +204,17 @@ The record is [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-5a
 built". Suite **2,261**, twenty-eight mutations red, r6 to the digit on main. **Main is ahead of its remote** by
 this session's commits; he pushes. Nothing he plays changes until IM-6 ships a vault.
 
+**The clay leak is closed, not reproduced** (his word): his glass rain pool on `LakeTest`, nearly a chunk
+across at about x −12, z −63, filled with rain and held, and glass and clay are both permeability 0. The 09-26
+clay-roof drip closed with it (WORKLOG, 2026-10-10 evening).
+
 **Next session, in order:**
-1. **What he found with the clay.** He was replaying to see the leak again, perhaps in a fresh world. Read that
-   play's log first (`grep -a`, the `M8b:` deltas, the coordinates he gives); if it doesn't reproduce, close it.
-2. **The windowed surface install**, his yes given 2026-10-09, run only when he is out of the game. The recipe is
+1. **The windowed surface install**, his yes given 2026-10-09, run only when he is out of the game. The recipe is
    `--profile --speed=0 --fluidnear=2 --fluidjob=1 --measure=60 --injectlitres=10000000`, windowed; read the
    `fluidsurf` line's `install mean / max`. It decides whether the 10 ML ceiling stands for the render.
-3. **The six choices IM-5a's build made** (the plan's "IM-5a — built") go to him with the status; any he reverses
+2. **The six choices IM-5a's build made** (the plan's "IM-5a — built") go to him with the status; any he reverses
    is a small change.
-4. **IM-5b: its bench first** (decision 15), then the pile, in a worktree.
+3. **IM-5b: its bench first** (decision 15), then the pile, in a worktree.
 
 Unblocked alternative if he would rather: collapse f-1 (Core and tests, thirteen decisions taken).
 
@@ -241,8 +243,6 @@ header byte and a kit. Each slice has a "code-level pass" and a "built" section 
 hand-over, slice by slice, is in [docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md).
 
 **Still standing from TODO's "Order and collisions"**, at the top of TODO:
-- the clay pond's suspected leak: he is replaying to see it again. The 09-26 clay-roof drip on
-  `Regions16-pondlook` (in TODO beside it, brought over from the branch) may be the same thing;
 - IM-0's windowed surface install, his yes given, run when he is out of the game (the 10 ML ceiling's render
   half).
 
