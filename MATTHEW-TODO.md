@@ -344,8 +344,10 @@ Updated **2026-10-11, session close**. **Main is ahead of GitHub by this session
 - **The undo bug is fixed** (IM-0b): a machine a fall destroys can no longer come back free after
   Ctrl+Z. The build you started at 4:49 PM already has it. A Ctrl+Z right after a roof comes down now
   says *the roof came down*, as it should.
-- **TajMahal2 is retired too** (2026-10-01, your word), as `retired-TajMahal2-2026-10-01`. Your test
-  world is `LakeTest`, and `start.cmd` opens it. The first TajMahal is `retired-TajMahal-2026-09-29`.
+- **The first LakeTest is retired** (2026-10-11, your word), as `retired-LakeTest-2026-10-11`, so you can
+  playtest fresh: `start.cmd` still opens `LakeTest`, and your next launch makes a brand-new one. The old one
+  stays because the lake-split numbers were measured on it. TajMahal2 is `retired-TajMahal2-2026-10-01`, and
+  the first TajMahal `retired-TajMahal-2026-09-29`.
 - **The collapse sensor:** all thirteen decisions taken, the first build step is ready.
 - **The Tetris collapse** is the default, with the cyan glitch, your phonk (left as is, your word) and a
   10–20 s fuse.

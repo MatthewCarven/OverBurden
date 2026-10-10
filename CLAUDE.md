@@ -233,7 +233,7 @@ of it to one side, so that side can rise up to twice decision 3's 14 cm (correct
 on both branches) makes a walled area's answer the area's.** **His play passed (2026-10-09)**: R into one side
 of a split lake raised only that side, and on his word the pond branch is merged.
 
-His test world is `LakeTest`.
+His test world is `LakeTest`, made fresh after the first was retired on 2026-10-11.
 
 **The plan to build: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md).** The shape: a channel is an
 account (one bank, one store); the quantum backpack is a window that holds nothing; a vault bills for what it
@@ -269,9 +269,11 @@ change, harmlessly; a tree that compiled halfway through a change would have put
 
 **TajMahal is retired** (2026-09-29, his word: *"I borked the supports so want to restart"*): moved to
 `retired-TajMahal-2026-09-29`. **TajMahal2 is retired too** (2026-10-01, his word: *"you can delete or retire
-tajmahal2 as you please"*), as `retired-TajMahal2-2026-10-01`. **His test world is `LakeTest`**
-(made 2026-10-01, seed `0x2C15F365`), and he pointed `start.cmd` at it himself. A world's name is only its
-folder under `worlds/`, so a rename is a folder move with the game closed.
+tajmahal2 as you please"*), as `retired-TajMahal2-2026-10-01`. **The first `LakeTest` is retired too**
+(2026-10-11, his word, *"sounds good to me"*, for playtesting fresh): moved to `retired-LakeTest-2026-10-11`
+(made 2026-10-01, seed `0x2C15F365`). `start.cmd` still names `LakeTest`, so his next launch makes a fresh one
+with a new seed; read its seed off the first `M6:` line of that play's log. A world's name is only its folder
+under `worlds/`, so a rename is a folder move with the game closed.
 
 - **Water bodies part a is parked** ([docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md), "c-3,
   run"). His pool rests with the near/far order off (2% awake at 900 s), but every cheap fix under the
@@ -308,12 +310,14 @@ the older checks; glass's water sort order; TNT's six decisions. **Played 2026-0
 *"I like the 2m cube"*.**
 
 **Worlds.** His played worlds are under `app_userdata/Overburden/worlds/`; the `MinerCraft/`
-folder beside it is the pre-rename backup and his to delete. **Four are retired measurement
+folder beside it is the pre-rename backup and his to delete. **Five are retired measurement
 worlds — open them only as copies with `--world=`**: `retired-flooded-2026-09-19` (16 pumps,
 21.1 ML of Tier B), `retired-spread-2026-09-22` (**the load test** — 209 machines, 66.6 ML,
 3.4 M cells active at open), `retired-pool-2026-09-22` (the enclosure at scale and M10d's *dry*
-fixture — 127 machines, 7.09 ML), and `retired-TajMahal-2026-09-29` (his quarry and pool, the water
-bodies' measurement world and IM-0's; its supports borked in play). His demolished tower is `Regions16-pondlook-demolished-2026-09-26`
+fixture — 127 machines, 7.09 ML), `retired-TajMahal-2026-09-29` (his quarry and pool, the water
+bodies' measurement world and IM-0's; its supports borked in play), and `retired-LakeTest-2026-10-11`
+(the lake splits' world: L-1, L-2, E-1 and the pond branch's A/B were measured on copies of it, his 4.2 ML
+lake 33 m from his spawn; his glass rain pool at about x −12, z −63). His demolished tower is `Regions16-pondlook-demolished-2026-09-26`
 (the collapse's measurement world, a copy only) with its log at `logs/demolition-2026-09-26.log`.
 
 **The rename.** The game is Overburden; stages 1–3 (solution, namespaces, content namespace, mod
