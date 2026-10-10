@@ -60,7 +60,8 @@ public class VaultPileTests
         hardness: [0f, 3f, 3f, 3f, 1f, 1f, 1f, 0f],
         machine: [null, null, VaultDefinition, CellDefinition, null, null, null, null],
         unit: [default, default, MaterialUnit.Cells, MaterialUnit.Cells, default, default, default, default],
-        placeable: [true, true, true, true, true, true, false, false]);
+        // Water placeable here, though the shipped water is not, so the fluid rule is the only one keeping it loose-less.
+        placeable: [true, true, true, true, true, true, false, true]);
 
     // The room's vaults: X 32, 40 and 48 along the diagonal, on the room's floor.
     private static readonly BrushCell West = new(8, 2, 8), Middle = new(10, 2, 10), East = new(12, 2, 12);
@@ -83,6 +84,9 @@ public class VaultPileTests
 
         public HashSet<ChunkPos> Loaded { get; } = [];
 
+        /// <summary>Chunks whose water is home too — the game's arrival lands a chunk's water after its voxels.</summary>
+        public HashSet<ChunkPos> WaterLoaded { get; } = [];
+
         public FluidSimulation? Fluid { get; set; }
 
         public IEditJournal? Journal { get; set; }
@@ -93,7 +97,7 @@ public class VaultPileTests
         public bool CanHold(VoxelPos v) =>
             Loaded.Contains(v.Chunk) && !Placed.ContainsKey(v) && (Dug.Contains(v) || v.Y > seed.SurfaceHeightAt(v.X, v.Z));
 
-        public bool IsLoaded(VoxelPos v) => Loaded.Contains(v.Chunk);
+        public bool IsLoaded(VoxelPos v) => Loaded.Contains(v.Chunk) && WaterLoaded.Contains(v.Chunk);
 
         public bool TryGetMaterial(VoxelPos voxel, out int materialId)
         {
@@ -157,7 +161,7 @@ public class VaultPileTests
     {
         public static readonly ChunkPos RoomChunk = new(1, 0, 1);
 
-        public Rig(int cx0 = 0, int cx1 = 2, int cz0 = 1, int cz1 = 2)
+        public Rig(int cx0 = 0, int cx1 = 2, int cz0 = 1, int cz1 = 2, int cy0 = 0)
         {
             Seed = BowlAndRim();
             Terrain = new EditedTerrain(Seed);
@@ -173,7 +177,7 @@ public class VaultPileTests
 
             for (int cz = cz0; cz <= cz1; cz++)
             for (int cx = cx0; cx <= cx1; cx++)
-            for (int cy = 0; cy <= 1; cy++)
+            for (int cy = cy0; cy <= 1; cy++)
             {
                 Load(new ChunkPos(cx, cy, cz));
             }
@@ -216,6 +220,7 @@ public class VaultPileTests
         {
             if (Terrain.Loaded.Add(chunk))
             {
+                Terrain.WaterLoaded.Add(chunk);
                 Reachable.Add(chunk);
                 Fluid.ChunkArrived(chunk);
             }
@@ -224,6 +229,7 @@ public class VaultPileTests
         public void Unload(ChunkPos chunk)
         {
             Terrain.Loaded.Remove(chunk);
+            Terrain.WaterLoaded.Remove(chunk);
             Reachable.Remove(chunk);
         }
 
@@ -306,15 +312,19 @@ public class VaultPileTests
             return report;
         }
 
-        /// <summary>Boundaries until no vault owes anything, each one's books checked.</summary>
-        public int RunToEnd(int cap = 400)
+        /// <summary>Boundaries until no vault owes anything, each one's books checked unless a test has moved the world itself.</summary>
+        public int RunToEnd(int cap = 400, bool books = true)
         {
             int boundaries = 0;
             while (Machines.Rows.Any(row => Machines.IsVault(row) && VaultState.TryRead(row, out VaultContents c) && c.Owes))
             {
                 Boundary();
                 boundaries++;
-                AssertBooks();
+                if (books)
+                {
+                    AssertBooks();
+                }
+
                 Assert.True(boundaries < cap, "the dump never ended");
             }
 
@@ -416,19 +426,82 @@ public class VaultPileTests
     }
 
     [Fact]
-    public void TwoPilesShareTheBudgetRoundRobinWithTheRemainderToTheFirst()
+    public void ThreePilesShareTheBudgetRoundRobinWithTheRemainderToTheFirstByPosition()
     {
         var rig = new Rig();
         rig.Owing(East, [(Dirt, 2_000)]);
         rig.Owing(West, [(Dirt, 2_000)]);
+        rig.Owing(Middle, [(Dirt, 2_000)]);
 
         DumpReport report = rig.Boundary();
 
-        Assert.Equal(2, report.Piling);
+        Assert.Equal(3, report.Piling);
         Assert.Equal(VaultDump.VoxelsPerBoundary, report.VoxelsPiled);
-        Assert.Equal(2_000 - 256, rig.Contents(West).TotalVoxels);
-        Assert.Equal(2_000 - 256, rig.Contents(East).TotalVoxels);
+        Assert.Equal(2_000 - 172, rig.Contents(West).TotalVoxels); // 512 = 3 × 170, and the 2 left over to the first
+        Assert.Equal(2_000 - 170, rig.Contents(Middle).TotalVoxels);
+        Assert.Equal(2_000 - 170, rig.Contents(East).TotalVoxels);
         rig.AssertBooks();
+    }
+
+    [Fact]
+    public void AHollowByTheVaultFillsFirstAndAShaftDeeperThanEightMetresIsNoSlot()
+    {
+        // A pit a metre deep west of the vault, and a shaft nine and a half metres deep east of it, both two
+        // voxels square in the room's floor. The chunks under the room are loaded, so the shaft has a bottom.
+        var rig = new Rig(cy0: -1);
+        rig.DigBox(36, RoomFloor - 4, 41, 37, RoomFloor - 1, 42);
+        rig.DigBox(46, RoomFloor - 38, 41, 47, RoomFloor - 1, 42);
+        rig.Owing(Middle, [(Dirt, 300)]);
+
+        rig.RunToEnd();
+
+        // The pit's sixteen voxels are in shells 1 to 4 — its floor below any slot on the room's — and 300
+        // voxels complete shell 5 (about 207 slots, arithmetic), so every one of them is filled.
+        for (int y = RoomFloor - 4; y < RoomFloor; y++)
+        for (int z = 41; z <= 42; z++)
+        for (int x = 36; x <= 37; x++)
+        {
+            Assert.True(rig.Terrain.Placed.TryGetValue(new VoxelPos(x, y, z), out int m) && m == Dirt, $"the pit at ({x}, {y}, {z}) was left open");
+        }
+
+        // The shaft is no slot, and nothing stands over its mouth on air.
+        Assert.DoesNotContain(rig.Piled, entry => entry.Key.X is 46 or 47 && entry.Key.Z is 41 or 42);
+        rig.AssertBooks();
+    }
+
+    [Fact]
+    public void AHeapWhoseWorldChangedUnderItLooksAgainAndNeverOverwritesNorFloats()
+    {
+        var rig = new Rig();
+        rig.Owing(Middle, [(Dirt, 1_000)]);
+        Assert.Equal(VaultDump.VoxelsPerBoundary, rig.Boundary().VoxelsPiled);
+
+        // Between boundaries the player builds a gravel voxel on the top of every column the pile has
+        // reached, and digs the top voxel out of one: the queued slots are filled, and one floats.
+        var tops = rig.Piled
+            .GroupBy(entry => (entry.Key.X, entry.Key.Z))
+            .Select(column => new VoxelPos(column.Key.X, column.Max(entry => entry.Key.Y), column.Key.Z))
+            .ToList();
+        VoxelPos dug = tops[0];
+        Assert.True(rig.Terrain.SetVoxel(dug, Air));
+        foreach (VoxelPos top in tops.Skip(1))
+        {
+            Assert.True(rig.Terrain.SetVoxel(top.Offset(0, 1, 0), Gravel));
+        }
+
+        int gravel = tops.Count - 1;
+        rig.RunToEnd(books: false);
+
+        Assert.Equal(gravel, rig.Terrain.Placed.Count(entry => entry.Value == Gravel));
+        foreach ((VoxelPos v, int material) in rig.Piled)
+        {
+            Assert.True(rig.Terrain.TryGetMaterial(v.Offset(0, -1, 0), out int under) && under != Air, $"{v} ({material}) rests on air");
+        }
+
+        Assert.Equal(1_000, rig.Dump.VoxelsPiled);
+        Assert.Equal(1_000 - 1, rig.Piled.Count(entry => entry.Value == Dirt));
+        Assert.True(rig.Dump.Exact);
+        Assert.Empty(rig.Terrain.WetWrites);
     }
 
     [Fact]
@@ -597,6 +670,49 @@ public class VaultPileTests
 
         rig.Load(Rig.RoomChunk);
         Assert.Equal(50, rig.Boundary().VoxelsPiled);
+        rig.AssertBooks();
+    }
+
+    [Fact]
+    public void ASlotWhoseChunkHasItsVoxelsButNotYetItsWaterIsPassedOver()
+    {
+        // A corridor west out of the room into chunk (0, 0, 1), whose voxels are in and whose water is not.
+        var rig = new Rig();
+        rig.DigBox(24, RoomFloor, 40, 31, RoomFloor + 3, 43);
+        rig.Terrain.WaterLoaded.Remove(new ChunkPos(0, 0, 1));
+        rig.Owing(Middle, [(Dirt, 1_500)]);
+
+        rig.RunToEnd();
+
+        Assert.DoesNotContain(rig.Piled, entry => entry.Key.X < 32);
+        Assert.True(rig.Dump.PileWaitedUnloaded > 0, "the corridor was never asked about — the test would not see the write");
+        rig.AssertBooks();
+    }
+
+    [Fact]
+    public void AColumnThatWaitedIsAskedAgainOnceItsRefusalIsGone()
+    {
+        // Every floor voxel round the vault is reserved by a landing collapse at first: the pile goes on the
+        // vault's top. Then the collapse lands, and the floor that waited takes the pile.
+        var rig = new Rig();
+        var reserved = new HashSet<VoxelPos>();
+        for (int z = 32; z <= 51; z++)
+        for (int x = 32; x <= 51; x++)
+        {
+            reserved.Add(new VoxelPos(x, RoomFloor, z));
+        }
+
+        rig.Dump.Reserved = reserved;
+        rig.Owing(Middle, [(Dirt, 600)]);
+
+        rig.Boundary();
+        Assert.DoesNotContain(rig.Piled, entry => entry.Key.Y == RoomFloor);
+
+        reserved.Clear();
+        rig.RunToEnd();
+
+        Assert.Contains(rig.Piled, entry => entry.Key.Y == RoomFloor);
+        Assert.Equal(600, rig.Dump.VoxelsPiled);
         rig.AssertBooks();
     }
 
