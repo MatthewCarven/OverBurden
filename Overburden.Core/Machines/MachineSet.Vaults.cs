@@ -127,26 +127,79 @@ public sealed partial class MachineSet
         WaterDumpedMillilitres += dumped;
         WaterDecoheredMillilitres += decohered;
 
-        DumpEnd end = DumpEnd.Owing;
-        if (contents.IsEmpty)
-        {
-            if (contents.Wreck)
-            {
-                end = DumpEnd.SpentWreck;
-            }
-            else
-            {
-                // Decision 6: a standing vault outlives its dump — empty, billing nothing, its own charge
-                // back to the pool at the next boundary, as any empty vault's is.
-                contents.Phase = VaultPhase.Holding;
-                contents.FuseMillisLeft = 0;
-                DumpsEnded++;
-                end = DumpEnd.Holding;
-            }
-        }
-
+        DumpEnd end = EndIfEmpty(contents);
         VaultState.Write(row, contents);
         return end;
+    }
+
+    // ---- the pile's half of the voxel line (IM-5b; IM-5's pass, decisions 11–14) ----
+
+    /// <summary>Owed voxels the dump wrote into the world as its pile, over the session — the store's voxel line's <c>dumped</c>.</summary>
+    public long VoxelsDumped { get; private set; }
+
+    /// <summary>
+    /// Owed voxels the dump decohered instead, over the session: what cannot lie loose (machine materials,
+    /// unplaceable items, fluids, air) and what a dump owes past the heap's ceiling (decisions 12 and 14).
+    /// They leave the world, printed by material, never a tolerance.
+    /// </summary>
+    public long VoxelsDecohered { get; private set; }
+
+    private readonly SortedDictionary<int, long> _decoheredByMaterial = [];
+
+    /// <summary><see cref="VoxelsDecohered"/> by material, for the line that says what went.</summary>
+    public IReadOnlyDictionary<int, long> VoxelsDecoheredByMaterial => _decoheredByMaterial;
+
+    /// <summary>
+    /// The pile's door out of an owing vault (IM-5b): takes <paramref name="dumped"/> voxels of one material
+    /// that the pile wrote into the world and <paramref name="decohered"/> that went nowhere, in one read
+    /// and one write. A vault left empty ends its dump there, as <see cref="ReleaseWater"/>'s does: a
+    /// standing one back to <see cref="VaultPhase.Holding"/>, a wreck answered
+    /// <see cref="DumpEnd.SpentWreck"/>. The release clock is the water's and is left alone.
+    /// </summary>
+    /// <remarks>Asking for more of a material than the vault owes is the wiring being wrong, and it throws — the water door's rule.</remarks>
+    internal DumpEnd ReleaseVoxels(MachineRow row, int materialId, long dumped, long decohered)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(dumped);
+        ArgumentOutOfRangeException.ThrowIfNegative(decohered);
+        if (!IsVault(row) || !VaultState.TryRead(row, out VaultContents contents) || !contents.Owes
+            || dumped + decohered > contents.VoxelsOf(materialId))
+        {
+            throw new InvalidOperationException(
+                $"Vault at {row.Cell}: the dump released {dumped:N0} voxel(s) of material {materialId} and decohered {decohered:N0} from a vault that does not owe that many; it was read this boundary.");
+        }
+
+        contents.Take(materialId, dumped + decohered);
+        VoxelsDumped += dumped;
+        VoxelsDecohered += decohered;
+        if (decohered > 0)
+        {
+            _decoheredByMaterial[materialId] = _decoheredByMaterial.GetValueOrDefault(materialId) + decohered;
+        }
+
+        DumpEnd end = EndIfEmpty(contents);
+        VaultState.Write(row, contents);
+        return end;
+    }
+
+    /// <summary>Where an owing vault's dump ends, once both of its doors have emptied it (IM-5's pass, decision 6).</summary>
+    private DumpEnd EndIfEmpty(VaultContents contents)
+    {
+        if (!contents.IsEmpty)
+        {
+            return DumpEnd.Owing;
+        }
+
+        if (contents.Wreck)
+        {
+            return DumpEnd.SpentWreck;
+        }
+
+        // Decision 6: a standing vault outlives its dump — empty, billing nothing, its own charge back to
+        // the pool at the next boundary, as any empty vault's is.
+        contents.Phase = VaultPhase.Holding;
+        contents.FuseMillisLeft = 0;
+        DumpsEnded++;
+        return DumpEnd.Holding;
     }
 
     /// <summary>
@@ -350,9 +403,14 @@ public sealed partial class MachineSet
     /// <summary>Voxels owed to the world by wrecks and dumping vaults.</summary>
     public long OwedVoxels => SumVaultVoxels(owed: true);
 
-    /// <summary>The store's voxel identity (decision 19), global across channels; water has its own line (IM-4).</summary>
+    /// <summary>
+    /// The store's voxel identity (decision 19), global across channels: <c>held + owed == entering − leaving
+    /// + deposited − withdrawn − dumped − decohered</c>, the last two the pile's (IM-5b). Water has its own
+    /// line (IM-4).
+    /// </summary>
     public bool StoreExact =>
-        HeldVoxels + OwedVoxels == VaultVoxelsEntering - VaultVoxelsLeaving + DepositedVoxels - WithdrawnVoxels;
+        HeldVoxels + OwedVoxels
+        == VaultVoxelsEntering - VaultVoxelsLeaving + DepositedVoxels - WithdrawnVoxels - VoxelsDumped - VoxelsDecohered;
 
     /// <summary>Millijoules in every vault's own charge (IM-3b) — inside the pool's <c>stored</c>, printed apart from the cells'.</summary>
     public long VaultOwnChargeMillijoules

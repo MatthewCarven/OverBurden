@@ -1,4 +1,5 @@
 using Overburden.Core.Building;
+using Overburden.Core.Content;
 using Overburden.Core.Fluid;
 using Overburden.Core.Hydrology;
 using Overburden.Core.Lighting;
@@ -6,10 +7,10 @@ using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Machines;
 
-/// <summary>What <see cref="MachineSet.ReleaseWater"/> left a vault as.</summary>
+/// <summary>What <see cref="MachineSet.ReleaseWater"/> or <see cref="MachineSet.ReleaseVoxels"/> left a vault as.</summary>
 public enum DumpEnd : byte
 {
-    /// <summary>It still owes something: water to come, or (until IM-5b) voxels.</summary>
+    /// <summary>It still owes something: water to come, or voxels to pile.</summary>
     Owing,
 
     /// <summary>A standing vault emptied: back to <see cref="VaultPhase.Holding"/> (IM-5's pass, decision 6).</summary>
@@ -20,13 +21,20 @@ public enum DumpEnd : byte
 }
 
 /// <summary>What one <see cref="VaultDump.Run"/> did.</summary>
-/// <param name="Owing">Vaults that owed water at the start of the boundary.</param>
-/// <param name="Admitted">Of those, vaults owing for the first time this session, checked against the ceiling.</param>
+/// <param name="Owing">Vaults that owed water or voxels at the start of the boundary.</param>
+/// <param name="Admitted">Of those, vaults owing for the first time this session, checked against the ceilings.</param>
 /// <param name="ToLakes">Vaults whose mouth is above the seed surface, released into a basin this boundary.</param>
 /// <param name="ToCells">Vaults whose mouth is in the workings, poured into cells this boundary.</param>
 /// <param name="Unloaded">Vaults in the workings whose mouth's chunk is not loaded to the water: owed.</param>
 /// <param name="Unanalysed">Vaults on the surface whose sample is off the window: owed.</param>
 /// <param name="NoRoom">Vaults in the workings resting after a whole pass of their ball found no room.</param>
+/// <param name="Piling">Vaults whose pile took its turn this boundary (IM-5b).</param>
+/// <param name="VoxelsPiled">Voxels the piles wrote into the world this boundary.</param>
+/// <param name="PileChunks">Chunks those voxels went into: at most <see cref="VaultDump.PileChunksPerBoundary"/>.</param>
+/// <param name="PileWaiting">Heap columns passed over this boundary for a refusal — wet, in a lake, the player, a landing collapse, not loaded.</param>
+/// <param name="PileNoRoom">Piles resting after their heap found no room within 32 m.</param>
+/// <param name="VoxelsDecohered">Voxels decohered this boundary: what cannot lie loose, and what is past the heap's ceiling.</param>
+/// <param name="StepsForgotten">Undo steps dropped because they touched a chunk a pile wrote (decision 13).</param>
 public readonly record struct DumpReport(
     int Owing,
     int Admitted,
@@ -41,15 +49,26 @@ public readonly record struct DumpReport(
     long DumpedMillilitres,
     long DecoheredMillilitres,
     int Ended,
-    int WrecksRemoved)
+    int WrecksRemoved,
+    int Piling = 0,
+    long VoxelsPiled = 0,
+    int PileChunks = 0,
+    int PileWaiting = 0,
+    int PileNoRoom = 0,
+    long VoxelsDecohered = 0,
+    int StepsForgotten = 0)
 {
     public bool DidAnything =>
-        Admitted + Ended + WrecksRemoved + CellsVisited > 0 || DumpedLitres + DumpedMillilitres + DecoheredMillilitres > 0;
+        Admitted + Ended + WrecksRemoved + CellsVisited + Piling > 0
+        || DumpedLitres + DumpedMillilitres + DecoheredMillilitres + VoxelsPiled + VoxelsDecohered > 0;
 
     public override string ToString() =>
         $"{Owing} owing ({Admitted} new), {ToLakes} into lakes, {ToCells} into cells over {CellsVisited:N0} cell(s) visited; "
         + $"dumped {DumpedLitres:N0} L ({SpilledLitres:N0} L spilled) + {DumpedMillilitres:N0} mL, decohered {DecoheredMillilitres:N0} mL; "
-        + $"owed: {Unloaded} unloaded, {Unanalysed} unanalysed, {NoRoom} no room; {Ended} back to holding, {WrecksRemoved} wreck(s) removed";
+        + $"owed: {Unloaded} unloaded, {Unanalysed} unanalysed, {NoRoom} no room; "
+        + $"{Piling} piling: {VoxelsPiled:N0} voxel(s) into {PileChunks} chunk(s), {PileWaiting} column(s) waiting, {PileNoRoom} no room, "
+        + $"{VoxelsDecohered:N0} voxel(s) decohered, {StepsForgotten} undo step(s) forgotten; "
+        + $"{Ended} back to holding, {WrecksRemoved} wreck(s) removed";
 }
 
 /// <summary>
@@ -93,10 +112,15 @@ public readonly record struct DumpReport(
 /// <para>
 /// <b>Its own doors and its own <see cref="Exact"/></b> (decision 10), the siphon's pattern: Tier A's
 /// <c>dumped</c>, Tier B's <c>dumped</c>, and the store's <c>dumped</c> and <c>decohered</c>, each checked
-/// against this class's counters, with the store's water line beside them.
+/// against this class's counters, with the store's water line beside them — and, since IM-5b, the
+/// store's voxel <c>dumped</c> and <c>decohered</c> and its voxel line.
+/// </para>
+/// <para>
+/// <b>The blocks are a pile</b> (IM-5b), last in the boundary, into what is still dry: see the other half
+/// of this class, <c>VaultDump.Pile.cs</c>.
 /// </para>
 /// </remarks>
-public sealed class VaultDump
+public sealed partial class VaultDump
 {
     /// <summary>The release clock a lake's share is paced by: ten seconds, the fuse's shortest (decision 3).</summary>
     public const int ReleaseMillis = 10_000;
@@ -162,6 +186,8 @@ public sealed class VaultDump
     /// <param name="ceiling">The lake bands a ball covers before it pours; null with <paramref name="water"/>.</param>
     /// <param name="boundaryMillis">How much of a second one boundary is — what the release clock runs down by.</param>
     /// <param name="submerged">What a cover wakes, as the relay's and the siphon's do.</param>
+    /// <param name="world">The world a pile is written into (IM-5b); null leaves a vault owing voxels waiting.</param>
+    /// <param name="materials">What can lie loose (decision 12); null with <paramref name="world"/>.</param>
     public VaultDump(
         MachineSet machines,
         FluidSimulation fluid,
@@ -170,7 +196,9 @@ public sealed class VaultDump
         WaterSystem? water = null,
         LakeCeiling? ceiling = null,
         long boundaryMillis = MachineTick.DefaultBoundaryMillis,
-        Action<VoxelPos>? submerged = null)
+        Action<VoxelPos>? submerged = null,
+        IVoxelEditor? world = null,
+        MaterialTable? materials = null)
     {
         _machines = machines ?? throw new ArgumentNullException(nameof(machines));
         _fluid = fluid ?? throw new ArgumentNullException(nameof(fluid));
@@ -181,11 +209,15 @@ public sealed class VaultDump
         _ceiling = ceiling;
         _boundaryMillis = boundaryMillis;
         _submerged = submerged;
+        _world = world;
+        _materials = materials;
 
         _dumpedBBase = fluid.DumpedMillilitres;
         _dumpedABase = water?.DumpedLitres ?? 0;
         _storeDumpedBase = machines.WaterDumpedMillilitres;
         _storeDecoheredBase = machines.WaterDecoheredMillilitres;
+        _voxelsDumpedBase = machines.VoxelsDumped;
+        _voxelsDecoheredBase = machines.VoxelsDecohered;
     }
 
     // ---- the dump's own counters, which Exact checks every twin against ----
@@ -229,23 +261,29 @@ public sealed class VaultDump
     internal IReadOnlyDictionary<BrushCell, int> VisitedLast => _visitedBy;
 
     /// <summary>
-    /// Every twin against the dump's own counters, since construction, and the store's water line: Tier B's
-    /// <c>dumped</c>, Tier A's, the store's <c>dumped</c> (both tiers, a thousand to the litre) and its
-    /// <c>decohered</c>. The machine layer's rule in the dump's shape.
+    /// Every twin against the dump's own counters, since construction, and the store's two lines: Tier B's
+    /// <c>dumped</c>, Tier A's, the store's water <c>dumped</c> (both tiers, a thousand to the litre) and
+    /// <c>decohered</c>, the store's voxel <c>dumped</c> and <c>decohered</c> against the pile's (IM-5b), the
+    /// water line and the voxel line. The machine layer's rule in the dump's shape.
     /// </summary>
     public bool Exact =>
         _fluid.DumpedMillilitres - _dumpedBBase == DumpedMillilitres
         && (_water?.DumpedLitres ?? 0) - _dumpedABase == DumpedLitres
         && _machines.WaterDumpedMillilitres - _storeDumpedBase == DumpedMillilitres + (DumpedLitres * FluidConstants.MillilitresPerLitre)
         && _machines.WaterDecoheredMillilitres - _storeDecoheredBase == DecoheredMillilitres
-        && _machines.StoreWaterExact;
+        && _machines.VoxelsDumped - _voxelsDumpedBase == VoxelsPiled
+        && _machines.VoxelsDecohered - _voxelsDecoheredBase == VoxelsDecohered
+        && _machines.StoreWaterExact
+        && _machines.StoreExact;
 
     /// <summary>
     /// One boundary (decision 9: after the machine tick, so a fuse that burns out releases in the same
-    /// boundary): every owing vault by position, the new ones checked against the ceiling, then each lake's
-    /// share, then the balls within the budget; last, the wrecks this left empty removed.
+    /// boundary): every owing vault by position, the new ones checked against the ceilings, then each lake's
+    /// share, then the balls within the budget, then the piles into what is still dry (decision 37); last,
+    /// the wrecks this left empty removed.
     /// </summary>
-    public DumpReport Run()
+    /// <param name="player">The player's body in voxels, which a pile never builds inside — Place's test; null in fly mode.</param>
+    public DumpReport Run((VoxelPos Min, VoxelPos Max)? player = null)
     {
         Boundaries++;
         _visitedBy.Clear();
@@ -257,6 +295,7 @@ public sealed class VaultDump
         _seen.Clear();
 
         long dumpedA = DumpedLitres, spilled = SpilledLitres, dumpedB = DumpedMillilitres, decohered = DecoheredMillilitres;
+        long voxelsDecohered = VoxelsDecohered;
         long ended = _machines.DumpsEnded;
         int admitted = 0, toLakes = 0, toCells = 0, unloaded = 0, unanalysed = 0, noRoom = 0, visited = 0;
 
@@ -267,12 +306,14 @@ public sealed class VaultDump
                 continue;
             }
 
-            if (contents.WaterMillilitres > 0)
+            if (!contents.IsEmpty)
             {
+                // Water, voxels or both. A crate holds no water, and until IM-5b a vault owing only voxels
+                // was skipped for ever here (the re-read's fact 2).
                 _owing.Add(row);
                 _seen.Add(row.Cell);
             }
-            else if (contents.IsEmpty)
+            else
             {
                 // Owing nothing at all: no path leaves a vault so, but a row read from disk is healed
                 // rather than left dumping for ever — ended here, and counted with the rest.
@@ -291,6 +332,11 @@ public sealed class VaultDump
         foreach (BrushCell gone in _balls.Keys.Where(cell => !_seen.Contains(cell)).ToList())
         {
             _balls.Remove(gone);
+        }
+
+        foreach (BrushCell gone in _heaps.Keys.Where(cell => !_seen.Contains(cell)).ToList())
+        {
+            _heaps.Remove(gone);
         }
 
         // Decision 5: the ceiling, for each vault seen owing for the first time, in position order.
@@ -312,6 +358,11 @@ public sealed class VaultDump
 
             admitted++;
             Admitted++;
+
+            // IM-5b, decisions 12 and 14: what cannot lie loose, and what is past the heap's ceiling, goes
+            // now, whole — the pile is only ever what it can be.
+            AdmitVoxels(row);
+
             if (!BoundForCells(row))
             {
                 continue;
@@ -391,6 +442,9 @@ public sealed class VaultDump
 
         CellsVisited += visited;
 
+        // IM-5b, decisions 11 and 37: the piles, last, into whatever the water left dry.
+        PileTally pile = Pile(player);
+
         // Decision 6: the wrecks this boundary emptied, after the walk.
         int removed = 0;
         foreach (MachineRow row in _spent)
@@ -402,12 +456,14 @@ public sealed class VaultDump
 
             _admitted.Remove(row.Cell);
             _balls.Remove(row.Cell);
+            _heaps.Remove(row.Cell);
         }
 
         Last = new DumpReport(
             owing, admitted, toLakes, toCells, unloaded, unanalysed, noRoom, visited,
             DumpedLitres - dumpedA, SpilledLitres - spilled, DumpedMillilitres - dumpedB, DecoheredMillilitres - decohered,
-            (int)(_machines.DumpsEnded - ended), removed);
+            (int)(_machines.DumpsEnded - ended), removed,
+            pile.Piling, pile.Voxels, _pileChunks.Count, pile.Waiting, pile.NoRoom, VoxelsDecohered - voxelsDecohered, pile.Forgotten);
         return Last;
     }
 

@@ -4444,10 +4444,16 @@ public partial class Main : Node3D
             _siphon = new Siphon(_fluid, _water, _lakeCeiling, _pipeline!, _machines, _machineTick, _fluid.WakeCell);
 
             // IM-5a: the dump — the tick's terrain, the seed surface that decides a mouth's tier, the lakes,
-            // and the bands a ball covers before it pours.
+            // and the bands a ball covers before it pours. IM-5b: the world its pile is written into, what
+            // can lie loose, the undo it keeps away from, and the rests a landing collapse has reserved.
             _vaultDump = new VaultDump(
                 _machines, _fluid, _machineTerrain, _seedHeights, _water, _lakeCeiling,
-                boundaryMillis: (long)Math.Round(_fluidTickSeconds * 1000.0), submerged: _fluid.WakeCell);
+                boundaryMillis: (long)Math.Round(_fluidTickSeconds * 1000.0), submerged: _fluid.WakeCell,
+                world: _pipeline, materials: _materials)
+            {
+                History = _history,
+                Reserved = _collapseDirector?.Reserved,
+            };
             if (_noGate)
             {
                 GD.Print("M10: --nogate — the pool is off and every pump is free (the pre-M10c arm)");
@@ -4542,20 +4548,50 @@ public partial class Main : Node3D
             return;
         }
 
-        DumpReport report = _vaultDump.Run();
+        // IM-5b: the pile never builds inside the player, Place's own test on the same box; in fly mode
+        // there is no body, as for a fill. The dump turns recording off around its writes and forgets the
+        // chunks it wrote itself (decision 13), so nothing here touches the undo.
+        Overburden.Core.Physics.Aabb? body =
+            _player is not null && _player.Mode == PlayerMode.Walk && _player.Spawned ? _player.State.Box : null;
+        DumpReport report = _vaultDump.Run(body?.VoxelBounds);
         if (!report.DidAnything)
         {
             return;
         }
 
-        if (report.Admitted + report.Ended + report.WrecksRemoved > 0 || _dumpPrints++ % 10 == 0)
+        if (report.Admitted + report.Ended + report.WrecksRemoved + report.PileNoRoom > 0 || _dumpPrints++ % 10 == 0)
         {
             GD.Print($"M10: dump — {report}");
         }
 
+        if (report.VoxelsDecohered > 0)
+        {
+            GD.Print($"M10: dump — decohered by material: {DecoheredByMaterial()}");
+        }
+
         if (!_vaultDump.Exact)
         {
-            GD.PushError($"M10: dump — a twin or the store's water line disagrees with the dump's own counters after {report}");
+            GD.PushError($"M10: dump — a twin or one of the store's lines disagrees with the dump's own counters after {report}");
+        }
+    }
+
+    /// <summary>What the dumps have decohered of each material, by name, over the session (decision 12's print).</summary>
+    private string DecoheredByMaterial() =>
+        _machines is null || _machines.VoxelsDecoheredByMaterial.Count == 0
+            ? "nothing"
+            : string.Join(", ", _machines.VoxelsDecoheredByMaterial.Select(entry => $"{entry.Value:N0} {MaterialName(entry.Key)}"));
+
+    /// <summary>A material's name for a print, or its number for one past the table or a removed mod's hole.</summary>
+    private string MaterialName(int id)
+    {
+        try
+        {
+            Identifier identifier = Content.Materials.GetIdentifier(id);
+            return identifier.IsValid ? identifier.ToString() : $"#{id}";
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return $"#{id}";
         }
     }
 
