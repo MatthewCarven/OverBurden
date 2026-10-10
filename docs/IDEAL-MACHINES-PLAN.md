@@ -2067,7 +2067,8 @@ yet:** no vault ships until IM-6, so no fuse burns and no wreck is made in his w
   and quit lines and Tier A's on the `M7d:` lines, and the profile's machines block has the store's full
   line and a `dump` line.
 
-**Six choices the pass left open, made in the build.** Each is small, and any can be reversed on his word:
+**Six choices the pass left open, made in the build. Taken as built, 2026-10-11** (*"yes as built please
+Claude, go on IM-5b"*):
 1. **The ball's radius holds what is owed, and is never under 2 m (8 voxels).** At 2 m a small dump's ball
    reaches the floor around its own cell. A 10 ML ball is about 13 m.
 2. **A whole pass that lands nothing rests the ball for 10 s.** Without it, a vault in a full room would spend

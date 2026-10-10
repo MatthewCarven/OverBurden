@@ -212,9 +212,8 @@ clay-roof drip closed with it (WORKLOG, 2026-10-10 evening).
 1. **The windowed surface install ran 2026-10-11** (WORKLOG): the worst case, 10 ML at once on open ground,
    installs at 148 ms mean / 249 max on the main thread, against 23 / 137 in his own play that night. **Taken as
    recommended**: the 10 ML ceiling stands, and a real dump is read windowed at IM-6.
-2. **The six choices IM-5a's build made** (the plan's "IM-5a — built") go to him with the status; any he reverses
-   is a small change.
-3. **IM-5b: its bench first** (decision 15), then the pile, in a worktree.
+2. **The six choices IM-5a's build made: taken as built** (2026-10-11, his word).
+3. **IM-5b: its bench first** (decision 15), then the pile, in a worktree. Started 2026-10-11.
 
 Unblocked alternative if he would rather: collapse f-1 (Core and tests, thirteen decisions taken).
 

@@ -25,16 +25,6 @@ care about. I keep it current at the end of each session.
 - [ ] **The hotbar's unit** is due before IM-6, which shows water in the hotbar, so the "L doesn't fit"
       question arrives with IM-6, not the inventory screen.
 
-- [ ] **Six small choices I made building IM-5a** (the dump's water). The plan didn't settle them. Say
-      "as built" or name one to change (the plan's "IM-5a — built" has them):
-      1. a dump's ball of water is at least 2 m across its radius, bigger for more water;
-      2. if a whole sweep of the ball finds no room, it waits 10 s before trying again;
-      3. the 10 ML limit is checked the first moment a vault owes water (a fall counts as well as a fuse);
-      4. a ball pours once the chunk above the vault is loaded, and skips the parts in chunks that aren't;
-      5. a vault owing nothing at all just ends its dump;
-      6. the 10-second release clock runs even while the water waits, so water held off the map lands at once
-         when the map reaches it.
-
 - [ ] **Ctrl+Z on a fill that's still waiting** (IM-4c, built 2026-09-30): place a single block right into
       water (or fill a chunk at range) and press Ctrl+Z at once. *Nothing should land.* Before, it came
       back half a second later. The log says `undo — 1 placement(s) waiting for the boundary cancelled`.
@@ -145,6 +135,11 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **IM-5a's six build choices** (2026-10-11): *"yes as built please Claude, go on IM-5b"*. All six stay: the 2 m
+  minimum ball, the 10 s rest when a ball finds no room, the 10 ML limit checked when a vault first owes, the
+  chunk above the vault gating a pour, an empty owing vault ending its dump, and the release clock running while
+  the water waits. IM-5b is under way.
 
 - **The windowed run** (2026-10-11): *"go on the windowed run please Claude"*, then *"as recommended please
   Claude thank you!"*. Dropping all 10 ML at once on open ground froze the picture for 0.15–0.25 s about once a

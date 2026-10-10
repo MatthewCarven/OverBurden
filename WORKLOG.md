@@ -40,7 +40,8 @@ The two runs rotated the logs, so his session tonight (21:40 to about 00:26, 0 `
 `logs/play-LakeTest-2026-10-10-2140.log`.
 
 **Taken the same night, his word: *"as recommended please Claude thank you!"*** The 10 ML ceiling stands, and the
-real dump is read windowed at IM-6 against the trigger above.
+real dump is read windowed at IM-6 against the trigger above. **And IM-5a's six build choices, taken as built**:
+*"yes as built please Claude, go on IM-5b"*.
 
 ## 2026-10-10 (evening) — his glass rain pool holds
 

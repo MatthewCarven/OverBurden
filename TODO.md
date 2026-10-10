@@ -103,7 +103,7 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       replaced by accepting placement's crash lag (an unload batch is not a consistent cut), and machine
       materials decohered rather than piled. **IM-5a is built (2026-10-10)** (the plan, "IM-5a — the re-read against the merged code" and
       "IM-5a — built"; suite 2,261, twenty-eight mutations red). Six choices the pass left open were made in the
-      build and are listed there for his word. On main, the r6 control to the digit. "Do first" 3, the windowed surface
+      build, taken as built 2026-10-11. On main, the r6 control to the digit. "Do first" 3, the windowed surface
       install, ran 2026-10-11 (the ceiling stands, taken as recommended); 2, the clay pond, closed
       not reproduced (2026-10-10). **Next: IM-5b**, the pile, with its bench first (decision 15). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
       runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
