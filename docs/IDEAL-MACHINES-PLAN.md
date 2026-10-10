@@ -706,8 +706,20 @@ measured rather than guessed:**
 The caveat: both pours landed on open ground, where two thirds became lake. A dump underground stays in
 Tier B whole and costs more, and there is no headless fixture for that yet (IM-5's).
 
-**Not run: the surface install in a windowed run.** Headless builds no surface. A windowed run takes
-his focus, so it waits for his say-so; the install was 92 ms mean on the load test's front (pre-fix).
+**The surface install, windowed (run 2026-10-11 on his yes).** Headless builds no surface. The same
+recipe at 10 ML, windowed, then headless five minutes later as the control:
+- the install read **147.82 ms mean / 249.29 ms max** on the main thread, over 63 rebuilds of 77.6 panels and
+  38 MiB each; 227,515 quads, 84% of them sides (a spreading front is all steps);
+- the tick ran at 0.97 Hz with a wall of 850 ms, 185 ms of it the surface walk on the worker. The headless
+  control read 1.67 Hz and 551 ms on a slow clock (its insertion took 599 ms against the 305–309 above);
+- his own play the same night, 16.9 ML moving on `LakeTest`, read install 23 ms mean / 137 max.
+
+**What it decides (for his word).** The arm is the worst case: `--injectlitres` lands 10 ML at once on open
+ground, while a dump in the workings pours within 3,200 cells a boundary, at most about 50,000 L (arithmetic),
+so 10 ML takes at least 100 s at 2 Hz. Recommended: **32's ceiling stands**, the render half recorded at its
+worst, and a real dump read windowed at IM-6, once a fuse can burn out underground. If that read is over about
+50 ms mean (roughly twice his heaviest play, a judgement) or 250 ms worst, the lever is the render, not the
+ceiling, since his own floods make the same front. WORKLOG, 2026-10-11.
 
 ## IM-1 — the code-level pass (2026-09-29)
 

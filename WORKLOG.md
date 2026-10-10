@@ -1,5 +1,44 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-11 (just past midnight) — IM-0's windowed surface install, run
+
+His yes was given 2026-10-09; tonight, with the game closed: *"go on the windowed run please Claude"*. The recipe,
+windowed, on a fresh build (Core, Persistence and Game all `DebuggableAttribute` 2): `--profile --speed=0
+--fluidnear=2 --fluidjob=1 --measure=60 --injectlitres=10000000`. Then the same line `--headless`, five minutes
+later, as the control. Both runs: 0 `ERROR` lines, every identity exact.
+
+| Arm | Ticks/s | Tick wall mean / max | Visits / solve / walk, mean | Insertion (pour, worst) | At 60 s |
+|---|---|---|---|---|---|
+| Windowed | 0.97 | 849.7 / 1,511 ms | 575.9 / 84.8 / 185.1 ms | 360 ms | 7.09 ML moving in 766 k cells, 2.91 ML handed |
+| Headless, 5 min later | 1.67 | 550.9 / 1,049 ms | 484.9 / 61.9 / 0 ms | 599 ms | 4.43 ML in 475 k cells, 5.57 ML handed |
+| IM-0's record, 09-29 | 2.00 | 385 / 534 ms | — | 305–309 ms | 3.2 ML in 371 k cells |
+
+**The surface:** `fluidsurf 227,515 quad(s) over 113 panel(s)` (30,784 tops, 190,341 sides, 6,390 bottoms,
+33,772 KiB); 63 rebuilds, 77.6 panels and 38,427 KiB a rebuild, **install 147.82 ms mean / 249.29 ms max**, on
+the main thread. The frame line read p50 6.9 ms, p99 32 ms, max 150 ms; the update's max, 249 ms, is the
+install's.
+
+- **The install is a main-thread hitch of 150–250 ms about once a second while the flood spreads.** Sides are
+  84% of the quads: a spreading front is all steps, the load test's shape (2026-09-22). His own play the same
+  night on `LakeTest`, 16.9 ML moving in 1.19 M cells, read install 23.15 ms mean / 137.12 max over 12,157
+  rebuilds, over a surface of 10,398 quads. So this worst case is about six times his heaviest session's mean.
+- **The windowed tick is slower because the surface walk rides in the tick job:** 185 ms a tick on the worker,
+  which headless never builds. Visits were 19% slower as well, which one pair cannot separate from the machine's
+  phase. The clock was slow tonight: the headless insertion read 599 ms against the 305–309 recorded, so the
+  absolute figures are slow-clock figures. The split by term is within each run and holds.
+- **What it decides.** The arm is the worst case, not a dump: `--injectlitres` lands all 10 ML at once on open
+  ground. IM-5a pours a dump in the workings within the 3,200-cell budget, at most about 50,000 L a boundary
+  (3,200 × 15.625 L, arithmetic), so 10 ML takes at least 200 boundaries, 100 s at 2 Hz. And underground a
+  front meets rock, where no side is drawn. No flag stages a real dump, and no vault ships until IM-6.
+  **Recommended, for his word:** decision 32's 10 ML ceiling stands; the render half is recorded at its worst;
+  the real read is a windowed fuse burning out underground at IM-6. **Trigger:** a real dump's install over
+  about 50 ms mean (roughly twice his heaviest play's, a judgement) or over this run's 250 ms worst. Then the
+  lever is the render, not the ceiling, because his own floods make the same front. Spreading the install
+  over frames is one candidate, unpriced.
+
+The two runs rotated the logs, so his session tonight (21:40 to about 00:26, 0 `ERROR` lines) is kept as
+`logs/play-LakeTest-2026-10-10-2140.log`.
+
 ## 2026-10-10 (evening) — his glass rain pool holds
 
 On `LakeTest`, around x −12, z −63, he built a pool of glass nearly a chunk across to fill with rain: *"its pretty

@@ -22,11 +22,10 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 1. ~~The flaky `JobSchedulerTests` test~~ — done 2026-10-01 (WORKLOG).
 2. ~~**The clay pond's suspected leak**~~ — **closed, not reproduced (2026-10-10, his word)**: his glass rain pool
    on `LakeTest` filled and held, and glass and clay are the same to the water (WORKLOG).
-3. **IM-0's windowed surface install — before IM-5a fixes the 10 ML ceiling.** The ceiling rests on IM-0's
-   headless half (385 ms of tick wall, about 16 ms of main thread a boundary). Drawing a 10 ML flood's
-   surface is unmeasured, and a dump underground is exactly that. It takes his screen for about a minute.
-   Re-read "For the load test" beside it: the hand-off's absorb at 32 ms a boundary from 530 k awake cells is
-   the size of cost a 10 ML dump creates, and it predates the fixed build.
+3. ~~**IM-0's windowed surface install**~~ — **run 2026-10-11** (WORKLOG; the plan's IM-0 section). The worst
+   case, 10 ML at once on open ground, installs at 148 ms mean / 249 max on the main thread, about once a
+   second while it spreads, against 23 / 137 in his own play that night. **Recommended, waiting on his word:**
+   the ceiling stands, and the real dump is read windowed at IM-6 (below, "Owed from IM-0").
 4. ~~**The pond branch — his verdict, better before IM-5a.**~~ **Given 2026-10-09: merged into main**
    (POND-PLAN, "His verdict: merged"). IM-5a now builds on the raised watershed, and a surface dump into a walled
    pond goes to the pond's own basin.
@@ -104,13 +103,14 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       replaced by accepting placement's crash lag (an unload batch is not a consistent cut), and machine
       materials decohered rather than piled. **IM-5a is built (2026-10-10)** (the plan, "IM-5a — the re-read against the merged code" and
       "IM-5a — built"; suite 2,261, twenty-eight mutations red). Six choices the pass left open were made in the
-      build and are listed there for his word. On main, the r6 control to the digit. **Still standing:** "Do first"
-      3 (the windowed surface install) before the 10 ML ceiling is called measured; 2, the clay pond, closed
+      build and are listed there for his word. On main, the r6 control to the digit. "Do first" 3, the windowed surface
+      install, ran 2026-10-11 (the ceiling stands as recommended, his word owed); 2, the clay pond, closed
       not reproduced (2026-10-10). **Next: IM-5b**, the pile, with its bench first (decision 15). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
       runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
-      files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
-      say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).
+      files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** a real dump read windowed at IM-6, a fuse
+      burning out underground, the `fluidsurf` line's install against the trigger (about 50 ms mean or 250 ms
+      worst; WORKLOG 2026-10-11); a bite under a lake (IM-7's bench); a dump underground headless (IM-5's).
 - [ ] **Building in a lake: walls that split a lake — built (L-1, L-2, E-1, 2026-10-01), played and passed
       (2026-10-09), and on main since the pond branch merged; three small things left open below**
       ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), "L-1 — built", "L-2 — built" and "E-1 —

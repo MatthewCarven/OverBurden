@@ -209,9 +209,9 @@ across at about x −12, z −63, filled with rain and held, and glass and clay 
 clay-roof drip closed with it (WORKLOG, 2026-10-10 evening).
 
 **Next session, in order:**
-1. **The windowed surface install**, his yes given 2026-10-09, run only when he is out of the game. The recipe is
-   `--profile --speed=0 --fluidnear=2 --fluidjob=1 --measure=60 --injectlitres=10000000`, windowed; read the
-   `fluidsurf` line's `install mean / max`. It decides whether the 10 ML ceiling stands for the render.
+1. **The windowed surface install ran 2026-10-11** (WORKLOG): the worst case, 10 ML at once on open ground,
+   installs at 148 ms mean / 249 max on the main thread, against 23 / 137 in his own play that night. Recommended
+   to him: the 10 ML ceiling stands, and a real dump is read windowed at IM-6. His word is owed (MATTHEW-TODO).
 2. **The six choices IM-5a's build made** (the plan's "IM-5a — built") go to him with the status; any he reverses
    is a small change.
 3. **IM-5b: its bench first** (decision 15), then the pile, in a worktree.
@@ -242,9 +242,8 @@ machine with a shared budget, only where you are; water is an inventory item thr
 header byte and a kit. Each slice has a "code-level pass" and a "built" section in the plan; the previous
 hand-over, slice by slice, is in [docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md).
 
-**Still standing from TODO's "Order and collisions"**, at the top of TODO:
-- IM-0's windowed surface install, his yes given, run when he is out of the game (the 10 ML ceiling's render
-  half).
+**From TODO's "Order and collisions"**, at the top of TODO: IM-0's windowed surface install ran 2026-10-11
+(the 10 ML ceiling's render half; his word on the recommendation owed).
 
 Then **IM-5b** (the pile, decisions 11–16, its bench first). Before IM-6: the hotbar's unit (his) and the build
 warnings. Before IM-7: the engine-wide pin (TODO's Levers).
