@@ -39,6 +39,9 @@ install's.
 The two runs rotated the logs, so his session tonight (21:40 to about 00:26, 0 `ERROR` lines) is kept as
 `logs/play-LakeTest-2026-10-10-2140.log`.
 
+**Taken the same night, his word: *"as recommended please Claude thank you!"*** The 10 ML ceiling stands, and the
+real dump is read windowed at IM-6 against the trigger above.
+
 ## 2026-10-10 (evening) — his glass rain pool holds
 
 On `LakeTest`, around x −12, z −63, he built a pool of glass nearly a chunk across to fill with rain: *"its pretty

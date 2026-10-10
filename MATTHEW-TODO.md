@@ -22,15 +22,6 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **The windowed run's result needs one word from you** (run 2026-10-11).
-      - Dropping all 10 ML at once on open ground freezes the picture for 0.15–0.25 s about once a second while
-        the flood spreads, and runs the water at half speed. Your own play tonight, with 17 ML moving, averaged
-        0.02 s and was 0.14 s at worst.
-      - A real dump can't do that: it pours a little each half second, so 10 ML takes at least 100 s.
-      - **My lean: keep the 10 ML limit**, and look again with a real vault burning out underground at IM-6. If
-        that stutters, fix the drawing rather than the limit, since your own big floods draw the same way.
-      - Say "as recommended", or what you'd rather.
-
 - [ ] **The hotbar's unit** is due before IM-6, which shows water in the hotbar, so the "L doesn't fit"
       question arrives with IM-6, not the inventory screen.
 
@@ -155,9 +146,11 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
-- **The windowed run** (2026-10-11): *"go on the windowed run please Claude"*. Done, a minute of your screen and
-  a headless run beside it; the result is at the top of "Now". Your log from tonight's session is kept as
-  `play-LakeTest-2026-10-10-2140.log`, since the runs rotate the logs.
+- **The windowed run** (2026-10-11): *"go on the windowed run please Claude"*, then *"as recommended please
+  Claude thank you!"*. Dropping all 10 ML at once on open ground froze the picture for 0.15–0.25 s about once a
+  second while it spread, against 0.02 s average and 0.14 s worst in your own play that night. A real dump pours a
+  little each half second, so **the 10 ML limit stays**, and we look again with a real vault burning out
+  underground at IM-6. Your log from that session is kept as `play-LakeTest-2026-10-10-2140.log`.
 
 - **The pond branch: merged** (2026-10-09): *"yes only that side rose, merge it unless you think otherwise or it
   requires further testing"*. Your play split three lakes as you built, R into one side raised only that side,
@@ -290,11 +283,10 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-11**. **Main is ahead of GitHub by one commit (the windowed run's record): a `git push`
-whenever suits.**
+Updated **2026-10-11**. **Main is ahead of GitHub by two commits (the windowed run and your answer): a `git
+push` whenever suits.**
 
-- **The windowed run is done** (top of "Now"): the worst case stutters, a real dump shouldn't, and my lean is to
-  keep the 10 ML limit and look again at IM-6.
+- **The windowed run is done and your answer taken**: the 10 ML limit stays, and we look again at IM-6.
 
 - **IM-5a is built: the dump's water.** When a vault's fuse burns out, or a fall wrecks it, its water goes back
   into the world. On the surface it goes into the lake that ground drains to, over about ten seconds. In the

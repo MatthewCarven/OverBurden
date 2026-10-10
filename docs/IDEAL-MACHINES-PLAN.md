@@ -714,7 +714,7 @@ recipe at 10 ML, windowed, then headless five minutes later as the control:
   control read 1.67 Hz and 551 ms on a slow clock (its insertion took 599 ms against the 305–309 above);
 - his own play the same night, 16.9 ML moving on `LakeTest`, read install 23 ms mean / 137 max.
 
-**What it decides (for his word).** The arm is the worst case: `--injectlitres` lands 10 ML at once on open
+**What it decides (taken 2026-10-11, *"as recommended"*).** The arm is the worst case: `--injectlitres` lands 10 ML at once on open
 ground, while a dump in the workings pours within 3,200 cells a boundary, at most about 50,000 L (arithmetic),
 so 10 ML takes at least 100 s at 2 Hz. Recommended: **32's ceiling stands**, the render half recorded at its
 worst, and a real dump read windowed at IM-6, once a fuse can burn out underground. If that read is over about
