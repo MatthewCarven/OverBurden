@@ -199,6 +199,10 @@ Each with a recommendation. "As recommended" takes them all; any one can come ba
 **Order:** A first, because the export is the unknown; B and C in either order; D last. The ideal machines'
 IM-6 waits behind it, and IM-6's header version moves up one if C takes the next.
 
+**The repo went public the same night** (seen 2026-10-12): `MatthewCarven/OverBurden`, the old repo renamed,
+public, decision 2 in effect. Session D's docs read now edits files going forward only; the history keeps the
+old text. The stale README is the first thing a visitor sees, so D's README moves up.
+
 ## Session A — built (2026-10-12)
 
 In the worktree `alpha-export`, after he installed the 4.7.1 mono templates. **The export works, SQLite

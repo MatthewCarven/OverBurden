@@ -340,7 +340,10 @@ lake 33 m from his spawn; his glass rain pool at about x −12, z −63). His de
 
 **The rename.** The game is Overburden; stages 1–3 (solution, namespaces, content namespace, mod
 folder, `user://` folder) are done. **Stage 4 is Matthew's**: the GitHub repo, the local folder,
-the remote URL, and the assistant's memory directory, which is still keyed `MinerCraft`.
+the remote URL, and the assistant's memory directory, which is still keyed `MinerCraft`. **The GitHub repo is
+done: renamed `MatthewCarven/OverBurden` and public** (seen 2026-10-12; GitHub redirects the old name). The
+local remote still names `MinerCraft` until he runs `git remote set-url origin
+https://github.com/MatthewCarven/OverBurden.git`; the folder and the memory key are still to go.
 
 **Things not to rediscover** (the standing ones; each session's own are in STATUS-HISTORY):
 

@@ -115,8 +115,9 @@ Nothing is blocked on these; each is a small change once you have a view.
       three `retired-*` worlds and `Regions16-pondlook-demolished-2026-09-26` — those are my
       measurement worlds.
 - [ ] **Delete the pre-rename backup**: `%APPDATA%\Godot\app_userdata\MinerCraft\`.
-- [ ] **Rename stage 4**, no hurry: the GitHub repo `MinerCraft` → `Overburden`, the local folder,
-      the remote URL.
+- [ ] **Rename stage 4**, no hurry. The GitHub repo is done (`OverBurden`, public). Left: the remote URL,
+      `git remote set-url origin https://github.com/MatthewCarven/OverBurden.git`, and the local folder
+      (tell me before you move it: my memory folder is keyed to its name, and I'll carry it across).
 
 ---
 
