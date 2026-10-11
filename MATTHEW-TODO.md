@@ -22,13 +22,6 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **Your own Korobeiniki**: `media/korobeiniki-melody.mid` is the folk tune's melody alone (8 bars, A
-      minor, 120 bpm, marimba), written out 2026-10-12 so nothing under your arrangement is anyone else's.
-      Add your bass and harmony in FL Studio, render it over `media/korobeiniki-marimba.mp3`, and the credit
-      is *"Korobeiniki (Russian folk song, public domain), arranged by Matthew Carven"*. The two downloads
-      can't ship: `35149.mid` is Jim Paterson's Greensleeves from mfiles.co.uk (personal use only, *"never
-      redistributed … either as is or adapted in any way"* without their licence), and `100444.mid` has no
-      name on it.
 
 - [ ] **The quick start**, [QUICKSTART.md](QUICKSTART.md): every key, written for a stranger. Have a read and
       say what's wrong or missing; it becomes the in-game controls card and the zip's readme.
@@ -142,6 +135,12 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **The collapse music** (2026-10-12): your own `Korobeiniki.mp3`, the folk melody doubled an octave down,
+  built on the melody-only MIDI. The game plays it now, and it's the track the zip carries, credited
+  *"Korobeiniki (Russian folk song, public domain), arranged by Matthew Carven"*. Your two downloads stay
+  out: `35149.mid` is Jim Paterson's Greensleeves (mfiles.co.uk forbids sharing it, even adapted, without
+  their licence), and `100444.mid` has no name on it. A fuller beat can replace it any time; same file name.
 
 - **The public alpha's twenty-three decisions** (2026-10-12): *"AS recommended"*, with your changes. Far mode
   moved to **F10**, and **F11 (and Alt+Enter) is fullscreen**: built. Your email stays on the commits (*"they

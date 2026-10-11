@@ -30,6 +30,6 @@ Godot_v*/
 reference/
 
 # His own media — the collapse's music (COLLAPSE-PLAN decision 11: "the track is his and stays out
-# of the repo"). Since 2026-10-12 it is korobeiniki-marimba.mp3, his own render of the folk tune,
-# replacing a phonk of unknown source; the alpha zip carries it beside the exe (ALPHA-PLAN decision 8).
+# of the repo"). Since 2026-10-12 it is Korobeiniki.mp3, his own arrangement of the public-domain folk
+# melody, replacing a phonk of unknown source; the alpha zip carries it beside the exe (ALPHA-PLAN 8).
 media/

@@ -30,7 +30,9 @@ another f key that is available please"*):
   folk tune's melody only, written out the same day (bars 5 and 7 in the plain folk rhythm, not the Game Boy
   version's). The two MIDIs he downloaded first can't ship: one is Jim Paterson's Greensleeves arrangement
   from mfiles.co.uk, whose terms forbid redistribution "as is or adapted" without their licence; the other
-  carries no name. Worst case if anyone objects: the track comes out, and the
+  carries no name. **Settled the same night: `media/Korobeiniki.mp3`**, his arrangement on that melody (*"i
+  just copied the melody like and made it lower on the notes"*: the melody doubled an octave down), is the
+  game's default and the track the zip carries. He removed the earlier render. The credit line above holds. Worst case if anyone objects: the track comes out, and the
   game runs silent without it (fact 3).
 - **A quick start describing every key**, his ask: `QUICKSTART.md` at the root, written for a player against
   today's build. It is the source for the controls card (15) and the zip's README (22).

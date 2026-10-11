@@ -980,11 +980,12 @@ public partial class Main : Node3D
 
     /// <summary>
     /// <c>--collapsemusic=</c>: the collapse's music file (COLLAPSE-PLAN part e) — a path, relative
-    /// ones against the repo's root, or <c>0</c> for silence. Default <c>media/korobeiniki-marimba.mp3</c>
-    /// since 2026-10-12: his own render of the folk tune on FL Studio's marimba, replacing the phonk
-    /// (whose source was unknown, so it could not ship in the alpha); gitignored like the phonk was.
+    /// ones against the repo's root, or <c>0</c> for silence. Default <c>media/Korobeiniki.mp3</c>
+    /// since 2026-10-12: his own arrangement of the public-domain folk melody (the melody doubled an
+    /// octave down) in FL Studio, replacing the phonk, whose source was unknown, so it could not ship in
+    /// the alpha. Gitignored like the phonk was.
     /// </summary>
-    private string _collapseMusicPath = "media/korobeiniki-marimba.mp3";
+    private string _collapseMusicPath = "media/Korobeiniki.mp3";
 
     /// <summary><c>--collapsemusicmax=</c>, the music's speed at the pace's cap (decision 3), and <c>--collapsevolume=</c>, its dB (decision 6).</summary>
     private double _collapseMusicMax = CollapseMusicCue.DefaultMaxPitch;
