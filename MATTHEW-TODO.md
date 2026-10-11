@@ -22,14 +22,9 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **The lithium-ion pack** (built 2026-10-12). Press `P` (it now gives 100 of everything), pick the
-      **lithium ion pack** (the crimson slot) on the number row and right-click to wear it. It arrives empty,
-      as packs from `P` always have, so place a vacuum cell (`P` gives those too) and press `Alt+P`, which
-      fills the cell and the pack: the pack reads 14.4 MJ, four times the lead-acid's 3.6. Then `T` to the
-      quantum miner and hold Q: flat out it lasts about 7.5 minutes of cube bites, against lead-acid's 1.9.
-      Once it's drained, the full cell refills it in two hours instead of four, a bite every 1.6 s instead of
-      12.8. *Does it feel like a step up, and does the crimson read?* While you're there: clay and glass now
-      read `100 m³` on the hotbar, and anything under a cubic metre still reads in litres.
+- [ ] **The pack's recharge, when you're near it anyway** (the pack itself is played, see Answered): place a
+      vacuum cell (`P` gives them), `Alt+P` to fill it and the pack, drain the pack with Q, and watch it come
+      back from the cell, a cube bite's worth every 1.6 s. Your play had no cell, so this part is untried.
 
 - [ ] **Ctrl+Z on a fill that's still waiting** (IM-4c, built 2026-09-30): place a single block right into
       water (or fill a chunk at range) and press Ctrl+Z at once. *Nothing should land.* Before, it came
@@ -135,6 +130,12 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **The lithium-ion pack, played** (2026-10-12): *"i am happy with it really thank you Claude"*. The log: no
+  errors, the pack filled twice with Alt+P, 10.7 MJ through the quantum tools (about 3,300 cube bites), the
+  energy total exact. One wart it showed: a right-click with a lithium-ion pack in hand swapped your 5.0 MJ
+  pack for an empty one (the 5.0 MJ went to your inventory, and the next right-click would have taken it
+  back). In TODO for the alpha.
 
 - **The lithium-ion pack and `P`** (2026-10-12): *"can we do the lithium ion battery pack this session … Lead
   acid is so 20th century"*, and *"100 of each item"*. Your four picks were all the recommended ones: 14.4 MJ

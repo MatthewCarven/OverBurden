@@ -247,6 +247,12 @@ IM-6's water slot uses).
       `Control.Scale` (CS0108), and CA2014 on a `stackalloc` in a loop in `LightPropagator.ForEachCellAround`
       — checked, six passes of 12 bytes, no risk. A small chore: clear them so a real warning stands out.
 
+- [ ] **A same-kind pack swap can hand you an emptier pack** (his play, 2026-10-12, LakeTest2's log): a
+      right-click with a lithium-ion pack in hand, while wearing one holding 5,023.6 kJ, equipped an empty one
+      (`CarriedPacks.TakeFullest` found no charged lithium-ion pack carried) and stowed the 5.0 MJ. Nothing is
+      lost and the identity stays exact, but it reads as losing the charge. For the alpha pass: refuse a swap
+      to a same-material pack holding less than the worn one, or say so on screen.
+
 ## Levers named and not built
 
 Each waits on its trigger; the history has the measurement behind each (grep it for "lever").
