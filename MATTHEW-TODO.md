@@ -22,8 +22,10 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **Where `Almosttetris.mp3` came from**: the site or artist, and the licence's name or a link. The zip
-      can only carry it once that's in the credits file, and some royalty-free licences ask for a credit line.
+- [ ] **The music's MIDI** (your marimba render in FL Studio is yours, and the folk tune is public domain).
+      The open piece is the MIDI: if it copies the Game Boy version, its bass and harmony are someone else's.
+      Easiest fix: keep the melody and write your own bass and harmony under it. Or tell me which site it came
+      from and I'll read its terms. (Renamed `korobeiniki-marimba.mp3`, so "tetris" is out of the file name.)
 
 - [ ] **The quick start**, [QUICKSTART.md](QUICKSTART.md): every key, written for a stranger. Have a read and
       say what's wrong or missing; it becomes the in-game controls card and the zip's readme.
@@ -137,8 +139,8 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 - **The public alpha's twenty-three decisions** (2026-10-12): *"AS recommended"*, with your changes. Far mode
   moved to **F10**, and **F11 (and Alt+Enter) is fullscreen**: built. Your email stays on the commits (*"they
-  only get filtered"*), so that clean-up is dropped. The phonk is gone and the game plays `Almosttetris.mp3`
-  now. Next is session A, the export; it needs the Godot export templates, a big download I'll ask about first.
+  only get filtered"*), so that clean-up is dropped. The phonk is gone and the game plays your marimba track, renamed
+  `korobeiniki-marimba.mp3` on your word (*"renames as you please"*). Next is session A, the export; it needs the Godot export templates, a big download I'll ask about first.
 
 - **The lithium-ion pack, played** (2026-10-12): *"i am happy with it really thank you Claude"*. The log: no
   errors, the pack filled twice with Alt+P, 10.7 MJ through the quantum tools (about 3,300 cube bites), the

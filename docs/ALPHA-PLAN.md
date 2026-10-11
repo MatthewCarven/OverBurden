@@ -17,9 +17,16 @@ another f key that is available please"*):
   same day; F1 stays free for the controls card.
 - **Decision 3 drops the email rewrite**: *"i dont care if they get my email like they only get filtered"*. The
   rename and the docs read stay.
-- **Decision 8's music exists**: he deleted the phonk and added `media/Almosttetris.mp3`, royalty-free by his
-  account; the code's default points at it (built). Its source and licence are owed for the notices file
-  (decision 23) before it goes in a zip.
+- **Decision 8's music exists**: he deleted the phonk and added `media/Almosttetris.mp3`; the code's default
+  points at it (built). **Its provenance, his words:** *"came from a midi file of the approximate song, like
+  there are some differences from what i heard and run through fruity loops studio with a marimba as the
+  instrument type"*. So the recording is his and the instrument is FL Studio's stock marimba; Korobeiniki's
+  melody is public domain. **The open piece is the MIDI**: a bare folk melody is clear, but a transcription
+  of the Game Boy arrangement carries someone else's bass and harmony. Recommended: keep the melody, write his
+  own accompaniment, credit *"Korobeiniki (Russian folk song, public domain), arranged by Matthew Carven"*,
+  and ship it without "tetris" in its file name. **Renamed `media/korobeiniki-marimba.mp3`** on his word
+  (*"renames as you please"*), with the code's default following. Worst case if anyone objects: the track comes out, and the
+  game runs silent without it (fact 3).
 - **A quick start describing every key**, his ask: `QUICKSTART.md` at the root, written for a player against
   today's build. It is the source for the controls card (15) and the zip's README (22).
 
