@@ -228,8 +228,8 @@ stays; his own `Korobeiniki.mp3` is the collapse music), `QUICKSTART.md`, and se
 runs unpacked fresh, SQLite included. Suite 2,303, r6 to the digit.
 
 **Next session, in order:**
-1. **His windowed run of the zip** (fullscreen, the version in the corner, first impressions), then **session
-   B** (the Esc menu and controls card, debug keys behind `--dev`, HUD messages, the pack swap) and **C** (the
+1. **The zip ran on his older desktop without errors** (2026-10-12, his word), the first machine besides the
+   dev one; its specs, if he has them, set the readme's floor. Next **session B** (the Esc menu and controls card, debug keys behind `--dev`, HUD messages, the pack swap) and **C** (the
    hotbar's slots) in either order, and **D** (the player readme, notices, CONTRIBUTING; the rename and the
    docs read his).
 2. **IM-6 waits behind the alpha.** Its code-level pass carries: the vault's panel (his warranty line, a lock

@@ -22,11 +22,8 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **Try the alpha zip, windowed** (built 2026-10-12): `build\Overburden-0.1.0-alpha-win64.zip`. Unzip
-      it anywhere (it makes one folder) and double-click `Overburden.exe`, the way a stranger would. It keeps
-      its own saves in `%APPDATA%\Overburden Alpha\`, apart from your worlds. Things to look at: F11 for
-      fullscreen, the version in the top-left corner, how the first minute feels with no menu yet (that's
-      session B). To rebuild it any time: `pwsh tools/make-alpha.ps1` with the game closed.
+- [ ] **Your older desktop's specs, if you know them** (the graphics card and processor): the zip ran there
+      without errors, so it's a fair floor for the readme's "what you need" line.
 
 
 - [ ] **The quick start**, [QUICKSTART.md](QUICKSTART.md): every key, written for a stranger. Have a read and
@@ -141,6 +138,11 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **The alpha zip, on another machine** (2026-10-12): *"copied the zip over to my desktop and ran it there and
+  it runs fine, well my desktop is a bit older tech like but its working without errors"*. The first time
+  Overburden has run anywhere but your dev machine. Rebuild it any time with `pwsh tools/make-alpha.ps1` (about
+  20 seconds, the game closed).
 
 - **The collapse music** (2026-10-12): your own `Korobeiniki.mp3`, the folk melody doubled an octave down,
   built on the melody-only MIDI. The game plays it now, and it's the track the zip carries, credited

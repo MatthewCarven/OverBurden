@@ -14,7 +14,13 @@ has the whole account. The short of it:
   `ERROR`.
 - **A probe's message box landed on his screen**: Godot shows `OS.Alert` even headless. He sent a screenshot,
   which also showed it naming the wrong cause. Both fixed: no box headless, the first cause wins.
-- Suite 2,303; r6 to the digit. **Owed: his windowed run of the zip.**
+- Suite 2,303; r6 to the digit.
+- **The script's own stall**: run from his folder it sat ten minutes after `DONE savepack`, Godot waiting at no
+  CPU on a build process the export had started (an MSBuild worker, then, with that off, the C# compiler server
+  and its ten-minute idle timeout: 615 s for 15 s of work). With node reuse, shared compilation and the MSBuild
+  server all off for the export, it runs in 13 s from cold build servers; the zip is `d7f3e50`.
+- **His run on a second machine**: he copied the zip to his older desktop, *"its working without errors"*. The
+  first run of the game anywhere but the dev machine.
 
 ## 2026-10-12 (later) — The steel pick retired; his play of the pack; the alpha pass begun
 

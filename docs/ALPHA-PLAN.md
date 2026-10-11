@@ -240,4 +240,6 @@ included**, and `tools/make-alpha.ps1` makes the zip in one command: `Overburden
 new world through SQLite, the music, no `ERROR`; with `mods/` hidden, exit 1 and the right reason, no box.
 Suite 2,303; r6 to the digit on the editor binary, which still saves under `app_userdata\Overburden`.
 **Not checked: a windowed run of the export** (his: fullscreen on F11, the version in the corner, how it
-feels on first open), and any machine but his.
+feels on first open), and any machine but his. **Then checked, the same night, on a second machine**: he
+copied the zip to his older desktop and ran it there, *"it runs fine, well my desktop is a bit older tech like
+but its working without errors"*. The first run of Overburden on a machine that isn't the dev one.
