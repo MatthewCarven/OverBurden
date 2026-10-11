@@ -112,9 +112,9 @@ dotnet run --project Overburden.Bench -c Release
 
 [PolyForm Noncommercial 1.0.0](LICENSE.md) — source-available, not open source.
 
-Read it, fork it, mod it, learn from it, share it. Don't sell it. Personal, hobby,
-research, educational and charitable use are all explicitly permitted; commercial use
-is not.
+Read it, fork it, mod it, learn from it, share it. Don't sell it.(Please I am trying
+to) Personal, hobby, research, educational and charitable use are all explicitly
+permitted; commercial use is not.
 
 Chosen because it is the low-regret option while the copyright is held by one person:
 relaxing a licence later is one commit, but code once published under a permissive
