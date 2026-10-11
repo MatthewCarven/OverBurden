@@ -8,6 +8,9 @@ which needs more mining.
 
 No mobs, no combat. The mine is the antagonist.
 
+Alpha Edition
+https://drive.google.com/file/d/13kcW2xIEVM2Ur8eQSQurquE_8klUd-_H/view?usp=sharing
+
 **Design and reasoning: [docs/DESIGN.md](docs/DESIGN.md). Progress:
 [TODO.md](TODO.md). History: [WORKLOG.md](WORKLOG.md).**
 
@@ -109,9 +112,9 @@ dotnet run --project Overburden.Bench -c Release
 
 [PolyForm Noncommercial 1.0.0](LICENSE.md) — source-available, not open source.
 
-Read it, fork it, mod it, learn from it, share it. Don't sell it. Personal, hobby,
-research, educational and charitable use are all explicitly permitted; commercial use
-is not.
+Read it, fork it, mod it, learn from it, share it. Don't sell it.(Please I am trying
+to) Personal, hobby, research, educational and charitable use are all explicitly
+permitted; commercial use is not.
 
 Chosen because it is the low-regret option while the copyright is held by one person:
 relaxing a licence later is one commit, but code once published under a permissive
