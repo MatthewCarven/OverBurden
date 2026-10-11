@@ -8,6 +8,9 @@ which needs more mining.
 
 No mobs, no combat. The mine is the antagonist.
 
+Alpha Edition
+https://drive.google.com/file/d/13kcW2xIEVM2Ur8eQSQurquE_8klUd-_H/view?usp=sharing
+
 **Design and reasoning: [docs/DESIGN.md](docs/DESIGN.md). Progress:
 [TODO.md](TODO.md). History: [WORKLOG.md](WORKLOG.md).**
 
