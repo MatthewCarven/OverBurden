@@ -3258,7 +3258,7 @@ public partial class Main : Node3D
         {
             GD.Print(_noGate
                 ? "M10: no pack equipped; the miner is free under --nogate"
-                : $"M10: no pack equipped — Q takes nothing until one is (P seeds a {Hud.DisplayName(Content.Materials, MaterialId("overburden:lead_acid_pack"))}, right-click with it in hand equips it; --pack does it headless)");
+                : "M10: no pack equipped — Q takes nothing until one is (P seeds lead-acid and lithium-ion packs, right-click with one in hand equips it; --pack does it headless)");
         }
         else
         {
@@ -4944,8 +4944,8 @@ public partial class Main : Node3D
     }
 
     /// <summary>
-    /// <c>P</c> puts a relay pump and a relay outlet in the inventory — the debug bind M10-PLAN
-    /// decision 7 named beside <c>R</c>, retired when M10g's recipe exists.
+    /// <c>P</c> puts a hundred of each item in the inventory (<see cref="DebugSeed"/>) — the debug bind
+    /// M10-PLAN decision 7 named beside <c>R</c>, retired when M10g's recipe exists.
     /// </summary>
     private void SeedMachines()
     {
@@ -4970,51 +4970,19 @@ public partial class Main : Node3D
             return;
         }
 
-        const int Cell = BrushCell.Voxels * BrushCell.Voxels * BrushCell.Voxels;
-        int pump = MaterialId("overburden:relay_pump");
-        int outlet = MaterialId("overburden:relay_outlet");
-        int computer = MaterialId("overburden:computer");
-        int panel = MaterialId("overburden:solar_panel");
-        int cell = MaterialId("overburden:vacuum_cell");
-        int pack = MaterialId("overburden:lead_acid_pack");
-        int clay = MaterialId("overburden:clay");
-        int glass = MaterialId("overburden:glass");
-        if (pump == MaterialIds.AirNumericId || outlet == MaterialIds.AirNumericId || computer == MaterialIds.AirNumericId
-            || panel == MaterialIds.AirNumericId || cell == MaterialIds.AirNumericId || pack == MaterialIds.AirNumericId
-            || clay == MaterialIds.AirNumericId || glass == MaterialIds.AirNumericId)
+        // The list and its hundred are DebugSeed's (2026-10-12, his ask: a hundred of each, and the
+        // lithium-ion pack), in Core so the list is tested against the shipped content. Every press
+        // adds a hundred, the computer and the packs included; a fresh pack is empty on channel 0.
+        if (!DebugSeed.Press(Content.Materials, _inventory, out Identifier? missing))
         {
-            GD.Print("M10: the relay pump, outlet, computer, solar panel, vacuum cell, lead-acid pack, clay and glass are not all in this world's content, so P seeds nothing");
+            GD.Print($"M10: {missing} is not in this world's content, so P seeds nothing (it seeds all of {string.Join(", ", DebugSeed.Materials)} or none)");
             return;
         }
 
-        _inventory.Add(pump, Cell);
-        _inventory.Add(outlet, Cell);
-        _inventory.Add(panel, Cell);
-        _inventory.Add(cell, Cell);
-
-        // Clay (2026-09-20): the lining, at permeability 0 — a bulk material rather than a body,
-        // so a press seeds enough to line a small room (64 cells, 64,000 L) until worldgen
-        // puts a band of it in the ground and this seed goes the way of the relay pair.
-        _inventory.Add(clay, Cell * 64);
-
-        // Glass (2026-09-25, docs/GLASS-PLAN.md decision 4): the same 64 cells, until the
-        // ladder's furnace makes it from sand and coal and this seed retires.
-        _inventory.Add(glass, Cell * 64);
-
-        // M10b: one computer, the item that opens a machine's ports — an item is counted by the
-        // voxel and never spent, so one is enough for the session and P seeds it once. M10c: one
-        // pack, the same way; equipping it is c-3's.
-        if (!_inventory.Has(computer))
-        {
-            _inventory.Add(computer, 1);
-        }
-
-        if (!_inventory.Has(pack))
-        {
-            _inventory.Add(pack, 1);
-        }
-
-        GD.Print("M10: P — a relay pump, a relay outlet, a solar panel and a vacuum cell added to the inventory (64 voxels each), 64 cells of clay and 64 of glass, and a computer and a lead-acid pack once; pick them on the number row (right-click with the pack in hand equips it). Alt+P fills every placed cell and the pack");
+        GD.Print(
+            $"M10: P — {DebugSeed.Each} of each added to the inventory: relay pumps, relay outlets, solar panels and vacuum cells, "
+            + $"{DebugSeed.Each} m³ of clay and of glass, computers, lead-acid packs and lithium-ion packs; pick them on the number row "
+            + "(right-click with a pack in hand equips it). Alt+P fills every placed cell and the pack");
     }
 
     /// <summary>Every placed storage row charged to its capacity, through the set's one debug door.</summary>

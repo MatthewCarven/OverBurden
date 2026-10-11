@@ -212,6 +212,11 @@ Each one is a recommendation, then its cost, then the trigger that would reverse
    are the middle rungs of the carried pack, between lead-acid and the window. Each would be a storage like
    lead-acid, with its own `capacityJoules` and `rechargeWatts`, and would wait on M10g's recipes. They are
    carried buffers, but on the lower rungs, where there is no one pool, so this revisit does not fire.
+   **The lithium-ion pack shipped early, 2026-10-12, on his ask** (*"Lead acid is so 20th century"*), seeded by
+   `P` as the lead-acid pack is, without waiting for a recipe: `overburden:lithium_ion_pack`, 14.4 MJ (four
+   lead-acids, the real density ratio at its cautious end) and 2 kW (full in two hours where lead-acid takes
+   four), on the channel class like lead-acid until M10i. The record is in M10-LADDER-PLAN's storage row and
+   the worklog. Li-poly is still a rung to come.
 8. **A tool's spend debits its channel's cells directly**, last-filled first, between boundaries and never
    inside the tick's run. `PowerExact` needs no new term for it: the rows fall by X and `packTaken` rises
    by X (the Core judge checked this against `MachineTick.cs:404-408`). The debit writes the cells' charge
@@ -2269,17 +2274,24 @@ yet:** no vault ships until IM-6.
   room, decohered and steps forgotten, and a second line names what was decohered by material. Decision 16:
   the pile appears plain; the cyan glitch is IM-6's.
 
-**Choices the pass left open, made in the build** (for his word):
-1. **512 voxels and at most 8 chunks a boundary** (the bench's), shared round-robin by position.
-2. **Each shell filled by angle**, so a boundary works a wedge (the bench's).
+**Choices the pass left open, made in the build. All seven taken as built** (6 on 2026-10-11, the rest in
+his list's notes on 2026-10-12, his words beside each; 5 had no note, and his *"sweet"* closing the list is
+read as taking it):
+1. **512 voxels and at most 8 chunks a boundary** (the bench's), shared round-robin by position. *"Yes agreed
+   anything can get lost or something"*.
+2. **Each shell filled by angle**, so a boundary works a wedge (the bench's). *"Sounds good"*.
 3. **A heap joins a column only through the air**: it never passes through rock, climbs a wall only once it
-   is piled as high, and spills over a sill.
+   is piled as high, and spills over a sill. *"Like its a quantum power failure event so i am happy with this
+   or wierd stuff happening"*: a stranger heap would be fine too, so this is a floor on the physics, not a
+   promise.
 4. **A shaft deeper than 8 m beside a vault is left open**: no slot, and the heap stands round its mouth.
+   *"Nah just trying to make it a pain to get close this should be enough"*: the heap's job is to make a
+   burnt-out vault awkward to reach, and an open shaft beside it doesn't defeat that.
 5. **The materials are piled mixed**, each voxel the one with the most left.
 6. **A pile can rest on a machine**: a machine's cell is solid to it. So a pile can cover an outlet's mouth or
    a pump's intake, which then stalls as it would under any block. **Taken 2026-10-11, his word:** *"yes
    totally approve"*.
-7. **The excess past 10,000 m³ goes from the highest material ID down.**
+7. **The excess past 10,000 m³ goes from the highest material ID down.** *"sweet"*.
 
 **Tests:** seventeen in `VaultPileTests`, on VaultDumpTests' fixture with the terrain as a world too:
 - a room takes every voxel once, resting on something solid, as a cone (no free slot in a shell below the

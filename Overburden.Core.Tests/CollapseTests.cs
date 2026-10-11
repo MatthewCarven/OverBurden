@@ -1041,8 +1041,9 @@ public class CollapseTests
         IReadOnlyList<Identifier> exported = content.Materials.ExportIdTable();
         Assert.Equal(saved, exported.Take(saved.Count));
         Identifier[] appended = [.. exported.Skip(saved.Count)];
-        Assert.Equal(11, appended.Length);
+        Assert.Equal(12, appended.Length);
         Assert.Contains(Identifier.Parse("overburden:water"), appended);
+        Assert.Contains(Identifier.Parse("overburden:lithium_ion_pack"), appended);
         Assert.Contains(Identifier.Parse("overburden:quantum_backpack"), appended);
         Assert.Contains(Identifier.Parse("overburden:rubble"), appended);
         Assert.Contains(Identifier.Parse("overburden:clay"), appended);

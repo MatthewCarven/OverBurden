@@ -1059,6 +1059,36 @@ the swings before `--pump` places its cell meet an empty bank (`the bank on chan
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --fillbasin=2000000 --breach=3 --pump=100 --pack=overburden:quantum_backpack --mine --entangle --measure=10
 ```
 
+**2026-10-12: the lithium-ion pack, `P`'s hundred, and the hotbar in cubic metres** (his asks).
+**`P` adds a hundred of each item on every press** (`DebugSeed`): relay pumps, relay outlets, solar panels
+and vacuum cells (100 bodies, `× 100`), 100 m³ of clay and of glass, and 100 computers, lead-acid packs and
+lithium-ion packs; a content missing any of them seeds nothing and names it. The quantum backpack is still
+not seeded (IM-6). **`overburden:lithium_ion_pack`** is a carried pack like lead-acid: 14.4 MJ, 2 kW,
+channel class. **A volume on the hotbar reads in litres under a cubic metre and in cubic metres from one
+up**, floored (`VolumeText`). Three probes, each read 2026-10-12 with no `ERROR`. Worn at open, an over-full
+`--charge` capped: `lithium ion pack equipped --pack: 14.4 MJ of 14.4 MJ (100.0%) on channel 0 — 288,000
+voxel(s) at 50 J each`, and after ten seconds of the miner `the pack at 14,016,550,000 mJ (14.0 MJ)`:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --pack=overburden:lithium_ion_pack --charge=20000000 --mine --entangle --measure=10
+```
+
+The swap, the flag's lead-acid pack for the count's lithium-ion: `lithium ion pack equipped in place of lead
+acid pack (right-click with a pack in hand): empty, 14.4 MJ capacity, channel 0; … the outgoing pack is back in
+the inventory holding 1,000 J`:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --place --material=overburden:lithium_ion_pack --stock=64 --pack --charge=1000 --measure=5
+```
+
+The recharge off `--pump`'s charged cell, empty at open: `pack given 54.0 kJ` over 54 boundaries (1,000 J a
+boundary, 2 kW) and the identity `exact`; with `--pack=overburden:lead_acid_pack` the same run reads `pack given
+6,750 J` (125 J a boundary, 250 W), exactly an eighth:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --fillbasin=2000000 --breach=3 --pump=100 --pack=overburden:lithium_ion_pack --charge=0 --measure=30
+```
+
 Measure **the relay pump** — the number every pump cap in the ladder was fiction until, and the read
 priced both ways. The chamber fixture flooded and settled, a relay pump on its floor's centre, an
 outlet on the surface with a sink under it standing in for the hand-off: the delivered rate against

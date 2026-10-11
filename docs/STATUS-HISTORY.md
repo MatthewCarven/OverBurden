@@ -13,6 +13,35 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md on 2026-10-12** (the 2026-10-11 close, superseded by the lithium-ion pack's session):
+
+**2026-10-11, session close — IM-5b is built and on main; the ideal machines' next slice is IM-6, the first
+playable.** This session:
+- ran IM-0's windowed surface install, on his screen: the worst case (10 ML at once on open ground) installs at
+  148 ms mean / 249 max on the main thread, against 23 / 137 in his own play that night. A real dump pours within
+  its budget, so **the 10 ML ceiling stands** (his word), and a real dump is read windowed at IM-6;
+- took IM-5a's six build choices as built (his word);
+- built **IM-5b, the pile**, in a worktree: the re-read (decision 11 needed a shape: **his word, the cone, one
+  up for one out**), the bench (`--pile`, the first arm with a real `ChunkPipeline`: 512 voxels a boundary
+  stands, chunks touched are the cost, so at most 8 a boundary), and the pile itself.
+
+The record is [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-5b — the re-read", "The bench,
+run" and "IM-5b — built". Suite **2,278**, forty-two mutations red, r6 to the digit on main. **Main is ahead of
+its remote** by this session's commits; he pushes. Nothing he plays changes until IM-6 ships a vault.
+
+**Next session, in order:**
+1. **Six of the seven choices IM-5b's build made** wait on his word (the plan's "IM-5b — built"). The one with
+   a consequence in play, a pile resting on a machine and burying a pump's intake, is taken (*"yes totally
+   approve"*), with an aside recorded in M10-NOTES: an early item to breathe water.
+2. **Before IM-6** (TODO's "Do first"): the hotbar's unit (his), the ten build warnings, and ideally collapse
+   f-1.
+3. **IM-6's code-level pass**, the big wire slice and the first playable. It carries: the vault's panel (his
+   warranty line, a lock on the channel box, power auto-scaled), water in the hotbar, the pile's cyan glitch
+   (decision 16), and the windowed read of a real dump (install over ~50 ms mean or 250 ms worst means a render
+   lever, not the ceiling).
+
+Unblocked alternative if he would rather: collapse f-1 (Core and tests, thirteen decisions taken).
+
 **Moved from CLAUDE.md on 2026-10-11** (the 2026-10-10 close, superseded by IM-5b's build):
 
 **2026-10-10, session close — IM-5a is built and on main; the next session builds IM-5b, the pile, its bench

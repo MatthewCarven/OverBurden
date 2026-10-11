@@ -207,7 +207,7 @@ public class ShippedContentTests
         Assert.True(outlet.Hardness <= tallest, "no shipped tier can take a relay outlet body, so none can be dismantled");
 
         MaterialTable table = MaterialTable.From(content.Materials);
-        Assert.Equal(6, table.MachineIds.Count); // IM-2 added the quantum backpack
+        Assert.Equal(7, table.MachineIds.Count); // IM-2 added the quantum backpack, 2026-10-12 the lithium-ion pack
 
         // M10b: only a ring has weights, so the pump declares none and the outlet does; a port
         // the panel would list that nothing reads is the thing decision 11 refuses a via for.
@@ -232,15 +232,16 @@ public class ShippedContentTests
         int id = content.Materials.GetNumericId(Identifier.Parse("overburden:computer"));
         Assert.False(table.IsPlaceable(id));
 
-        // Every shipped block is placeable; the computer, the two packs and water are the things
-        // that are not (M10c-2 added the lead-acid pack, IM-2 the quantum backpack, IM-4a water).
+        // Every shipped block is placeable; the computer, the three packs and water are the things
+        // that are not (M10c-2 added the lead-acid pack, IM-2 the quantum backpack, IM-4a water,
+        // 2026-10-12 the lithium-ion pack).
         int notPlaceable = 0;
         for (int i = 0; i < table.Count; i++)
         {
             if (!table.IsPlaceable(i)) notPlaceable++;
         }
 
-        Assert.Equal(4, notPlaceable);
+        Assert.Equal(5, notPlaceable);
     }
 
     [Fact]
@@ -368,6 +369,57 @@ public class ShippedContentTests
         float tallest = content.Tools.Entries().Max(e => e.Value.HardnessThreshold);
         Assert.True(panel.Hardness <= tallest);
         Assert.True(cell.Hardness <= tallest);
+    }
+
+    [Fact]
+    public void TheLithiumIonPackHoldsFourLeadAcidsAndFillsInHalfTheTime()
+    {
+        // 2026-10-12, his ask ("Lead acid is so 20th century") and his two numbers: 4 kWh in a pack
+        // the lead-acid's size, the real density ratio at its cautious end, and 2 kW, full in two
+        // hours where lead-acid takes four, li-ion's real advantage. Otherwise a pack like lead-acid:
+        // carried, holding its own charge, on the channel class until M10i, never a block.
+        var content = new GameContent();
+        LoadResult result = content.Load(new DirectoryContentSource(ModsDirectory()));
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+
+        MaterialDefinition lithium = content.Materials.Get(Identifier.Parse("overburden:lithium_ion_pack"));
+        MachineDefinition lead = content.Materials.Get(Identifier.Parse("overburden:lead_acid_pack")).Machine!;
+        MachineDefinition pack = lithium.Machine!;
+
+        Assert.Equal(MachineKind.Storage, pack.Kind);
+        Assert.True(pack.Carried);
+        Assert.False(pack.IsWindow);
+        Assert.False(lithium.IsPlaceable);
+        Assert.False(lithium.IsProgrammer);
+        Assert.Equal(MaterialUnit.Count, lithium.Unit);
+        Assert.Equal(14, lithium.TextureLayer);
+        Assert.True(pack.Link("charge")!.IsChannel);
+        Assert.Equal(new PortDefinition("channel", 0, 0, 15), pack.Port("channel"));
+        Assert.Equal(14_400_000L * 1000L, pack.CapacityMillijoules);
+        Assert.Equal(2_000L, pack.RechargeWatts);
+
+        // Four lead-acids in the tank, and half their time to fill: two hours against four.
+        static long SecondsToFill(MachineDefinition p) => p.CapacityMillijoules / 1000L / p.RechargeWatts!.Value;
+        Assert.Equal(4 * lead.CapacityMillijoules, pack.CapacityMillijoules);
+        Assert.Equal(2 * 3600L, SecondsToFill(pack));
+        Assert.Equal(2 * SecondsToFill(pack), SecondsToFill(lead));
+
+        // What the play feels, at the shipped 50 J a voxel: 4,500 cube bites (7.5 min of Q held at
+        // ten a second), 562 tunneller bites and 8 excavator chunks a charge; and once it is empty,
+        // a charged channel keeps up a cube bite every 1.6 s, against lead-acid's 12.8.
+        ToolDefinition miner = content.Tools.Get(Identifier.Parse(QuantumMinerId));
+        ToolDefinition tunneller = content.Tools.Get(Identifier.Parse("overburden:quantum_tunneller"));
+        ToolDefinition excavator = content.Tools.Get(Identifier.Parse(QuantumExcavatorId));
+        const long Cube = Overburden.Core.Mining.Carve.CubeVoxels;
+        const long Tunnel = Overburden.Core.Mining.Carve.TunnelVoxels;
+        long cubeMillijoules = miner.Power!.MillijoulesPerVoxel * Cube * Cube * Cube;
+        long tunnelMillijoules = tunneller.Power!.MillijoulesPerVoxel * Tunnel * Tunnel * Tunnel;
+        long chunkMillijoules = excavator.Power!.MillijoulesPerVoxel * VoxelConstants.ChunkVolume;
+        Assert.Equal(4_500L, pack.CapacityMillijoules / cubeMillijoules);
+        Assert.Equal(562L, pack.CapacityMillijoules / tunnelMillijoules);
+        Assert.Equal(8L, pack.CapacityMillijoules / chunkMillijoules);
+        Assert.Equal(1_600L, cubeMillijoules / pack.RechargeWatts!.Value);   // millijoules ÷ watts = milliseconds
+        Assert.Equal(12_800L, cubeMillijoules / lead.RechargeWatts!.Value);
     }
 
     [Fact]

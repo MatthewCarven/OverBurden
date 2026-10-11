@@ -370,7 +370,9 @@ loader rule. Header v3's inventory is untouched; the millilitre bump stays on th
 "v5" here until 2026-09-18; the hotbar assignment takes v5 and the version number is a counter,
 so the millilitre move takes whichever is next).
 `unit` on a material is `litres` (default), `count` (one voxel is one part; the hotbar prints
-`× 3`) or `cells` (64 voxels is one; a machine body prints `× 1`). Energy's unit is the
+`× 3`) or `cells` (64 voxels is one; a machine body prints `× 1`). **Since 2026-10-12 a `litres`
+material prints in litres under a cubic metre and in cubic metres from one up** (`VolumeText`, his
+answer to the outgrown unit), floored; the JSON keyword is unchanged. Energy's unit is the
 millijoule for the reason water's is the millilitre: `watts × 500` mJ a boundary is exact, and
 `joulesPerLitre` equals mJ per mL.
 
@@ -737,8 +739,8 @@ each under more head, and every litre lifted costs its height.
 | Run bounds: shaft / dc / ac; pipes | 16 / 24 / null cells; none (head is the bound) | dc derived from voltage drop (its inputs are choices); shaft an estimate; pipes Matthew's |
 | Circuit caps: shaft / dc / ac | 20 / 10 / 200 kW | estimates |
 | Solar | 500 W a cell × openness/16 × (256 − byte)/256 | estimate (real ~200 W/m² peak, ×2.5 for no night) |
-| Storage: placed / carried, by tier | 100 MJ, 300 MJ, 5 GJ / 3.6, 10, 500 MJ | estimates (lead-acid real ~250 MJ/m³); Matthew's |
-| Miner | 50 J a voxel → 1.9 min / 5.2 min / 4.3 h a pack; the lead-acid pack's recharge 250 W → a cube every 12.8 s sustained, 4 h to refill (100 J and 1 kW → 56 s / 2.6 min / 2.2 h and a cube every 6.4 s until the first play, 2026-09-18) | played once; Matthew's |
+| Storage: placed / carried, by tier | 100 MJ, 300 MJ, 5 GJ / 3.6, 10, 500 MJ; **shipped early (2026-10-12), the lithium-ion pack: 14.4 MJ carried, 2 kW**, above nickel-iron's 10 as 1991 is above 1901 | estimates (lead-acid real ~250 MJ/m³); Matthew's; li-ion 4 × lead-acid is the real density ratio at its cautious end (~70 against ~280 Wh/L), his pick |
+| Miner | 50 J a voxel → 1.9 min / 5.2 min / 4.3 h a pack; the lead-acid pack's recharge 250 W → a cube every 12.8 s sustained, 4 h to refill (100 J and 1 kW → 56 s / 2.6 min / 2.2 h and a cube every 6.4 s until the first play, 2026-09-18); **the lithium-ion pack: 4,500 cubes, 7.5 min a pack, 8 excavator chunks; 2 kW → a cube every 1.6 s sustained, 2 h to refill** | lead-acid played once; li-ion unplayed; Matthew's |
 | Wire mill | 1 voxel copper → 64 wire | the conduit fiction |
 | Bounds | intake 1..2 cells; L/s ≤ 54,000; ≤ 16 ports; stock ≤ 65,536 | derived / choices |
 | Duration targets, tiers 0–3 | 30–60 min / 2–4 h / 4–8 h / 8–15 h | estimates for feel, unplayed |

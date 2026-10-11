@@ -19,24 +19,24 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 (M10e–j). Each line names the slice it must come before.
 
 **Do first, before the slice named:**
-1. **The hotbar's unit (his, in MATTHEW-TODO) — before IM-6.** IM-6 puts water in the hotbar's last slot
-   (decision 23), so *"1,767,903,281 L doesn't fit"* arrives with IM-6, not M10g.
-2. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
-3. **Collapse f-1 — before IM-9, ideally before IM-6.** IM-9's power sensor needs the `sense` extra f-1
+1. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
+2. **Collapse f-1 — before IM-9, ideally before IM-6.** IM-9's power sensor needs the `sense` extra f-1
    switches on, and f-1 carries the rule that a signalled-off cell never unpays a vault's bill (COLLAPSE-PLAN,
    the ideal-machines amendments), which IM-6's playable vault relies on.
-4. **The engine-wide pin — before IM-7.** A chunk any door wrote stays loaded until the next autosave (IM-5's
+3. **The engine-wide pin — before IM-7.** A chunk any door wrote stays loaded until the next autosave (IM-5's
    decision 8, its lever). IM-5 accepted the crash duplicate for the dump, as for placement; the quarry writes
    every boundary across many chunks and would multiply it. Its own pass (Levers).
-5. **The quantum rate that reads low on a profile — before IM-7's bench** quotes a rate.
-6. **The quarry's pass reads the `--pile` bench — before IM-7.** The quarry writes every boundary across many
+4. **The quantum rate that reads low on a profile — before IM-7's bench** quotes a rate.
+5. **The quarry's pass reads the `--pile` bench — before IM-7.** The quarry writes every boundary across many
    chunks; the bench says a write's cost is the chunk columns it touches (light in the frames after: 3–5, 11–12
    and 35–39 ms a boundary at one, four and sixteen columns), not the field's clone. Its lever is the chunk
    count, as the pile's is (8 a boundary).
 
 Done and recorded, cleared 2026-10-11: the flaky scheduler test, the clay leak (closed, not reproduced),
 IM-0's windowed surface install (the 10 ML ceiling stands), the pond branch (merged), and the field's clone
-(measured by `--pile`: the pile needs no bulk write). WORKLOG and the plans have each.
+(measured by `--pile`: the pile needs no bulk write). WORKLOG and the plans have each. Cleared 2026-10-12: the
+hotbar's unit (his answer: litres under a cubic metre, cubic metres from one up; built as `VolumeText`, which
+IM-6's water slot uses).
 
 **Collisions, two planned works on one code path or one question:**
 1. **Water bodies part a and LAKE-EDIT's "hand back sooner at ~95%"** both change when Tier B hands back to
@@ -129,8 +129,9 @@ IM-0's windowed surface install (the 10 ML ceiling stands), the pond branch (mer
         about 30 floods a run now open at an unloaded chunk (re-flooded when it arrives) where they opened at the
         old bound. A bound on how far a flood walks from its start before deciding would take that back.
 
-      His question, open: what the walled area beneath TajMahal2 was. (The lake over a quarry, his look
-      2026-09-30: *"draws nearly perfectly"*, a small gap sometimes, filled by Tier B soon after.)
+      (The lake over a quarry, his look 2026-09-30: *"draws nearly perfectly"*, a small gap sometimes, filled by
+      Tier B soon after. His question about the walled area beneath TajMahal2 closed 2026-10-12: no failure, two
+      areas he levelled to watch the rain.)
 - [ ] **F11: six rungs**, his ask (2026-09-30): 6h/2v, 8h/4v, 10h/6v, 12h/8v, 14h/10v, 16h/12v, and
       *"Its ok if the lazy loader never reaches the maximum like we will use that as an artificial
       limit"*. The rungs are one array, `FarRungs` (`Main.cs:320`, today `(8, 4), (10, 6)`). 16h/12v is
@@ -187,8 +188,8 @@ IM-0's windowed surface install (the 10 ML ceiling stands), the pond branch (mer
       at the next version after IM-6's v8 (the header is v7 today; an older world opens with its first
       nine holdings in ID order), assign
       by number key and by drag, the grid's filter (all / blocks / parts / machines), the craft
-      pane within reach of a station, litres → m³ from 1,000 L (the hotbar's unit, his to
-      confirm), a total and no cap; `--assign=<slot>=<id>` and `--openinventory` the seams; the
+      pane within reach of a station, every volume through `VolumeText` (litres under a cubic
+      metre, m³ from one up; his answer, built 2026-10-12), a total and no cap; `--assign=<slot>=<id>` and `--openinventory` the seams; the
       relay's own recipe retires M10a's seeding. Its pass reads the history's "An inventory
       screen, and slots that stay put" first and puts the inventory half in its first session.
 - [ ] **M10h — worldgen for the ladder**: [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md)'s pass

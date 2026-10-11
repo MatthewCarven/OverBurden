@@ -37,7 +37,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/M9-PLAN.md](docs/M9-PLAN.md) | M9, the mine kills you: the support field, the tint, the fall, the keystone. **M9a–M9d built and played.** Read its "two facts" first: there is no bedrock, and a literal distance rule opens a shaft to the surface over a 2 × 2 bite. |
 | [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md), [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md) | **The slow-then-fast collapse, "Tetris gone bad"** (2026-09-26). **Parts a–c and e built and played; pieces are the default (2026-09-27)**, drawn falling with the cyan glitch, the phonk and a 10–20 s fuse. Open: d (the chimney), f (the sensor), decision 11. Read the notes' "What exists", then the plan's "c-2 — built", "Part c — played" and "Part e — built". |
 | [docs/M10-NOTES.md](docs/M10-NOTES.md), [docs/M10-PLAN.md](docs/M10-PLAN.md) | The quantum machine family and M10's first plan. Read before planning any machine. |
-| [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder** — hand → steam → DC → AC → quantum and the crafting under it; twenty-three decisions, parts M10a–M10j. **M10a–M10c built; M10d is the play (his) and d-1/d-3 built; M10e (the conductor index) is next after the play.** Its one idea: connection is membership, movement a ledger transfer at the boundary. |
+| [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder** — hand → steam → DC → AC → quantum and the crafting under it; twenty-three decisions, parts M10a–M10j. **M10a–M10c built; M10d is the play (his) and d-1/d-3 built; M10e (the conductor index) is next after the play.** The lithium-ion pack (14.4 MJ, 2 kW) shipped early, 2026-10-12, through `P`. Its one idea: connection is membership, movement a ledger transfer at the boundary. |
 | [docs/UNDO-PLAN.md](docs/UNDO-PLAN.md) | Ctrl+Z, three steps. **Built and played 2026-09-22.** A fall clears the stack; the journal hangs off `SetVoxel` and `MachineSet`; an undo must not journal its own writes. |
 | [docs/MAP-NOTES.md](docs/MAP-NOTES.md) | F12, the map. **Built 2026-09-23 (slices a–d), played: 2 km stays.** A picture must not depend on the viewer; the ramp is fitted to the view; the map aliases past ~16 m a pixel. |
 | [docs/GLASS-PLAN.md](docs/GLASS-PLAN.md) | Glass. **Built 2026-09-25 on main; the look played 2026-09-26** (black, 0.20 — *"Glass looks GOOD!"*). The sky column asks `IsSolid`, so glass is a roof to rain and a true skylight. Open: a floor under glass gleams in a storm; water behind glass sort order. |
@@ -192,40 +192,39 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-10-11, session close — IM-5b is built and on main; the ideal machines' next slice is IM-6, the first
-playable.** This session:
-- ran IM-0's windowed surface install, on his screen: the worst case (10 ML at once on open ground) installs at
-  148 ms mean / 249 max on the main thread, against 23 / 137 in his own play that night. A real dump pours within
-  its budget, so **the 10 ML ceiling stands** (his word), and a real dump is read windowed at IM-6;
-- took IM-5a's six build choices as built (his word);
-- built **IM-5b, the pile**, in a worktree: the re-read (decision 11 needed a shape: **his word, the cone, one
-  up for one out**), the bench (`--pile`, the first arm with a real `ChunkPipeline`: 512 voxels a boundary
-  stands, chunks touched are the cost, so at most 8 a boundary), and the pile itself.
+**2026-10-12 — the lithium-ion pack, `P`'s hundred and the hotbar in cubic metres are built and on main;
+the ideal machines' next slice is still IM-6, the first playable.** This session, on his asks:
+- **the lithium-ion pack** (*"Lead acid is so 20th century"*), `overburden:lithium_ion_pack`: 14.4 MJ (four
+  lead-acids) and 2 kW (full in two hours where lead-acid takes four), a carried pack on the channel class
+  like lead-acid, a crimson swatch. His four numbers were taken as recommended;
+- **`P` adds a hundred of each item every press** (`DebugSeed`, in Core with its tests): bodies, pieces, and
+  100 m³ of clay and of glass, the lithium-ion pack among them;
+- **the hotbar's unit, his answer**: a volume reads in litres under a cubic metre and in cubic metres from one
+  up, floored (`VolumeText`, which IM-6's water slot uses);
+- his list's notes: **all seven of IM-5b's build choices taken as built**, and the walled area beneath
+  TajMahal2 closed (no failure).
 
-The record is [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-5b — the re-read", "The bench,
-run" and "IM-5b — built". Suite **2,278**, forty-two mutations red, r6 to the digit on main. **Main is ahead of
-its remote** by this session's commits; he pushes. Nothing he plays changes until IM-6 ships a vault.
+The record is the WORKLOG's 2026-10-12 entry; COMMANDS.md has the three probes. Suite **2,302**, twenty-five
+mutations red, r6 to the digit. **Main is ahead of its remote** by this and the last session's commits; he
+pushes. **What he can play now:** `P`, a lithium-ion pack in hand, right-click to wear it, Q (MATTHEW-TODO).
 
 **Next session, in order:**
-1. **Six of the seven choices IM-5b's build made** wait on his word (the plan's "IM-5b — built"). The one with
-   a consequence in play, a pile resting on a machine and burying a pump's intake, is taken (*"yes totally
-   approve"*), with an aside recorded in M10-NOTES: an early item to breathe water.
-2. **Before IM-6** (TODO's "Do first"): the hotbar's unit (his), the ten build warnings, and ideally collapse
-   f-1.
-3. **IM-6's code-level pass**, the big wire slice and the first playable. It carries: the vault's panel (his
-   warranty line, a lock on the channel box, power auto-scaled), water in the hotbar, the pile's cyan glitch
-   (decision 16), and the windowed read of a real dump (install over ~50 ms mean or 250 ms worst means a render
-   lever, not the ceiling).
+1. **Before IM-6** (TODO's "Do first"): the ten build warnings, and ideally collapse f-1.
+2. **IM-6's code-level pass**, the big wire slice and the first playable. It carries: the vault's panel (his
+   warranty line, a lock on the channel box, power auto-scaled), water in the hotbar through `VolumeText`, the
+   pile's cyan glitch (decision 16), and the windowed read of a real dump (install over ~50 ms mean or 250 ms
+   worst means a render lever, not the ceiling).
 
 Unblocked alternative if he would rather: collapse f-1 (Core and tests, thirteen decisions taken).
 
 The ideal machines plan: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to IM-3b,
 IM-4a (thirty-six mutations red), IM-4b, IM-4c (reduced at his word), **IM-5a, the dump's water** (2026-10-10,
-twenty-eight red) and **IM-5b, the pile** (2026-10-11, forty-two red). **Taken and not built:** IM-6 onward.
-Suite **2,278**.
+twenty-eight red) and **IM-5b, the pile** (2026-10-11, forty-two red; its seven build choices taken
+2026-10-12). **Taken and not built:** IM-6 onward. Suite **2,302**.
 
 **The lake plan is taken (2026-10-01): [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), all seven decisions
-as recommended; one question is still his (what the walled area beneath TajMahal2 was).** His means,
+as recommended; his last question closed 2026-10-12** (the walled area beneath TajMahal2 was two areas he
+levelled to watch the rain, no failure). His means,
 converting Tier A to Tier B where voxels are placed, can't keep the sides apart. The pond branch's raise
 already divides a lake at a wall, and **L-1 and L-2 (built) make each side keep the water that stood over it,
 with `--dam=` to show it headless**. A wall's own strip of water goes to the side its cells drain to, often most
@@ -242,12 +241,11 @@ machine with a shared budget, only where you are; water is an inventory item thr
 header byte and a kit. Each slice has a "code-level pass" and a "built" section in the plan; the previous
 hand-over, slice by slice, is in [docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md).
 
-**From TODO's "Order and collisions"**, at the top of TODO: before IM-6, the hotbar's unit (his) and the build
-warnings; before IM-7, the engine-wide pin (TODO's Levers), and the quarry's pass reads the `--pile` bench (its
-cost is chunks touched, not the field's clone).
+**From TODO's "Order and collisions"**, at the top of TODO: before IM-6, the build warnings; before IM-7, the
+engine-wide pin (TODO's Levers), and the quarry's pass reads the `--pile` bench (its cost is chunks touched, not
+the field's clone).
 
 **His open threads:**
-- the walled area beneath TajMahal2, his question in [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md);
 - F11's six rungs (in TODO, the caps checked first).
 
 **How the slices have gone:** every one has had a code-level pass first. Each pass used three read-only

@@ -1,0 +1,22 @@
+{
+  "id": "lithium_ion_pack",
+  "hardness": 1.0,
+  "supportDistance": 2,
+  "permeability": 0.0,
+  "density": 2500,
+  "textureLayer": 14,
+  "unit": "count",
+  "placeable": false,
+  "machine": {
+    "kind": "storage",
+    "carried": true,
+    "capacityJoules": 14400000,
+    "rechargeWatts": 2000,
+    "links": {
+      "charge": { "carries": "power", "role": "sink", "via": "channel", "port": "channel" }
+    },
+    "ports": {
+      "channel": { "default": 0, "min": 0, "max": 15 }
+    }
+  }
+}

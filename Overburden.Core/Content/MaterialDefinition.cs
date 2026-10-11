@@ -136,9 +136,11 @@ public sealed class MaterialDefinition
     public bool IsProgrammer { get; init; }
 
     /// <summary>
-    /// How the hotbar counts this material: litres (the default), one voxel a part
-    /// (<c>count</c>), or 64 voxels a body (<c>cells</c>). Presentation only — the inventory
-    /// counts voxels whatever the unit (the ladder's decision 6).
+    /// How the hotbar counts this material: by volume (the default, <c>litres</c> in the JSON;
+    /// shown in litres under a cubic metre and in cubic metres from one up since 2026-10-12, see
+    /// <see cref="Inventory.VolumeText"/>), one voxel a part (<c>count</c>), or 64 voxels a body
+    /// (<c>cells</c>). Presentation only — the inventory counts voxels whatever the unit (the
+    /// ladder's decision 6).
     /// </summary>
     public MaterialUnit Unit { get; init; } = MaterialUnit.Litres;
 

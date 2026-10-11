@@ -90,6 +90,11 @@ public static class VoxelMaterial
         // entanglement's cyan (decision 29, "cyan is entanglement at work") on a dark body, so the
         // window reads apart from the lead-acid pack's battery grey. Unscreenshotted.
         new Color(0.16f, 0.52f, 0.56f),
+
+        // The lithium-ion pack (2026-10-12, his ask: "Lead acid is so 20th century"): a hotbar swatch
+        // only, in lithium's crimson (its flame test), so it reads apart from the lead-acid pack's grey
+        // and the backpack's cyan. Unscreenshotted; a look call for his next play.
+        new Color(0.62f, 0.10f, 0.18f),
     ];
 
     /// <summary>The colour for a layer, or a flat grey for one this build has no texture for.</summary>
@@ -122,7 +127,7 @@ public static class VoxelMaterial
         // The relay pair (M10a-2) is smoother than rock — a cast body, not a face of it — and
         // the table is asserted against the colours so a sixth colour cannot ship without a sixth
         // jitter: the r6 control threw an IndexOutOfRange from here on the night the pair was added.
-        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f, 0.03f, 0.03f, 0.02f, 0.02f, 0.02f, 0.03f, 0.06f, 0.01f, 0.02f];
+        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f, 0.03f, 0.03f, 0.02f, 0.02f, 0.02f, 0.03f, 0.06f, 0.01f, 0.02f, 0.02f];
         if (jitter.Length != LayerColour.Length)
         {
             GD.PushError($"Overburden: {LayerColour.Length} layer colours but {jitter.Length} jitters; the two tables have drifted");

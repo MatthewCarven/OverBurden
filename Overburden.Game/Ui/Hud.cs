@@ -434,8 +434,10 @@ public sealed partial class Hud : CanvasLayer
     }
 
     /// <summary>
-    /// A holding in the material's own unit: litres, parts, or bodies — with the fraction shown
-    /// when a body's 64 voxels are not all there (half a pump after a fall places nothing).
+    /// A holding in the material's own unit: a volume, parts, or bodies — with the fraction shown
+    /// when a body's 64 voxels are not all there (half a pump after a fall places nothing). A volume
+    /// reads in litres under a cubic metre and in cubic metres from one up (<see cref="VolumeText"/>,
+    /// his answer of 2026-10-12).
     /// </summary>
     private static string Holding(VolumetricInventory inventory, MaterialTable materials, int materialId)
     {
@@ -449,7 +451,7 @@ public sealed partial class Hud : CanvasLayer
                 long whole = voxels / Cell, part = voxels % Cell;
                 return part == 0 ? $"× {whole:N0}" : $"× {whole:N0} ({part}/{Cell})";
             default:
-                return $"{inventory.Litres(materialId):N0} L";
+                return VolumeText.OfVoxels(voxels);
         }
     }
 

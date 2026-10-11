@@ -4,7 +4,7 @@
 built** (2026-10-01, on the pond branch; "L-1 — built" and "L-2 — built" below), **and E-1** (2026-10-01, on
 main, merged into the branch; "E-1 — built" below). **His play passed (2026-10-09)**: R into one side of a
 split lake raised only that side, and on his word the pond branch is merged into main. His question about the
-walled area beneath TajMahal2 is still open.
+walled area beneath TajMahal2 is closed (2026-10-12): no failure, two areas he levelled to watch the rain.
 
 His ask, verbatim in [LAKE-EDIT-NOTES.md](LAKE-EDIT-NOTES.md):
 
@@ -414,6 +414,8 @@ shows in a play, is a bound on how far a flood walks from its start before it de
   its own? Facts 5 and 6 are both candidates. If the walls stand above the ground, the raise answers both. If
   the area was dug below grade with walls only inside the pit, the walls are Tier B's, which already keeps
   them, and a hole there draws the lake above until the raise sees a rim.
+  **Answered 2026-10-12, closed:** *"Ahh that was two seperate areas that i just leveled no failure was just
+  looking at rainfall"*. Nothing went wrong, so there is no case for the plan to cover.
 
 ## Not in this plan
 

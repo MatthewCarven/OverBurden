@@ -1,5 +1,44 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-12 — The lithium-ion pack, `P`'s hundred, the hotbar in cubic metres
+
+His ask: *"i want to change p so that instead of giving 1 of every item including glass i want 100 of each item
+… can we do the lithium ion battery pack this session :-{D Lead acid is so 20th century"*. Also answered in his
+list's notes the same morning: all seven of IM-5b's build choices (as built; IDEAL-MACHINES-PLAN, "IM-5b —
+built", has his words), the hotbar's unit, and the walled area beneath TajMahal2 (no failure, two areas he
+levelled to watch the rain: LAKE-EDIT-PLAN's last question closed).
+
+- **Four questions, all taken as recommended**, each carrying its arithmetic: the pack at **14.4 MJ** (four
+  lead-acids, the real density ratio at its cautious end: 4,500 cube bites, 7.5 min of Q held, 562 tunneller
+  bites, 8 excavator chunks), recharging at **2 kW** (full in two hours where lead-acid takes four; empty, a
+  charged channel keeps up a cube bite every 1.6 s against lead-acid's 12.8); his "switch to cm3" read back as
+  **m³, with litres under one** (cm³ would have made the numbers a thousand times longer); and **`P` adds a
+  hundred every press**, not topping up to one.
+- **Built in a worktree (`li-ion`)**, since the game was running when the session began:
+  - `lithium_ion_pack.json`, layer 14, a crimson swatch (lithium's flame test; unscreenshotted). Nothing else
+    was needed: the equip, the swap, the stow, the recharge and the header all key on `storage` + `carried`.
+  - `DebugSeed` in Core: `P`'s list (now nine, the lithium-ion pack added) and its press, a hundred in the
+    hotbar's unit: a piece for `count`, a body of 64 voxels for `cells`, a cubic metre (also 64) for a volume.
+    All or nothing, as before. Moved out of `Main` so the list and the hundred have tests.
+  - `VolumeText` in Core: litres under a cubic metre, cubic metres from one up, floored, two decimals under
+    1,000 m³ and whole past it, in integer millilitres (a double floors 1.13 m³ to 1.12) and in the HUD's
+    culture. The hotbar's volume branch calls it; IM-6's water slot will too.
+- **Probes, headless, no `ERROR` lines.** The r6 control to the digit (2601 / 325 / 3446 at 411). Worn at open:
+  `14.4 MJ of 14.4 MJ … 288,000 voxel(s) at 50 J each`. Swapped in for a lead-acid pack, which went back to
+  the inventory holding its 1,000 J. Recharged off `--pump`'s charged cell: **54.0 kJ in 54 boundaries against
+  lead-acid's 6,750 J, exactly eight to one**, the pool identity exact in both. COMMANDS.md has all three.
+- **Twenty-four tests, suite 2,302.** Hard counts moved by one each: machine materials 7, non-placeable 5,
+  IDs appended to the v3 fixture 12.
+- **The mutation battery: 25 of 25 red**, the recipes written before any ran: eleven on `VolumeText` (each
+  threshold inclusive, rounding in place of the floor at each scale, tenths, a double floor, `N2`, the
+  invariant culture, the negative guard, a wrong voxel), nine on `DebugSeed` (64 a press, a volume or a piece
+  counted wrong, a missing item skipped, a press that adds nothing or only tops up, the lithium-ion pack or
+  glass dropped from the list, a missing item reported as seeded) and five on the pack's JSON (lead-acid's
+  capacity, its recharge, its layer, `cells`, not carried). One run of about five minutes, each file restored
+  from its bytes and checked identical to a copy taken before.
+- `Hud.Holding`'s one line and `Main`'s call to `DebugSeed.Press` have no Core test; the game build and the
+  probes cover them. A material's JSON keyword stays `litres`.
+
 ## 2026-10-11 — IM-5b built: the dump's blocks, a cone
 
 His *"yes as built please Claude, go on IM-5b"*. In the worktree `im5b`, in three steps: the re-read, the
