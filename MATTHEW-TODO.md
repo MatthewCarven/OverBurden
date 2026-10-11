@@ -22,30 +22,20 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **Seven small choices I made building IM-5b** (the pile); **6 is approved**, six left. The plan didn't
-      settle them. Say "as built" or name one to change (the plan's "IM-5b — built" has them):
-      1. at most 512 blocks a boundary across every dump, written into at most 8 chunks (the speed test's numbers);
-      2. a big heap grows in narrow wedges round its vault, so each boundary touches only a few chunks;
-      3. a heap only goes where a block could roll: never through rock; it climbs a wall only once it's piled as
-         high, and spills over a sill;
-      4. a shaft deeper than 8 m beside a vault is left open, and the heap stands round its mouth;
-      5. the materials are piled mixed, each block the one there's most of;
-      6. ~~a pile can rest on a machine, so it can bury an outlet's mouth or a pump's intake~~ **approved**
-         (*"yes totally approve"*);
-      7. past 10,000 m³, the excess is lost from the highest-numbered material first.
-
-- [ ] **The hotbar's unit** is due before IM-6, which shows water in the hotbar, so the "L doesn't fit"
-      question arrives with IM-6, not the inventory screen.
+- [ ] **The lithium-ion pack** (built 2026-10-12). Press `P` (it now gives 100 of everything), pick the
+      **lithium ion pack** (the crimson slot) on the number row and right-click to wear it. It arrives empty,
+      as packs from `P` always have, so place a vacuum cell (`P` gives those too) and press `Alt+P`, which
+      fills the cell and the pack: the pack reads 14.4 MJ, four times the lead-acid's 3.6. Then `T` to the
+      quantum miner and hold Q: flat out it lasts about 7.5 minutes of cube bites, against lead-acid's 1.9.
+      Once it's drained, the full cell refills it in two hours instead of four, a bite every 1.6 s instead of
+      12.8. *Does it feel like a step up, and does the crimson read?* While you're there: clay and glass now
+      read `100 m³` on the hotbar, and anything under a cubic metre still reads in litres.
 
 - [ ] **Ctrl+Z on a fill that's still waiting** (IM-4c, built 2026-09-30): place a single block right into
       water (or fill a chunk at range) and press Ctrl+Z at once. *Nothing should land.* Before, it came
       back half a second later. The log says `undo — 1 placement(s) waiting for the boundary cancelled`.
       A shape half in water puts its dry half down at the click: the first press cancels the wet half,
-      and a second takes back the dry half.
-
-- [ ] **One question on walls that split a lake:** the walled area beneath TajMahal2. Was it built above the
-      ground or dug below it, about how wide, and what went wrong: the lake showing inside, the lake getting
-      in, or not being able to flood it on its own? It decides whether the plan covers that case as it is.
+      and a second takes back the dry half. (You said you'll test it.)
 
 - [ ] **M10d-2, the play** — the recipes below. Nothing else is blocked on me.
 
@@ -110,8 +100,6 @@ Nothing is blocked on these; each is a small change once you have a view.
       the fix is costlier to run, but it is the right one if it shows.
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions still open. The biggest: a
       blast destroys the machines it reaches (5). "As recommended" or any one back.
-- [ ] **The hotbar's unit.** `1,767,903,281 L` doesn't fit a slot. My lean: litres under a cubic
-      metre, m³ above. **Due before IM-6 now**, which puts water in the hotbar's last slot.
 - [ ] **Dust when a roof comes down** (M9c-2). Optional; only if falls read as too quiet.
 
 ---
@@ -147,6 +135,22 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **The lithium-ion pack and `P`** (2026-10-12): *"can we do the lithium ion battery pack this session … Lead
+  acid is so 20th century"*, and *"100 of each item"*. Your four picks were all the recommended ones: 14.4 MJ
+  (four lead-acids), 2 kW (full in two hours), and `P` adding a hundred every press rather than topping up.
+  Built and on main, the check is at the top.
+
+- **The hotbar's unit** (2026-10-12): *"Yeah switch to cm3"*, read back as cubic metres and confirmed: litres
+  under a cubic metre, m³ from one up. Your 1,767,903,281 L now reads `1,767,903 m³`. Built; IM-6's water slot
+  uses the same rule.
+
+- **IM-5b's seven choices** (2026-10-12): all stay as built, with your notes beside them in the plan. 3: *"its a
+  quantum power failure event so i am happy with this or wierd stuff happening"*; 4: *"just trying to make it a
+  pain to get close this should be enough"*. 5 had no note and I took your *"sweet"* as covering it; say if not.
+
+- **The walled area beneath TajMahal2** (2026-10-12): *"two seperate areas that i just leveled no failure was
+  just looking at rainfall"*. Closed, nothing for the lake plan to cover.
 
 - **A pile resting on a machine** (2026-10-11): *"yes totally approve"*, so a pile can bury a pump's intake and
   stall it. Your aside is recorded too: an early item to breathe water, so nobody asks why you don't drown
@@ -298,9 +302,14 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-11, session close**. **Main is ahead of GitHub by this session's commits since your last push: a
+Updated **2026-10-12**. **Main is ahead of GitHub by the last two sessions' commits since your last push: a
 `git push` whenever suits.**
 
+- **The lithium-ion pack is in, and `P` gives a hundred of everything** (2026-10-12). The pack holds 14.4 MJ
+  and charges at 2 kW. Everything else about it works like the lead-acid: you wear it, swap it, and it keeps
+  its charge in your inventory. A volume on the hotbar now reads in cubic metres from one up. All 2,302 tests
+  pass, I broke the new code 25 deliberate ways and every one was caught, and the game's quick check reads
+  exactly as recorded. **You can play this one now**: the check is at the top of this list.
 - **IM-5b is built: the dump's blocks.** When a vault's fuse burns out, or a fall wrecks it, its blocks come back
   into the world as a heap round it, your cone, after its water.
   - It never builds into water, a lake, a machine, you, or where a falling piece is about to land; it waits a
@@ -319,7 +328,8 @@ Updated **2026-10-11, session close**. **Main is ahead of GitHub by this session
 - **IM-5a is built: the dump's water** (2026-10-10). On the surface it goes into the lake that ground drains to,
   over about ten seconds; in the mine it pours out round the vault, a little each half second. An emptied vault
   works again; an emptied wreck disappears.
-- **Next: IM-6**, the first thing you can play with a vault. Before it: the hotbar's unit (yours, top of "Now").
+- **Next: IM-6**, the first thing you can play with a vault. Before it: the ten build warnings, and ideally the
+  collapse sensor's first step.
 - **The clay leak is closed, not reproduced** (your word): your glass rain pool filled and held, and glass and
   clay are the same to the water. The 09-26 clay-roof drip closes with it; that day's look had already found the
   roof sound and the drip running off the eave outside your glass.
