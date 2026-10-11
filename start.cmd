@@ -43,5 +43,5 @@ rem so a Core change committed while the game was open plays the previous binary
 rem incremental build of an unchanged tree is a few seconds; a failed one stops here rather than
 rem launching stale code.
 dotnet build Overburden.Game --nologo -v q || (echo. & echo Build failed - not launching. & pause & exit /b 1)
-"%EXE%" --path Overburden.Game -- --lightbudget=16 --adaptive=1 --fluidnear=2 --fluidjob=1 "--world=LakeTest" %*
+"%EXE%" --path Overburden.Game -- --lightbudget=16 --adaptive=1 --fluidnear=2 --fluidjob=1 "--world=LakeTest2" %*
 pause
