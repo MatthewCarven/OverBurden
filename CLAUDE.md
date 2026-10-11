@@ -50,6 +50,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
 | [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. Today a block in a lake is a pier. |
 | [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) | **Walls that split a lake, the code-level pass (2026-10-01): all seven decisions taken as recommended; L-1, L-2 and E-1 built the same day; his play passed 2026-10-09, and all of it is on main since the pond branch merged.** His Tier B conversion can't separate (the hand-back rejoins the one lake); the pond branch's raise divides a lake but gives every litre to the old pit's side (fact 10). Recommended: share by the water over each cell (L-1, L-2 on the branch), and make the enclosure's answer independent of who asks first (E-1, main). |
+| [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md) | **The public alpha** (2026-10-12, his ask: a public zip, extract and run). Twenty-one facts from three read-only searches (there is no export; content is found relative to the working directory; no menu, no quit key, no help; the phonk can't ship; personal data if the repo goes public) and **twenty-three decisions, his**, split into four sessions: the export, the first ten minutes, the hotbar's slots, going public. |
 | [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30); IM-5a built (2026-10-10, after a re-read against the merged watershed), IM-5b built (2026-10-11: the pile, a cone at his word, its bench `--pile`), IM-6 next; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
@@ -208,14 +209,17 @@ The record is the WORKLOG's 2026-10-12 entry; COMMANDS.md has the three probes. 
 mutations red, r6 to the digit. **Main is ahead of its remote** by this and the last session's commits; he
 pushes. **What he can play now:** `P`, a lithium-ion pack in hand, right-click to wear it, Q (MATTHEW-TODO).
 
-**Next session, in order:**
-1. **Before IM-6** (TODO's "Do first"): the ten build warnings, and ideally collapse f-1.
-2. **IM-6's code-level pass**, the big wire slice and the first playable. It carries: the vault's panel (his
-   warranty line, a lock on the channel box, power auto-scaled), water in the hotbar through `VolumeText`, the
-   pile's cyan glitch (decision 16), and the windowed read of a real dump (install over ~50 ms mean or 250 ms
-   worst means a render lever, not the ceiling).
+**Later the same day: he played the pack (*"i am happy with it really"*), retired the steel pick for the alpha
+(built: a fresh world starts on the hand pick, which doesn't take stone; suite 2,303), and asked for a public
+alpha.** Its pass is written: [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), twenty-three decisions waiting on him.
 
-Unblocked alternative if he would rather: collapse f-1 (Core and tests, thirteen decisions taken).
+**Next session, in order:**
+1. **His answers to ALPHA-PLAN's decisions**, then **session A, the export** (the templates are a download,
+   his say-so; the SQLite check is its first run). Then B (the first ten minutes) and C (the hotbar's slots) in
+   either order, and D (going public, its git rewrite and rename his).
+2. **IM-6 waits behind the alpha.** Its code-level pass carries: the vault's panel (his warranty line, a lock
+   on the channel box, power auto-scaled), water in the hotbar through `VolumeText`, the pile's cyan glitch
+   (decision 16), and the windowed read of a real dump. Before it: the ten build warnings, ideally collapse f-1.
 
 The ideal machines plan: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to IM-3b,
 IM-4a (thirty-six mutations red), IM-4b, IM-4c (reduced at his word), **IM-5a, the dump's water** (2026-10-10,

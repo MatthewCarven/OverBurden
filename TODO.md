@@ -18,6 +18,10 @@ His ask, the day IM-5's decisions were taken: which open items **should be done 
 playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1 alongside; then the ladder
 (M10e–j). Each line names the slice it must come before.
 
+**The public alpha comes first now** (2026-10-12, his ask): [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), twenty-three
+decisions his, then four sessions (A the export, B the first ten minutes, C the hotbar's slots, D going public).
+IM-6 waits behind it; if C takes the next header version, IM-6's moves up one.
+
 **Do first, before the slice named:**
 1. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
 2. **Collapse f-1 — before IM-9, ideally before IM-6.** IM-9's power sensor needs the `sense` extra f-1

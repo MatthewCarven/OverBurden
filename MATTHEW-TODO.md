@@ -22,6 +22,12 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
+- [ ] **The public alpha: twenty-three decisions** in [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md). "As
+      recommended" takes them all; any one can come back. The big ones: the repo goes public with its history
+      after three clean-ups you run (your email off the commits, the rename, a read of the docs for anything
+      personal); the export first (it doesn't exist yet); an Esc menu with Quit and a controls card; the risky
+      debug keys behind `--dev`; the hotbar's slots before the alpha, the full inventory screen after it.
+
 - [ ] **The pack's recharge, when you're near it anyway** (the pack itself is played, see Answered): place a
       vacuum cell (`P` gives them), `Alt+P` to fill it and the pack, drain the pack with Q, and watch it come
       back from the cell, a cube bite's worth every 1.6 s. Your play had no cell, so this part is untried.
