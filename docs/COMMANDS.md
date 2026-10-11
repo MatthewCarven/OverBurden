@@ -808,7 +808,8 @@ and grows, seconds at each radius, the backlog and load it read, and the `fill` 
 the first moment the box stood at its ceiling with light settled — **the figure comparable with a
 fixed arm's `light settled`; under a growth the other milestones read the floor's box.**
 
-**F11 is far mode (2026-09-24)** — Matthew: *"just enable processing that far dont change the way
+**F11 was far mode (2026-09-24); since 2026-10-12 far mode is F10, and F11 and Alt+Enter toggle fullscreen**
+(ALPHA-PLAN decision 17, his word). What follows names F11 as it was. Matthew: *"just enable processing that far dont change the way
 we lazily load"*. It raises the adaptive radius's ceiling to r8h/4v and nothing else: the box
 climbs toward it a ring a cadence only while it can afford one, and falls to the floor while
 moving exactly as before. Off, the box is trimmed to the configured ceiling at once (the policy

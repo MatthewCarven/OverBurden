@@ -302,11 +302,11 @@ public partial class Main : Node3D
     private ViewRadiusConfig _radiusConfig;
 
     /// <summary>
-    /// Far mode (F11, <c>--far</c>; Matthew, 2026-09-24: <i>"just enable processing that far, dont
+    /// Far mode (F10 since 2026-10-12, F11 before it; <c>--far</c>; Matthew, 2026-09-24: <i>"just enable processing that far, dont
     /// change the way we lazily load"</i>): the adaptive radius's ceiling raised a rung of
     /// <see cref="FarRungs"/>. Nothing else changes — the policy still climbs a ring a cadence only
     /// while the derive backlog is empty and the light step is under half its budget, and still
-    /// falls to the floor while moving with a backlog. 0 is the configured ceiling; F11 steps
+    /// falls to the floor while moving with a backlog. 0 is the configured ceiling; F10 steps
     /// 0 → 1 → 2 → 0 (the third rung on his word, 2026-09-28).
     /// </summary>
     private int _farRung;
@@ -979,11 +979,12 @@ public partial class Main : Node3D
     private ShaderMaterial? _pieceGlassMaterial;
 
     /// <summary>
-    /// <c>--collapsemusic=</c>: the phonk's file (COLLAPSE-PLAN part e) — a path, relative ones
-    /// against the repo's root, or <c>0</c> for silence. Default <c>media/TETRIS_PHONK.mp3</c>, his
-    /// track, gitignored.
+    /// <c>--collapsemusic=</c>: the collapse's music file (COLLAPSE-PLAN part e) — a path, relative
+    /// ones against the repo's root, or <c>0</c> for silence. Default <c>media/Almosttetris.mp3</c>
+    /// since 2026-10-12, his royalty-free replacement for the phonk (whose source was unknown, so it
+    /// could not ship in the alpha); gitignored like the phonk was.
     /// </summary>
-    private string _collapseMusicPath = "media/TETRIS_PHONK.mp3";
+    private string _collapseMusicPath = "media/Almosttetris.mp3";
 
     /// <summary><c>--collapsemusicmax=</c>, the music's speed at the pace's cap (decision 3), and <c>--collapsevolume=</c>, its dB (decision 6).</summary>
     private double _collapseMusicMax = CollapseMusicCue.DefaultMaxPitch;
@@ -2872,6 +2873,15 @@ public partial class Main : Node3D
             return;
         }
 
+        // Fullscreen on F11 and on Alt+Enter (ALPHA-PLAN decision 17, his word 2026-10-12: F11 is the
+        // key a stranger presses for it, so far mode moved to F10). Above the panel and the map, so it
+        // works whatever is open.
+        if (key.Keycode == Key.F11 || (key.Keycode == Key.Enter && key.AltPressed))
+        {
+            ToggleFullscreen();
+            return;
+        }
+
         // M10b-2: the panel has the keyboard while it is open. Esc closes it and takes the mouse
         // back — the camera, a child, saw the same Esc first and released a mouse that was already
         // released, so the order comes out captured — and every other key is left alone: a digit
@@ -2902,10 +2912,10 @@ public partial class Main : Node3D
         }
 
         // Far mode: the adaptive radius's ceiling, a rung up each press and back to the configured
-        // ceiling after the last. See SetFarRung.
-        if (key.Keycode == Key.F11)
+        // ceiling after the last. See SetFarRung. On F10 since 2026-10-12 (F11 is fullscreen).
+        if (key.Keycode == Key.F10)
         {
-            SetFarRung((_farRung + 1) % (FarRungs.Length + 1), "F11");
+            SetFarRung((_farRung + 1) % (FarRungs.Length + 1), "F10");
             return;
         }
 
@@ -2970,6 +2980,14 @@ public partial class Main : Node3D
         _announcedSpawn = _player.Mode == PlayerMode.Fly;
 
         GD.Print($"M4c: {_player.Mode.ToString().ToLowerInvariant()} mode");
+    }
+
+    /// <summary>Fullscreen and back: F11 or Alt+Enter. Headless, the display server ignores it.</summary>
+    private static void ToggleFullscreen()
+    {
+        bool full = DisplayServer.WindowGetMode() is DisplayServer.WindowMode.Fullscreen or DisplayServer.WindowMode.ExclusiveFullscreen;
+        DisplayServer.WindowSetMode(full ? DisplayServer.WindowMode.Windowed : DisplayServer.WindowMode.Fullscreen);
+        GD.Print($"M2c: {(full ? "windowed" : "fullscreen")} (F11 or Alt+Enter)");
     }
 
     /// <summary>

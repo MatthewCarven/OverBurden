@@ -9,7 +9,19 @@
 
 Three read-only searches ran in parallel against `2f435f3`: export readiness, a stranger's first ten minutes,
 and licences and provenance. The load-bearing facts were checked by hand. The searches disagreed once (on
-seeds), and the code settled it: fact 9. **Nothing here is built; every decision is his.**
+seeds), and the code settled it: fact 9.
+
+**Taken 2026-10-12, as recommended, with his changes** (*"AS recommended swap f11 (our view distance key) for
+another f key that is available please"*):
+- **Decision 17 takes its other arm: F11 is fullscreen (Alt+Enter too) and far mode moved to F10.** Built the
+  same day; F1 stays free for the controls card.
+- **Decision 3 drops the email rewrite**: *"i dont care if they get my email like they only get filtered"*. The
+  rename and the docs read stay.
+- **Decision 8's music exists**: he deleted the phonk and added `media/Almosttetris.mp3`, royalty-free by his
+  account; the code's default points at it (built). Its source and licence are owed for the notices file
+  (decision 23) before it goes in a zip.
+- **A quick start describing every key**, his ask: `QUICKSTART.md` at the root, written for a player against
+  today's build. It is the source for the controls card (15) and the zip's README (22).
 
 ## Facts
 
@@ -94,8 +106,8 @@ Each with a recommendation. "As recommended" takes them all; any one can come ba
 2. **Where: a public GitHub repo with the zip on its Releases page.** Forks need the public repo anyway, and
    Issues are the bug channel. itch.io can come later as a storefront. *Other arm:* itch.io only, with the
    repo private (no forks).
-3. **The repo goes public with its history, after three clean-ups (his to run):** the commit emails
-   rewritten to his GitHub noreply address (`git filter-repo --mail-map`, every SHA changes, one force-push);
+3. **The repo goes public with its history, after three clean-ups (his to run):** ~~the commit emails
+   rewritten to his GitHub noreply address~~ (dropped, his word: the email stays);
    the rename to `Overburden`; and a read of the docs for anything personal (I list every hit first, he
    decides each). *Other arm:* a fresh public repo with one starting commit. Clean at once, but the worklog
    and plans lose their history.
@@ -137,7 +149,8 @@ Each with a recommendation. "As recommended" takes them all; any one can come ba
     words, the debug ones under their own heading. It replaces the stale console print.
 16. **The risky debug binds behind `--dev`:** Ctrl+R (1 ML), H (freeze the water) and Alt+H (GC). R, Alt+R,
     Alt+G, L, P and Alt+P stay as the alpha's creative keys.
-17. **Fullscreen on Alt+Enter, and far mode keeps F11.** With decision 10's adaptive radius on, F11 grows the
+17. **Taken in its other arm, built: fullscreen on F11 and Alt+Enter, far mode on F10.** The recommendation
+    was: **Fullscreen on Alt+Enter, and far mode keeps F11.** With decision 10's adaptive radius on, F11 grows the
     view a ring at a time instead of jumping, so a stranger's press is safe. *Other arm:* fullscreen on F11
     and far mode on another key, which means retraining his hands.
 18. **The console-only messages that matter reach the HUD**: too hard for this tool, the pack is empty

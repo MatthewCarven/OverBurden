@@ -22,11 +22,11 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **The public alpha: twenty-three decisions** in [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md). "As
-      recommended" takes them all; any one can come back. The big ones: the repo goes public with its history
-      after three clean-ups you run (your email off the commits, the rename, a read of the docs for anything
-      personal); the export first (it doesn't exist yet); an Esc menu with Quit and a controls card; the risky
-      debug keys behind `--dev`; the hotbar's slots before the alpha, the full inventory screen after it.
+- [ ] **Where `Almosttetris.mp3` came from**: the site or artist, and the licence's name or a link. The zip
+      can only carry it once that's in the credits file, and some royalty-free licences ask for a credit line.
+
+- [ ] **The quick start**, [QUICKSTART.md](QUICKSTART.md): every key, written for a stranger. Have a read and
+      say what's wrong or missing; it becomes the in-game controls card and the zip's readme.
 
 - [ ] **The pack's recharge, when you're near it anyway** (the pack itself is played, see Answered): place a
       vacuum cell (`P` gives them), `Alt+P` to fill it and the pack, drain the pack with Q, and watch it come
@@ -116,8 +116,6 @@ Nothing is blocked on these; each is a small change once you have a view.
 - [ ] **Delete the pre-rename backup**: `%APPDATA%\Godot\app_userdata\MinerCraft\`.
 - [ ] **Rename stage 4**, no hurry: the GitHub repo `MinerCraft` → `Overburden`, the local folder,
       the remote URL.
-- [ ] **Commit authorship.** Every commit carries your gmail address. Cheap to rewrite while the
-      repo is private, permanent once it's public — `users.noreply.github.com` is the usual swap.
 
 ---
 
@@ -136,6 +134,11 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **The public alpha's twenty-three decisions** (2026-10-12): *"AS recommended"*, with your changes. Far mode
+  moved to **F10**, and **F11 (and Alt+Enter) is fullscreen**: built. Your email stays on the commits (*"they
+  only get filtered"*), so that clean-up is dropped. The phonk is gone and the game plays `Almosttetris.mp3`
+  now. Next is session A, the export; it needs the Godot export templates, a big download I'll ask about first.
 
 - **The lithium-ion pack, played** (2026-10-12): *"i am happy with it really thank you Claude"*. The log: no
   errors, the pack filled twice with Alt+P, 10.7 MJ through the quantum tools (about 3,300 cube bites), the
@@ -368,7 +371,8 @@ Updated **2026-10-12**. **Main is ahead of GitHub by the last two sessions' comm
 - **The collapse sensor:** all thirteen decisions taken, the first build step is ready.
 - **The Tetris collapse** is the default, with the cyan glitch, your phonk (left as is, your word) and a
   10–20 s fuse.
-- **F11** goes 6 → 8 → 10 chunks out; your six steps to 16 are in TODO.
+- **Far mode is on F10 now** (F11 is fullscreen, and Alt+Enter too): 6 → 8 → 10 chunks out; your six steps to
+  16 are in TODO.
 - **Water bodies are parked.** Your quarry does rest with the near/far setting off, but every cheap
   fix with it on failed on your biggest world. What you play is unchanged.
 - **Backups:** the old TajMahal is `retired-TajMahal-2026-09-29`, with `backup-TajMahal-2026-09-28`

@@ -29,6 +29,7 @@ Godot_v*/
 # and carries its license notice with it.
 reference/
 
-# His own media — the collapse's phonk track (COLLAPSE-PLAN decision 11: "the track is his and
-# stays out of the repo"). A downloaded remix is someone's recording; fine on his machine only.
+# His own media — the collapse's music (COLLAPSE-PLAN decision 11: "the track is his and stays out
+# of the repo"). Since 2026-10-12 it is Almosttetris.mp3, royalty-free by his account, replacing a
+# phonk of unknown source; the alpha zip carries it beside the exe once its licence is in the notices.
 media/

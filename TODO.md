@@ -50,7 +50,7 @@ IM-6's water slot uses).
    branch's watershed says. Decide the branch before LAKE-EDIT's pass. **The pass (2026-10-01) went the
    other way round**: it routes the lake split through the branch (LAKE-EDIT-PLAN decision 1), so its L-1
    and L-2 become the branch's deciding test. **Settled 2026-10-09: the test passed and the branch is merged.**
-3. **F11's six rungs and "machines only where you are"** (taken 9: IM-7's quarry, and IM-5's release on
+3. **Far mode's six rungs (F10) and "machines only where you are"** (taken 9: IM-7's quarry, and IM-5's release on
    arrival). 16h/12v loads 4.7 times 10h/6v's chunks, so quarries would run, and unloaded dumps release, over
    that much more ground. IM-7's pass decides whether machine work follows the view or a fixed radius, before
    the rungs go in.
@@ -69,8 +69,7 @@ IM-6's water slot uses).
    press, not two. A synergy.
 10. **The pile and a landing collapse's reserved cells.** A pile voxel in one forces a re-plot (collapse part
     c's decision 11, lifts off a reservation). 5b's refusal of reserved cells covers it.
-11. **The commit-authorship rewrite and every branch.** A `filter-repo` rewrite takes every branch; do it with
-    no branch in flight. Since 2026-10-09 main is the only one (`water-column-test` merged and deleted).
+11. ~~The commit-authorship rewrite and every branch~~: no rewrite (his word, 2026-10-12), so no collision.
 
 ## Next, on my side
 
@@ -136,7 +135,7 @@ IM-6's water slot uses).
       (The lake over a quarry, his look 2026-09-30: *"draws nearly perfectly"*, a small gap sometimes, filled by
       Tier B soon after. His question about the walled area beneath TajMahal2 closed 2026-10-12: no failure, two
       areas he levelled to watch the rain.)
-- [ ] **F11: six rungs**, his ask (2026-09-30): 6h/2v, 8h/4v, 10h/6v, 12h/8v, 14h/10v, 16h/12v, and
+- [ ] **Far mode (F10 since 2026-10-12, was F11): six rungs**, his ask (2026-09-30): 6h/2v, 8h/4v, 10h/6v, 12h/8v, 14h/10v, 16h/12v, and
       *"Its ok if the lazy loader never reaches the maximum like we will use that as an artificial
       limit"*. The rungs are one array, `FarRungs` (`Main.cs:320`, today `(8, 4), (10, 6)`). 16h/12v is
       33 × 33 × 25 = 27,225 chunks against 10h/6v's 5,733, 4.7 times as many: read
@@ -394,8 +393,8 @@ Not scheduled; *"It will get a full planning pass too"* (2026-09-29). What it st
 
 Private at `github.com/MatthewCarven/MinerCraft`, default branch `main`.
 
-- [ ] **Commit authorship** — every commit carries his gmail address; cheap to rewrite
-      (`git filter-repo --mail-map`, one force-push) only while the repo is private and unshared.
+- **Commit authorship: no rewrite**, his word 2026-10-12 (*"i dont care if they get my email"*); ALPHA-PLAN
+  decision 3. The rename and the docs read stay (ALPHA-PLAN, session D).
 - [ ] **The licence** (PolyForm Noncommercial 1.0.0) — revisit before merging the first outside PR
       (DCO or CLA then); at the first real art or audio assets (split code and content licences);
       and if distro packaging or a contributor community is ever wanted (MIT or Apache-2.0).

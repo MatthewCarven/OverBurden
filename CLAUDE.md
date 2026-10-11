@@ -43,7 +43,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/GLASS-PLAN.md](docs/GLASS-PLAN.md) | Glass. **Built 2026-09-25 on main; the look played 2026-09-26** (black, 0.20 — *"Glass looks GOOD!"*). The sky column asks `IsSolid`, so glass is a roof to rain and a true skylight. Open: a floor under glass gleams in a storm; water behind glass sort order. |
 | [docs/POND-PLAN.md](docs/POND-PLAN.md) | The raised watershed and his water grid. **Built on the branch `water-column-test` and merged into main 2026-10-09 on his verdict**: walls you place raise a lake's rim, and the lake reaches under what you build. Its seven "better" criteria and how each stood at the merge are at the end. |
 | [docs/TNT-NOTES.md](docs/TNT-NOTES.md) | Blasting. Notes, not scheduled; his design folded in (blasted voxels go nowhere; the shake). Six decisions still his. |
-| [docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md) | The adaptive view radius. **Built 2026-09-06**; the plan's dwell rule was wrong, the built section says why. F11 far mode raises its ceiling. |
+| [docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md) | The adaptive view radius. **Built 2026-09-06**; the plan's dwell rule was wrong, the built section says why. Far mode (F10 since 2026-10-12; F11 before, now fullscreen) raises its ceiling. |
 | [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) | The retained-chunk cache. **Built.** Read slice 2's section before touching `LightPropagator`. |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | Elements, and why not "just implement chemistry": geology that reacts to water, machine recipes as the chemistry set. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
@@ -250,7 +250,7 @@ engine-wide pin (TODO's Levers), and the quarry's pass reads the `--pile` bench 
 the field's clone).
 
 **His open threads:**
-- F11's six rungs (in TODO, the caps checked first).
+- far mode's six rungs (F10 now; in TODO, the caps checked first).
 
 **How the slices have gone:** every one has had a code-level pass first. Each pass used three read-only
 searches in parallel, facts with file and line, the load-bearing ones checked by hand, then numbered decisions
@@ -286,7 +286,8 @@ rename is a folder move with the game closed.
   same frame times and water rate, about 9 ms a second of its own work, the same total water (WORKLOG). At his
   old pond it measured 1.9× main, only because it keeps the water main spilled
   ([docs/POND-PLAN.md](docs/POND-PLAN.md), "Re-measured").
-- **F11 has a third rung**, r10h/6v; he played it to the top.
+- **Far mode has a third rung**, r10h/6v; he played it to the top. Its key is F10 since 2026-10-12 (F11 is
+  fullscreen, ALPHA-PLAN decision 17).
 - **Where a probe must stand:** the old TajMahal's pool `--at=-268,-5,1284` (a copy of
   `retired-TajMahal-2026-09-29`, never `TajMahal2`), his pond on `Regions16` `--at=-852,34,282`. A saved
   spawn loads the wrong water; read the first `M8b:` line's `loaded`.
