@@ -359,7 +359,12 @@ the remote URL, and the assistant's memory directory, which is still keyed `Mine
   wants a classic `.sln`, kept in `tools/godot-sln/` (one beside the game's `.csproj` breaks `start.cmd`). An
   exported build reads `mods/` and `media/` beside its exe, saves to `%APPDATA%\Overburden Alpha\`, and applies
   `start.cmd`'s four settings itself; the editor binary is unchanged. **`OS.Alert` shows a box even headless**,
-  so the start-failure box is gated off headless. SQLite works exported.
+  so the start-failure box is gated off headless. SQLite works exported. **The Godot editor strips
+  `project.godot`'s comments whenever it saves** (it did when he fetched the templates), so the file is kept
+  in the editor's own form and its settings are explained here: the `.template` user-dir pair is the export's
+  own folder (ALPHA-PLAN 9), `dotnet/project/solution_directory` is the export's `.sln`, and nearest-mipmap
+  filtering is blocky by intent. Opening the editor also writes `.uid` files beside scripts; they stay
+  untracked.
 
 The licence is [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It can be loosened to
 MIT any time; it cannot be tightened after the first outside PR is merged.

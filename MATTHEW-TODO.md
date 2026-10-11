@@ -22,6 +22,12 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
+- [ ] **Try the alpha zip, windowed** (built 2026-10-12): `build\Overburden-0.1.0-alpha-win64.zip`. Unzip
+      it anywhere (it makes one folder) and double-click `Overburden.exe`, the way a stranger would. It keeps
+      its own saves in `%APPDATA%\Overburden Alpha\`, apart from your worlds. Things to look at: F11 for
+      fullscreen, the version in the top-left corner, how the first minute feels with no menu yet (that's
+      session B). To rebuild it any time: `pwsh tools/make-alpha.ps1` with the game closed.
+
 
 - [ ] **The quick start**, [QUICKSTART.md](QUICKSTART.md): every key, written for a stranger. Have a read and
       say what's wrong or missing; it becomes the in-game controls card and the zip's readme.
@@ -322,6 +328,10 @@ Nothing is blocked on these; each is a small change once you have a view.
 Updated **2026-10-12**. **Main is ahead of GitHub by the last two sessions' commits since your last push: a
 `git push` whenever suits.**
 
+- **The alpha's export works** (2026-10-12, session A): one command, `pwsh tools/make-alpha.ps1`, builds a
+  74 MB zip that runs unpacked anywhere, saves included, with your music. Next: your windowed try, then
+  session B (an Esc menu with Quit, the controls card, the risky test keys behind `--dev`), C (hotbar slots
+  that stay put) and D (the readme, the credits, going public).
 - **The lithium-ion pack is in, and `P` gives a hundred of everything** (2026-10-12). The pack holds 14.4 MJ
   and charges at 2 kW. Everything else about it works like the lead-acid: you wear it, swap it, and it keeps
   its charge in your inventory. A volume on the hotbar now reads in cubic metres from one up. All 2,302 tests
