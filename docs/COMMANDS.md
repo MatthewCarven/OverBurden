@@ -477,7 +477,10 @@ press (`MiningController.Running`; `TapOrHold` exists for E at M10g and nothing 
 **`--holdq` holds it for a whole run** — the hold's wire, past the profile's refusal by its own
 hand — and on the excavator with `--entanglechunk --nogate --pitch=-60 --profile --speed=0
 --measure=6` reads `quantum_excavator took everything` at 25,859 removed a swing; from the
-default pick it swings `steel_pick` at 29 a swing until the bore is past reach.
+default pick it swings `steel_pick` at 29 a swing until the bore is past reach. **The steel pick
+is retired since 2026-10-12** (his word, for the alpha): the default pick is now `hand_pick`, which
+takes the soft ground and not stone, so that second reading no longer reproduces; the
+excavator's does.
 
 M7c-1 adds four more, all seams rather than settings. **`--clock=<seconds>` starts the run
 somewhere in this world's forecast** — the weather is a pure function of (seed, time), so this is

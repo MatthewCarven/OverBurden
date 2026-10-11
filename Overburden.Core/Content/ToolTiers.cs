@@ -10,7 +10,8 @@ namespace Overburden.Core.Content;
 /// <remarks>
 /// <para>
 /// <b>Order is (threshold, bite, id).</b> Weakest first, so the cycle reads as a ladder —
-/// hand → steel → miner → excavator — without a <c>tier</c> number in the format. Two tools at
+/// hand → miner → tunneller → excavator since the steel pick was retired (2026-10-12) — without a
+/// <c>tier</c> number in the format. Two tools at
 /// one threshold sort by the size of their bite; the ID is the tie-break so the same content
 /// always cycles the same way.
 /// </para>

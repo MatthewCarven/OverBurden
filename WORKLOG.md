@@ -1,5 +1,25 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-12 (later) — The steel pick retired; his play of the pack; the alpha pass begun
+
+- **His play of the lithium-ion pack** (*"i am happy with it really"*): no `ERROR` lines, the pack filled twice
+  by Alt+P, 10.7 MJ through the quantum tools, the power identity exact. It showed one wart, now in TODO: a
+  same-kind swap handed him an empty pack and stowed his 5.0 MJ one.
+- **The steel pick is retired**, his word for the alpha: *"disable the steel pick but leave the hand mining
+  placement"*. `tools/steel_pick.json` is deleted (it was `radiusMetres` 0.5, `hardnessThreshold` 3.5,
+  `cooldownSeconds` 0.20; git has it). Tools are saved in no world (`GameContent.Tools` has no saved-ID
+  table), so no world breaks. **What moves:** a fresh open starts on the hand pick (Core's rule, the
+  strongest free tool), which takes dirt, grass, clay, glass and rubble and not stone (3.0); stone and a
+  relay pump's, outlet's or cell's body (3.0) now take a powered quantum tool. The recorded oracles that mine
+  all select a quantum tier by flag, except one `--holdq` note in COMMANDS.md, now marked. A new test pins
+  the shipped cycle (hand, miner, tunneller, excavator) and the hand pick as the start; with the file put
+  back it went red. Suite 2,303.
+- **The alpha pass, begun** (his ask: public, *"zipping all the resources into one zip so you can just
+  extract and run it"*). Three read-only searches: export readiness, a stranger's first ten minutes, and
+  licences and provenance. The decisions are being drafted for him. Two facts so far: the phonk has no
+  recorded source or licence, so it can't ship (he will source royalty-free music); and an export as things
+  stand finds `mods/` only relative to the working directory, has no preset, and has no templates installed.
+
 ## 2026-10-12 — The lithium-ion pack, `P`'s hundred, the hotbar in cubic metres
 
 His ask: *"i want to change p so that instead of giving 1 of every item including glass i want 100 of each item

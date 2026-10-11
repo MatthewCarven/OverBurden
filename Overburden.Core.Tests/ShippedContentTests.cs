@@ -89,12 +89,37 @@ public class ShippedContentTests
             tiers.Any(t => t.HardnessThreshold >= hardest),
             "no shipped tier can take the hardest material, so the deepest rock is unmineable");
 
-        // A fresh world starts on a free tier that takes stone: the first swing must do something
-        // and must not cost from an empty pack.
+        // A fresh world starts on a free tier: the first swing must do something and must not cost
+        // from an empty pack. (It took stone until 2026-10-12, when the steel pick was retired.)
         ToolDefinition start = ToolTiers.Default(tiers);
         Assert.True(start.IsFree, $"{start.Id} is the starting tier and draws power");
         Assert.Equal(ToolBite.Sphere, start.Bite);
         Assert.True(start.HardnessThreshold >= softest, $"{start.Id} is the starting tier and takes nothing shipped");
+    }
+
+    [Fact]
+    public void TheSteelPickIsRetiredAndAFreshWorldStartsOnTheHandPick()
+    {
+        // 2026-10-12, his word for the alpha: "disable the steel pick but leave the hand mining
+        // placement". The T cycle is the hand pick, then the three quantum tiers, and a fresh world
+        // starts on the hand pick: free, taking the soft ground and not stone. Stone, and a relay
+        // pump's, outlet's or cell's body (all 3.0), now take a powered quantum tool.
+        var content = new GameContent();
+        LoadResult result = content.Load(new DirectoryContentSource(ModsDirectory()));
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+
+        Assert.False(content.Tools.Contains(Identifier.Parse("overburden:steel_pick")));
+        var tiers = ToolTiers.Order(content.Tools.Entries().Select(e => e.Value).Where(t => !t.IsUnknown));
+        Assert.Equal(
+            ["overburden:hand_pick", QuantumMinerId, "overburden:quantum_tunneller", QuantumExcavatorId],
+            tiers.Select(t => t.Id.ToString()));
+
+        ToolDefinition start = ToolTiers.Default(tiers);
+        Assert.Equal("overburden:hand_pick", start.Id.ToString());
+        float Hardness(string path) => content.Materials.Get(Identifier.Parse($"overburden:{path}")).Hardness;
+        Assert.True(start.HardnessThreshold >= Hardness("dirt") && start.HardnessThreshold >= Hardness("grass"));
+        Assert.True(start.HardnessThreshold < Hardness("stone"));
+        Assert.True(start.HardnessThreshold < Hardness("relay_pump"));
     }
 
     /// <summary>The two quantum tiers (2026-09-19): small scale is the cube, large scale the chunk, both at range and both costing.</summary>

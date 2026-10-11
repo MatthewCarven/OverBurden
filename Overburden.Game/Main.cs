@@ -5243,9 +5243,11 @@ public partial class Main : Node3D
     {
         // Every tool is on the T cycle since 2026-09-19, the quantum tiers included, in Core's
         // order (weakest first, smallest bite among equals). The default is Core's too — the
-        // strongest *free* tool, so a fresh world's first swing takes stone and does not cost
-        // from an empty pack, which is the case M10c-3's decision 5 kept the costing tool off
-        // the cycle to avoid. --entangle / --entanglechunk select a quantum tier at open by ID.
+        // strongest *free* tool, so a fresh world's first swing does not cost from an empty
+        // pack, which is the case M10c-3's decision 5 kept the costing tool off the cycle to
+        // avoid. Since the steel pick was retired (2026-10-12, his word) that is the hand pick,
+        // which takes the soft ground and not stone. --entangle / --entanglechunk select a
+        // quantum tier at open by ID.
         _tiers.AddRange(ToolTiers.Order(Content.Tools.Entries().Select(e => e.Value)));
 
         if (_tiers.Count == 0)
