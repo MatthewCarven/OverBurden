@@ -25,7 +25,12 @@ another f key that is available please"*):
   of the Game Boy arrangement carries someone else's bass and harmony. Recommended: keep the melody, write his
   own accompaniment, credit *"Korobeiniki (Russian folk song, public domain), arranged by Matthew Carven"*,
   and ship it without "tetris" in its file name. **Renamed `media/korobeiniki-marimba.mp3`** on his word
-  (*"renames as you please"*), with the code's default following. Worst case if anyone objects: the track comes out, and the
+  (*"renames as you please"*), with the code's default following. **Then the melody alone**: he chose to
+  write his own bass (*"i can dream up a bass line i believe"*), so `media/korobeiniki-melody.mid` holds the
+  folk tune's melody only, written out the same day (bars 5 and 7 in the plain folk rhythm, not the Game Boy
+  version's). The two MIDIs he downloaded first can't ship: one is Jim Paterson's Greensleeves arrangement
+  from mfiles.co.uk, whose terms forbid redistribution "as is or adapted" without their licence; the other
+  carries no name. Worst case if anyone objects: the track comes out, and the
   game runs silent without it (fact 3).
 - **A quick start describing every key**, his ask: `QUICKSTART.md` at the root, written for a player against
   today's build. It is the source for the controls card (15) and the zip's README (22).

@@ -22,10 +22,13 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **The music's MIDI** (your marimba render in FL Studio is yours, and the folk tune is public domain).
-      The open piece is the MIDI: if it copies the Game Boy version, its bass and harmony are someone else's.
-      Easiest fix: keep the melody and write your own bass and harmony under it. Or tell me which site it came
-      from and I'll read its terms. (Renamed `korobeiniki-marimba.mp3`, so "tetris" is out of the file name.)
+- [ ] **Your own Korobeiniki**: `media/korobeiniki-melody.mid` is the folk tune's melody alone (8 bars, A
+      minor, 120 bpm, marimba), written out 2026-10-12 so nothing under your arrangement is anyone else's.
+      Add your bass and harmony in FL Studio, render it over `media/korobeiniki-marimba.mp3`, and the credit
+      is *"Korobeiniki (Russian folk song, public domain), arranged by Matthew Carven"*. The two downloads
+      can't ship: `35149.mid` is Jim Paterson's Greensleeves from mfiles.co.uk (personal use only, *"never
+      redistributed … either as is or adapted in any way"* without their licence), and `100444.mid` has no
+      name on it.
 
 - [ ] **The quick start**, [QUICKSTART.md](QUICKSTART.md): every key, written for a stranger. Have a read and
       say what's wrong or missing; it becomes the in-game controls card and the zip's readme.
