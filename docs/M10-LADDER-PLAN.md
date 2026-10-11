@@ -2587,6 +2587,12 @@ prints `× 1`); `cells` unchanged. One formatter in `Hud`, shared by the row and
 closes the 2026-09-03 TODO item. The alternative Matthew named was the chunk (512 m³ a click);
 recommended against because a chunk is a debug bite's size and not a unit.
 
+**Built 2026-10-12, ahead of M10g, on his answer, and differently in two details** (I built it without
+having read this section): the formatter is `VolumeText` in Core, not `Hud`, so it has tests and IM-6's
+water slot shares it; and it shows **two decimals under 1,000 m³**, floored, then whole cubic metres, not
+one decimal under 100 m³. Two decimals let a single voxel (0.0156 m³) move the figure. The row uses it now;
+the grid will. Either detail is a one-line change if he prefers this section's.
+
 #### 7. Core first, the screen second, the header in between — *recommended; the split is M10g's pass's*
 
 The assignment is Core with its battery before any Control exists: the round trip through the
