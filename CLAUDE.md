@@ -180,8 +180,10 @@ The rules that bite, every one of them learned the expensive way:
 `%APPDATA%/Godot/app_userdata/Overburden/worlds/`. `--world=<name>` picks or creates one (quote it
 whole if it has spaces: `start.cmd "--world=Deep Mine"`); `--seed=<n>`, `--relief=`,
 `--reliefbase=`, `--reliefrare=` apply only to a world that does not exist yet. If Godot has never
-opened the project, run once with `--headless --import`. Godot 4.7.1-stable **mono** is not
-vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
+opened the project, run once with `--headless --import`. **Godot 4.7.1-stable mono is vendored here**, in
+`Godot_v4.7.1-stable_mono_win64/` (gitignored, there since 2026-08-25), and `start.cmd` and
+`tools/make-alpha.ps1` use it first; the recipes in this file name the shared copy in `../GAME/`, the same
+version. A worktree has neither beside it, so give the script `-Godot <exe>` there.
 
 ## Conventions
 

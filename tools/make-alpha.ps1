@@ -39,6 +39,10 @@ if (Test-Path (Join-Path $build 'alpha')) { Remove-Item -Recurse -Force (Join-Pa
 New-Item -ItemType Directory -Force $stage | Out-Null
 
 $log = Join-Path $build 'export.log'
+
+# No MSBuild worker left behind for reuse: one held Godot's output open after the export finished, and
+# the editor waited on it for ten minutes at no CPU (2026-10-12, the first export run from his folder).
+$env:MSBUILDDISABLENODEREUSE = '1'
 & $godot --path (Join-Path $repo 'Overburden.Game') --headless --export-release 'Windows Desktop' (Join-Path $stage 'Overburden.exe') *> $log
 if ($LASTEXITCODE -ne 0) { throw "The export failed ($LASTEXITCODE); see $log" }
 if (Select-String -Path $log -Pattern '^ERROR' -CaseSensitive -Quiet) { throw "The export logged errors; see $log" }
