@@ -124,6 +124,9 @@ Nothing is blocked on these; each is a small change once you have a view.
 ## Things I'd like your eye on — not scheduled
 
 - [ ] **The pumps as a system** — building an operation, or chores?
+- [ ] **A musical journey through everyone's folk music** — your idea (2026-10-12), *"next time I get bored"*.
+      Korobeiniki started it: folk tunes old enough to be public domain, arranged your own way in FL Studio.
+      Maybe more collapse tracks, or a tune per region one day.
 
 ---
 
