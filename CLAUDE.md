@@ -107,6 +107,13 @@ time and were built unoptimised. A `dotnet test` or solution build in between op
 quarry the fix made the water tick 5.5× faster (see the worklog). Check a DLL with its
 `DebuggableAttribute`: 2 is optimised, 263 is not.
 
+The alpha zip (needs the 4.7.1 mono export templates; close the game first). It prints the zip's size,
+SHA-256 and commit, and warns for any paper not yet written:
+
+```bash
+pwsh tools/make-alpha.ps1
+```
+
 Benches are **Release only** — Debug is 3–10× slower and reads like a real number:
 
 ```bash
@@ -213,10 +220,16 @@ pushes. **What he can play now:** `P`, a lithium-ion pack in hand, right-click t
 (built: a fresh world starts on the hand pick, which doesn't take stone; suite 2,303), and asked for a public
 alpha.** Its pass is written: [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), twenty-three decisions waiting on him.
 
+**Then, the same night: his answers (all as recommended; far mode to F10 and F11 fullscreen, built; his email
+stays; his own `Korobeiniki.mp3` is the collapse music), `QUICKSTART.md`, and session A, the export, built**
+(ALPHA-PLAN's "Session A — built"): `pwsh tools/make-alpha.ps1` makes `Overburden-0.1.0-alpha-win64.zip`, which
+runs unpacked fresh, SQLite included. Suite 2,303, r6 to the digit.
+
 **Next session, in order:**
-1. **His answers to ALPHA-PLAN's decisions**, then **session A, the export** (the templates are a download,
-   his say-so; the SQLite check is its first run). Then B (the first ten minutes) and C (the hotbar's slots) in
-   either order, and D (going public, its git rewrite and rename his).
+1. **His windowed run of the zip** (fullscreen, the version in the corner, first impressions), then **session
+   B** (the Esc menu and controls card, debug keys behind `--dev`, HUD messages, the pack swap) and **C** (the
+   hotbar's slots) in either order, and **D** (the player readme, notices, CONTRIBUTING; the rename and the
+   docs read his).
 2. **IM-6 waits behind the alpha.** Its code-level pass carries: the vault's panel (his warranty line, a lock
    on the channel box, power auto-scaled), water in the hotbar through `VolumeText`, the pile's cyan glitch
    (decision 16), and the windowed read of a real dump. Before it: the ten build warnings, ideally collapse f-1.
@@ -342,7 +355,11 @@ the remote URL, and the assistant's memory directory, which is still keyed `Mine
   corridor and put the water down asleep, or a missing wake reads as correct.
 - **A debug door into a conserved quantity is a term**, or the identity lies from then on.
 - **Alt+G takes water back** as well as Alt+R, because NVIDIA's overlay owns Alt+R on his machine.
-- The release export with SQLitePCLRaw's natives is still unverified.
+- **The export** (2026-10-12): `pwsh tools/make-alpha.ps1` builds the alpha zip in `build/`. Godot's export
+  wants a classic `.sln`, kept in `tools/godot-sln/` (one beside the game's `.csproj` breaks `start.cmd`). An
+  exported build reads `mods/` and `media/` beside its exe, saves to `%APPDATA%\Overburden Alpha\`, and applies
+  `start.cmd`'s four settings itself; the editor binary is unchanged. **`OS.Alert` shows a box even headless**,
+  so the start-failure box is gated off headless. SQLite works exported.
 
 The licence is [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It can be loosened to
 MIT any time; it cannot be tightened after the first outside PR is merged.

@@ -198,3 +198,46 @@ Each with a recommendation. "As recommended" takes them all; any one can come ba
 
 **Order:** A first, because the export is the unknown; B and C in either order; D last. The ideal machines'
 IM-6 waits behind it, and IM-6's header version moves up one if C takes the next.
+
+## Session A — built (2026-10-12)
+
+In the worktree `alpha-export`, after he installed the 4.7.1 mono templates. **The export works, SQLite
+included**, and `tools/make-alpha.ps1` makes the zip in one command: `Overburden-0.1.0-alpha-win64.zip`,
+74 MB, one folder inside (`Overburden.exe` 104 MB, a 49 KB `.pck`, the .NET runtime in
+`data_Overburden.Game_windows_x86_64/` at 80 MB and 193 files, `mods/`, `media/Korobeiniki.mp3`,
+`LICENSE.md`, `QUICKSTART.md`).
+
+- **6, the preset**: `Overburden.Game/export_presets.cfg`, "Windows Desktop", x86_64, the pck beside the exe,
+  `application/modify_resources` off (no exe icon or version resources yet; nothing else needed for them).
+  **Godot's export wants a classic `.sln` named for the assembly**, which the repo lacked (it has
+  `Overburden.slnx`): the first export logged *"no solution file exists"* for every C# file and shipped no
+  assemblies. A `.sln` beside the game's `.csproj` would make `start.cmd`'s `dotnet build Overburden.Game`
+  refuse (two project files in one folder), so it lives in `tools/godot-sln/Overburden.Game.sln` and
+  `project.godot` points there (`dotnet/project/solution_directory`).
+- **7 and 8, beside the exe**: `ExportFolder` (the exe's folder when `OS.HasFeature("template")`, else null)
+  roots `mods/` and a relative music path in an export; the editor binary is unchanged. **A failed start
+  names its reason** (`_fatalReason`, first cause wins) in the log and, windowed only, in a message box.
+  The first failure-path probe put a box on his screen from a headless run and named the world rather than
+  the missing `mods/`; both fixed: no box headless, and the content's reason wins.
+- **9, its own folder**: `config/use_custom_user_dir.template` and `custom_user_dir_name.template` in
+  `project.godot`, so an export keeps its worlds and logs in `%APPDATA%\Overburden Alpha\` and the editor
+  binary stays in `app_userdata\Overburden`. Checked both ways by the log's first line.
+- **10, the defaults**, refined in the build: **an export applies `start.cmd`'s four settings** (16 ms light
+  budget, adaptive radius, fluidnear 2, the fluid job) at the top of the flag parser, so a flag still wins;
+  the editor binary keeps the old arms, so the r6 control and every recorded recipe read as before with no
+  measurement-mode rule needed. The exported run grew its view r3 → r5 → r6. The light budget's owed
+  re-judge stays owed; 16 ms is what every play since September used.
+- **11, the version**: `<Version>0.1.0-alpha</Version>`; the SDK appends the commit, and `Hud.VersionText`
+  reads `Overburden 0.1.0-alpha (<sha7>)`, small in the upper left, and as the log's first line with where
+  saves go.
+- **12, SQLite**: `e_sqlite3.dll` publishes flat into the data folder, and the exported game created and wrote
+  a world. TODO's owed check is closed.
+- **13, the zip**: `tools/make-alpha.ps1` (refuses while Godot runs; `-Godot <exe>` for a worktree) exports,
+  copies `mods/`, the music and the papers, warns for each paper still missing (`THIRD-PARTY-NOTICES.md` and
+  `tools/alpha/README.txt` are session D's), zips, and prints size, SHA-256 and commit.
+
+**Checked:** the zip unpacked fresh and run headless from an unrelated folder: content from beside the exe, a
+new world through SQLite, the music, no `ERROR`; with `mods/` hidden, exit 1 and the right reason, no box.
+Suite 2,303; r6 to the digit on the editor binary, which still saves under `app_userdata\Overburden`.
+**Not checked: a windowed run of the export** (his: fullscreen on F11, the version in the corner, how it
+feels on first open), and any machine but his.

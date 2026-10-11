@@ -9,10 +9,17 @@ config/name="Overburden"
 run/main_scene="res://Main.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 config/icon="res://icon.svg"
+; ALPHA-PLAN decision 9: an exported build keeps its saves and logs in %APPDATA%\Overburden Alpha,
+; apart from the editor binary's app_userdata\Overburden (his played worlds, his log rotation).
+config/use_custom_user_dir.template=true
+config/custom_user_dir_name.template="Overburden Alpha"
 
 [dotnet]
 
 project/assembly_name="Overburden.Game"
+; Godot's export wants a classic .sln named for the assembly. Its own folder, so the game's folder
+; never holds two project files (start.cmd's `dotnet build Overburden.Game` would refuse).
+project/solution_directory="../tools/godot-sln"
 
 [rendering]
 

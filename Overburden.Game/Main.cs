@@ -293,7 +293,8 @@ public partial class Main : Node3D
 
     // The adaptive view radius (docs/ADAPTIVE-RADIUS-PLAN.md). Off by default so every recorded
     // streaming figure stays reproducible with no flag; start.cmd opts in, as it does for the
-    // light budget. Off, the state sits at the ceiling and the policy is never stepped.
+    // light budget, and so does an exported build (ALPHA-PLAN decision 10, ApplyCommandLineOverrides).
+    // Off, the state sits at the ceiling and the policy is never stepped.
     private bool _adaptiveRadius;
     private int _minRadius = ViewRadiusConfig.DefaultFloor;
     private int _shrinkSlabs = ViewRadiusConfig.DefaultShrinkSlabs;
@@ -987,6 +988,17 @@ public partial class Main : Node3D
     /// </summary>
     private string _collapseMusicPath = "media/Korobeiniki.mp3";
 
+    /// <summary>
+    /// The exe's folder in an exported build, or null under the editor binary (<c>start.cmd</c>, every
+    /// headless run). ALPHA-PLAN decisions 7 and 8: an export finds <c>mods/</c> and <c>media/</c> beside
+    /// the exe, never relative to the working directory, so a shortcut that starts elsewhere still works.
+    /// </summary>
+    private static string? ExportFolder =>
+        OS.HasFeature("template") ? System.IO.Path.GetDirectoryName(OS.GetExecutablePath()) : null;
+
+    /// <summary>Why the run refused to start, for the export's message box (null: see the log).</summary>
+    private string? _fatalReason;
+
     /// <summary><c>--collapsemusicmax=</c>, the music's speed at the pace's cap (decision 3), and <c>--collapsevolume=</c>, its dB (decision 6).</summary>
     private double _collapseMusicMax = CollapseMusicCue.DefaultMaxPitch;
     private float _collapseVolumeDb = -6f;
@@ -1419,6 +1431,9 @@ public partial class Main : Node3D
 
     public override void _Ready()
     {
+        // The log's first line names the build (ALPHA-PLAN decision 11), so a report carries it.
+        GD.Print($"{Hud.VersionText} — {(ExportFolder is { } exported ? $"exported, from {exported}" : "editor binary")}, saves under {ProjectSettings.GlobalizePath("user://")}");
+
         _camera = GetNodeOrNull<FlyCam>("FlyCam");
         _environment = GetNodeOrNull<WorldEnvironment>("WorldEnvironment")?.Environment;
         _skyMaterial = _environment?.Sky?.SkyMaterial as ProceduralSkyMaterial;
@@ -1497,7 +1512,17 @@ public partial class Main : Node3D
         {
             // Refused rather than played without saving. Carrying on with persistence quietly off
             // is an hour of digging lost to a line in the log, which is the failure this whole
-            // milestone is about.
+            // milestone is about. An export says so in a box (ALPHA-PLAN decision 7): a window that
+            // closes with no word is all a player would otherwise see. Never headless: Godot shows
+            // the box even then, and a probe's box lands on his screen and waits for a click
+            // (2026-10-12, the first export's failure-path probe).
+            string why = $"Overburden could not start: {_fatalReason ?? "see the log"}.";
+            GD.PushError(why);
+            if (ExportFolder is not null && DisplayServer.GetName() != "headless")
+            {
+                OS.Alert($"{why}\n\nThe log is at {ProjectSettings.GlobalizePath("user://logs/godot.log")}", "Overburden");
+            }
+
             GetTree().Quit(1);
             return;
         }
@@ -1798,6 +1823,18 @@ public partial class Main : Node3D
                     $"Overburden: \"{argument}\" came before the bare \"--\" and the engine ignored it; "
                     + "game flags go after it: ... -- " + argument);
             }
+        }
+
+        // ALPHA-PLAN decision 10: an exported build plays at start.cmd's four settings, the ones every
+        // play has had since September, not the measurement defaults. Only an export: the editor
+        // binary keeps the old arms, so the r6 control and every recorded recipe still read as they
+        // did, and start.cmd passes the four itself. A flag given below wins either way.
+        if (ExportFolder is not null)
+        {
+            _lightBudget = TimeSpan.FromMilliseconds(16);
+            _adaptiveRadius = true;
+            _fluidNearRings = 2;
+            _fluidJobOn = true;
         }
 
         foreach (string argument in OS.GetCmdlineUserArgs())
@@ -6412,9 +6449,13 @@ public partial class Main : Node3D
         }
         else
         {
+            // A relative path is against the exe's folder in an export (ALPHA-PLAN decision 8), the
+            // repo's root otherwise.
             string path = System.IO.Path.IsPathRooted(_collapseMusicPath)
                 ? _collapseMusicPath
-                : System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), "..", _collapseMusicPath));
+                : System.IO.Path.GetFullPath(ExportFolder is { } folder
+                    ? System.IO.Path.Combine(folder, _collapseMusicPath)
+                    : System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), "..", _collapseMusicPath));
             var cue = new CollapseMusicCue { MaxPitch = _collapseMusicMax, CapMultiplier = _collapsePace.MaxMultiplier };
             _collapseMusic = CollapseMusic.Load(this, path, cue, _collapseVolumeDb, out string why);
             _collapseMusicOff = $"off — {why}";
@@ -9880,6 +9921,10 @@ public partial class Main : Node3D
             // start and read, on the next successful open, as a world that lost a session.
             GD.PushError($"M6: cannot open the world at {path} — {error.Message}");
 
+            // The first cause wins: content that failed to load surfaces here as the world's
+            // failure too, and the content's reason (the mods folder) is the one a player can act on.
+            _fatalReason ??= $"the world at {path} could not be opened ({error.Message})";
+
             _store?.Dispose();
             _store = null;
 
@@ -10177,7 +10222,10 @@ public partial class Main : Node3D
     /// </remarks>
     private bool LoadContent(IReadOnlyList<Identifier>? savedMaterialIds)
     {
-        string modsPath = ProjectSettings.GlobalizePath("res://mods");
+        // Beside the exe in an export (ALPHA-PLAN decision 7); the project's own folder otherwise.
+        string modsPath = ExportFolder is { } folder
+            ? System.IO.Path.Combine(folder, "mods")
+            : ProjectSettings.GlobalizePath("res://mods");
         var result = Content.Load(new DirectoryContentSource(modsPath), savedMaterialIds);
 
         foreach (string error in result.Errors)
@@ -10185,7 +10233,13 @@ public partial class Main : Node3D
             GD.PushError($"Content: {error}");
         }
 
-        GD.Print($"Content: {result}");
+        if (!result.Success)
+        {
+            _fatalReason = $"its content did not load from {modsPath} ({(result.Errors.Count > 0 ? result.Errors[0] : "no reason given")}). "
+                           + "The mods folder must sit beside Overburden.exe";
+        }
+
+        GD.Print($"Content: {result} from {modsPath}");
         return result.Success;
     }
 

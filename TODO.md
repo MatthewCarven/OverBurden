@@ -20,7 +20,8 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 
 **The public alpha comes first now** (2026-10-12, his ask): [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), twenty-three
 decisions his, then four sessions (A the export, B the first ten minutes, C the hotbar's slots, D going public).
-IM-6 waits behind it; if C takes the next header version, IM-6's moves up one.
+IM-6 waits behind it; if C takes the next header version, IM-6's moves up one. **A is built** (2026-10-12; the
+plan's "Session A — built"): `pwsh tools/make-alpha.ps1` makes the zip. Owed: his windowed run of it. Next B, C, D.
 
 **Do first, before the slice named:**
 1. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
@@ -233,8 +234,6 @@ IM-6's water slot uses).
       derive that is ~0.36 ms since the JIT optimiser (2026-09-15); and re-take the Debug bench
       figures quoted against game numbers (`-c Debug -- --support`'s 0.83 + 4.4 ms) before quoting
       them again.
-- [ ] **The release export with SQLitePCLRaw's natives is unverified.** One run; not needed for
-      play.
 - [ ] **The quantum rate on a profile reads low**: `mining … (N/s)` under `--holdq` reads 4.2 for
       the miner's nominal 10/s and 2.1 for the tunneller's 4/s. Find the denominator or the frames
       the hold misses before quoting any quantum rate from a profile.
@@ -284,7 +283,10 @@ Each waits on its trigger; the history has the measurement behind each (grep it 
 
 ## Later — not scheduled
 
-- **`start.cmd`'s four flags become the code defaults with the first build someone else plays** — his
+- **Done 2026-10-12, for exported builds only** (ALPHA-PLAN's "Session A — built", decision 10): an export
+      applies the four itself and the editor binary keeps the old arms, so none of the facts below bit. The
+      light budget's re-judge is still owed (Owed checks). The original item, for the record:
+      **`start.cmd`'s four flags become the code defaults with the first build someone else plays** — his
       question, 2026-10-01, taken as recommended the same night (*"as recommended"*). Not now: until that
       build (the creative demo's export) `start.cmd` is the only way anyone plays, so the defaults only serve
       measurement. **Trigger: the pass that makes an exported build.** The facts (Main.cs lines as of

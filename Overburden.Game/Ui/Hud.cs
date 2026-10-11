@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using Overburden.Core.Building;
 using Overburden.Core.Content;
@@ -107,6 +108,60 @@ public sealed partial class Hud : CanvasLayer
         BuildCrosshair(root);
         BuildRow(root);
         BuildSeed(root);
+        BuildVersion(root);
+    }
+
+    /// <summary>
+    /// "Overburden 0.1.0-alpha (85f2859)": the version and the commit the build came from (ALPHA-PLAN
+    /// decision 11), from the informational version the SDK stamps as "0.1.0-alpha+&lt;sha&gt;". A build
+    /// from a source tree with no git has no commit, and reads without one.
+    /// </summary>
+    internal static string VersionText { get; } = ReadVersion();
+
+    private static string ReadVersion()
+    {
+        string? stamped = typeof(Hud).Assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion;
+        if (string.IsNullOrEmpty(stamped))
+        {
+            return "Overburden";
+        }
+
+        int plus = stamped.IndexOf('+');
+        if (plus < 0)
+        {
+            return $"Overburden {stamped}";
+        }
+
+        string commit = stamped[(plus + 1)..];
+        return $"Overburden {stamped[..plus]} ({commit[..System.Math.Min(7, commit.Length)]})";
+    }
+
+    /// <summary>The version, small and dim in the upper left, all the time: what a bug report names.</summary>
+    private static void BuildVersion(Control root)
+    {
+        var version = new Label
+        {
+            Name = "Version",
+            Text = VersionText,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            AnchorLeft = 0f,
+            AnchorRight = 0f,
+            AnchorTop = 0f,
+            AnchorBottom = 0f,
+            OffsetLeft = 12f,
+            OffsetRight = 460f,
+            OffsetTop = 8f,
+            OffsetBottom = 30f,
+        };
+
+        version.AddThemeColorOverride("font_color", new Color(DimText, 0.6f));
+        version.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.6f));
+        version.AddThemeConstantOverride("outline_size", 3);
+        version.AddThemeFontSizeOverride("font_size", 12);
+        root.AddChild(version);
     }
 
     /// <summary>

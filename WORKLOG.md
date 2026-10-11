@@ -1,5 +1,21 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-12 (night) — Alpha session A: the export works, and one command makes the zip
+
+His templates installed, the export was built in the worktree `alpha-export`; ALPHA-PLAN's "Session A — built"
+has the whole account. The short of it:
+- **The export needed a classic `.sln`** named for the assembly; the first try shipped no C# at all. It lives in
+  `tools/godot-sln/`, because one beside the `.csproj` would break `start.cmd`'s build.
+- **An export finds `mods/` and `media/` beside the exe**, keeps its saves and logs in `%APPDATA%\Overburden
+  Alpha\`, plays at `start.cmd`'s four settings (export only, so every recipe and r6 stand), stamps
+  `Overburden 0.1.0-alpha (<sha>)` on screen and in the log, and says why when it can't start.
+- **SQLite works exported**: the owed check since M6 is closed.
+- **`tools/make-alpha.ps1`** builds `Overburden-0.1.0-alpha-win64.zip` (74 MB), unpacked and run fresh with no
+  `ERROR`.
+- **A probe's message box landed on his screen**: Godot shows `OS.Alert` even headless. He sent a screenshot,
+  which also showed it naming the wrong cause. Both fixed: no box headless, the first cause wins.
+- Suite 2,303; r6 to the digit. **Owed: his windowed run of the zip.**
+
 ## 2026-10-12 (later) — The steel pick retired; his play of the pack; the alpha pass begun
 
 - **His play of the lithium-ion pack** (*"i am happy with it really"*): no `ERROR` lines, the pack filled twice

@@ -4,6 +4,9 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <RootNamespace>Overburden.Game</RootNamespace>
     <Nullable>enable</Nullable>
+    <!-- ALPHA-PLAN decision 11: the version a player reports. The SDK appends the commit it was built
+         from (InformationalVersion "0.1.0-alpha+<sha>"); Main prints it first and the HUD shows it. -->
+    <Version>0.1.0-alpha</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Overburden.Core\Overburden.Core.csproj" />

@@ -435,6 +435,29 @@ diagnostics:
 **`--quit-after` counts frames, not seconds** — 900 is about 15 s, and the streaming report
 only prints every 5 s, so a small number exits before there is anything to see.
 
+**The export (2026-10-12, ALPHA-PLAN session A).** One command makes the alpha zip in `build/` (Godot closed;
+the 4.7.1 mono export templates installed; `-Godot <console exe>` from a worktree):
+
+```bash
+pwsh tools/make-alpha.ps1
+```
+
+Its export step alone, verbatim (the preset is `Overburden.Game/export_presets.cfg`; it builds the C# through
+`tools/godot-sln/Overburden.Game.sln`, and logs `no solution file exists` without it):
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless --export-release "Windows Desktop" <absolute path>/Overburden.exe
+```
+
+**An exported build differs from the editor binary in four ways**: it reads `mods/` and `media/` beside the
+exe; it saves and logs under `%APPDATA%\Overburden Alpha\` (read its log there, not in `app_userdata`); it
+applies `start.cmd`'s four settings unless a flag overrides them; and on a failed start it shows a box, unless
+headless. **Probe it on a scratch world and delete the world after.** The exe is a windowed program, so start
+it with `Start-Process -Wait` (PowerShell returns at once otherwise), from any folder:
+`Overburden.exe --headless --quit-after 900 -- --world=probe-zip`. The first run of the zip on 2026-10-12 read
+`Overburden 0.1.0-alpha (85f2859) — exported, from …` and `Content: 1 mod(s), 17 material(s), 4 tool(s) …`,
+a new world, the music, no `ERROR`.
+
 Profile a flythrough. The flags go after a bare `--`, as `name=value`, and the profiler
 quits by itself when it is done, so no `--quit-after` is needed:
 
