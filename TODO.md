@@ -19,33 +19,24 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 (M10e–j). Each line names the slice it must come before.
 
 **Do first, before the slice named:**
-1. ~~The flaky `JobSchedulerTests` test~~ — done 2026-10-01 (WORKLOG).
-2. ~~**The clay pond's suspected leak**~~ — **closed, not reproduced (2026-10-10, his word)**: his glass rain pool
-   on `LakeTest` filled and held, and glass and clay are the same to the water (WORKLOG).
-3. ~~**IM-0's windowed surface install**~~ — **run 2026-10-11** (WORKLOG; the plan's IM-0 section). The worst
-   case, 10 ML at once on open ground, installs at 148 ms mean / 249 max on the main thread, about once a
-   second while it spreads, against 23 / 137 in his own play that night. **Taken as recommended (2026-10-11):**
-   the ceiling stands, and the real dump is read windowed at IM-6 (below, "Owed from IM-0").
-4. ~~**The pond branch — his verdict, better before IM-5a.**~~ **Given 2026-10-09: merged into main**
-   (POND-PLAN, "His verdict: merged"). IM-5a now builds on the raised watershed, and a surface dump into a walled
-   pond goes to the pond's own basin.
-5. **The hotbar's unit (his, in MATTHEW-TODO) — before IM-6.** IM-6 puts water in the hotbar's last slot
+1. **The hotbar's unit (his, in MATTHEW-TODO) — before IM-6.** IM-6 puts water in the hotbar's last slot
    (decision 23), so *"1,767,903,281 L doesn't fit"* arrives with IM-6, not M10g.
-6. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
-7. **Collapse f-1 — before IM-9, ideally before IM-6.** IM-9's power sensor needs the `sense` extra f-1
+2. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
+3. **Collapse f-1 — before IM-9, ideally before IM-6.** IM-9's power sensor needs the `sense` extra f-1
    switches on, and f-1 carries the rule that a signalled-off cell never unpays a vault's bill (COLLAPSE-PLAN,
    the ideal-machines amendments), which IM-6's playable vault relies on.
-8. **The engine-wide pin — before IM-7.** A chunk any door wrote stays loaded until the next autosave (IM-5's
+4. **The engine-wide pin — before IM-7.** A chunk any door wrote stays loaded until the next autosave (IM-5's
    decision 8, its lever). IM-5 accepted the crash duplicate for the dump, as for placement; the quarry writes
    every boundary across many chunks and would multiply it. Its own pass (Levers).
-9. ~~**The `FluidField.Invalidate` lever and "a chunk-aware write path" — measured in IM-5b's bench first.**~~
-   **Measured 2026-10-11** (`--pile`; the plan's "IM-5b — the re-read", "The bench, run"): the clone is 2 MiB
-   allocated a boundary at 512 wet voxels and about 1 µs a voxel more; the whole boundary stays under 2.3 ms
-   mean. What a write really costs is per chunk column touched, in the frames after (light above all: 3–5,
-   11–12 and 35–39 ms a boundary at one, four and sixteen columns). So the pile needs no bulk write, and caps
-   chunks instead (8 a boundary). **The quarry's pass reads the bench**: it writes every boundary across many
-   chunks, and its lever is the chunk count, not the clone.
-10. **The quantum rate that reads low on a profile — before IM-7's bench** quotes a rate.
+5. **The quantum rate that reads low on a profile — before IM-7's bench** quotes a rate.
+6. **The quarry's pass reads the `--pile` bench — before IM-7.** The quarry writes every boundary across many
+   chunks; the bench says a write's cost is the chunk columns it touches (light in the frames after: 3–5, 11–12
+   and 35–39 ms a boundary at one, four and sixteen columns), not the field's clone. Its lever is the chunk
+   count, as the pile's is (8 a boundary).
+
+Done and recorded, cleared 2026-10-11: the flaky scheduler test, the clay leak (closed, not reproduced),
+IM-0's windowed surface install (the 10 ML ceiling stands), the pond branch (merged), and the field's clone
+(measured by `--pile`: the pile needs no bulk write). WORKLOG and the plans have each.
 
 **Collisions, two planned works on one code path or one question:**
 1. **Water bodies part a and LAKE-EDIT's "hand back sooner at ~95%"** both change when Tier B hands back to
@@ -107,8 +98,8 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       replaced by accepting placement's crash lag (an unload batch is not a consistent cut), and machine
       materials decohered rather than piled. **IM-5a is built (2026-10-10)** (the plan, "IM-5a — the re-read against the merged code" and
       "IM-5a — built"; suite 2,261, twenty-eight mutations red). Six choices the pass left open were made in the
-      build, taken as built 2026-10-11. On main, the r6 control to the digit. "Do first" 3, the windowed surface
-      install, ran 2026-10-11 (the ceiling stands, taken as recommended); 2, the clay pond, closed
+      build, taken as built 2026-10-11. On main, the r6 control to the digit. The windowed surface install
+      ran 2026-10-11 (the ceiling stands, taken as recommended); the clay pond closed
       not reproduced (2026-10-10). **IM-5b is built (2026-10-11)**: the re-read (decision 11 needed a shape; his
       word, the cone, one up for one out), the bench (`--pile`: 512 voxels a boundary stands, chunks are the
       cost, so at most 8 a boundary), and the pile (the plan's "IM-5b — built"; suite 2,278). Seven choices the

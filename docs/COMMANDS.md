@@ -20,7 +20,7 @@ start.cmd
 ```
 
 **`start.cmd` passes `-- --lightbudget=16 --adaptive=1 --fluidnear=2 --fluidjob=1` itself, then
-`"--world=<his world>"`** (`LakeTest` since 2026-10-01) — the first since 2026-09-03, Matthew's "lighting
+`"--world=<his world>"`** (`LakeTest2` since 2026-10-11; `LakeTest` from 2026-10-01, now retired) — the first since 2026-09-03, Matthew's "lighting
 switch", the second since 2026-09-06, the adaptive view radius, and the two water flags since the water
 thread's slices 1 and 3b (2026-09-09 and 09-10). (It carried
 `--spread=counted` from 2026-09-07 to 2026-09-09 for the counted divisor's play; the A/B read the same
@@ -180,7 +180,7 @@ with side A at -5.828 and side B at -5.112, `held 1,200,000 → 1,200,000 L, +0 
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --at=37,2,57 --fillbasin=1200000 --dam=80 --dampour=100000 --measure=20
 ```
 
-On a **copy** of `LakeTest`, his 4.2 ML lake 33 m from his spawn, add `--world=<copy>
+On a **copy** of `LakeTest` (since 2026-10-11 `retired-LakeTest-2026-10-11`), his 4.2 ML lake 33 m from his spawn, add `--world=<copy>
 --waterprobe=140,164` to the same flags without `--at` and `--fillbasin`. Rain and the lake's own
 draining move its figures between runs. On 2026-10-01 it read A -29.339 → -29.219 and
 B → -28.612, the sides summing exactly to the litres shared, then 100,000 L into A gave A -28.630 and
