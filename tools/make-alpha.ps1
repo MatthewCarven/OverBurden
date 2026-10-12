@@ -6,7 +6,8 @@
 # Exports the Windows build through Godot 4.7.1 mono (the "Windows Desktop" preset in
 # Overburden.Game/export_presets.cfg), lays out what a player needs beside the exe, and zips it as
 # build/Overburden-<version>-win64.zip with one folder inside, so "Extract All" gives a folder and not
-# a spill of files. Prints the zip's size, SHA-256 and commit.
+# a spill of files, plus a copy named build/Overburden-alpha-win64.zip to upload over the last one.
+# Prints the zip's size, SHA-256 and commit.
 #
 # Needs the Godot 4.7.1 mono editor (vendored beside the repo or in ../GAME, found as start.cmd finds
 # it) and its export templates (in the editor: Editor > Manage Export Templates > Download and
@@ -77,3 +78,10 @@ if (Test-Path $zip) { Remove-Item -Force $zip }
 Compress-Archive -Path $stage -DestinationPath $zip
 $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
 '{0}  {1:N1} MB  sha256 {2}  commit {3}' -f (Split-Path $zip -Leaf), ((Get-Item $zip).Length / 1MB), $hash, $commit
+
+# The same bytes under a name with no version in it, for the upload (his ask, 2026-10-12): Drive's replace
+# keeps the link only for a file of the same name, so a versioned name made 0.1.1 go up called 0.1.0. The
+# version a player reports is the one in the game's corner and on the folder inside.
+$upload = Join-Path $build 'Overburden-alpha-win64.zip'
+Copy-Item -Force $zip $upload
+'{0}  the same zip, to upload' -f (Split-Path $upload -Leaf)

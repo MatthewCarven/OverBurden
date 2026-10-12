@@ -332,13 +332,15 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-12**. **Main is ahead of GitHub by the last two sessions' commits since your last push: a
-`git push` whenever suits.**
+Updated **2026-10-12, session close**. **Main is a few commits ahead of GitHub (this close's): a `git push`
+whenever suits.**
 
-- **The alpha's export works** (2026-10-12, session A): one command, `pwsh tools/make-alpha.ps1`, builds a
-  74 MB zip that runs unpacked anywhere, saves included, with your music. Next: your windowed try, then
-  session B (an Esc menu with Quit, the controls card, the risky test keys behind `--dev`), C (hotbar slots
-  that stay put) and D (the readme, the credits, going public).
+- **The alpha is public**: the repo is `OverBurden`, public, and 0.1.1 is on your Drive with its readme,
+  credits and licence texts. It ran on your older desktop. **For the next upload:** bump the version in
+  `Overburden.Game\Overburden.Game.csproj`, run `pwsh tools/make-alpha.ps1` with the game closed (about 20
+  seconds), and upload `build\Overburden-alpha-win64.zip`: its name never changes, so Drive's replace keeps
+  the link. Next is session B (an Esc menu with Quit, the controls card on F1, the risky test keys behind
+  `--dev`), shipping as 0.1.2; then C (hotbar slots that stay put) and D (the repo's readme, CONTRIBUTING).
 - **The lithium-ion pack is in, and `P` gives a hundred of everything** (2026-10-12). The pack holds 14.4 MJ
   and charges at 2 kW. Everything else about it works like the lead-acid: you wear it, swap it, and it keeps
   its charge in your inventory. A volume on the hotbar now reads in cubic metres from one up. All 2,302 tests

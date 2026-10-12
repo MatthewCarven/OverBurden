@@ -212,7 +212,8 @@ and `tools/alpha/README.txt`, the player's readme, his words first. `make-alpha.
 missing any of them. **Each zip that goes out gets its own `<Version>`.** The repo's own README rewrite is
 still session D's. **0.1.1 replaced 0.1.0 on Drive the same night**, uploaded under 0.1.0's file name so
 Drive's replace kept the link (his: the old one renamed "- old"): the file name says 0.1.0, the game and
-the folder inside say 0.1.1. Offered, not built: a version-free copy of each zip for uploads.
+the folder inside say 0.1.1. **Then built, his word**: `make-alpha.ps1` also writes the same bytes as
+`build/Overburden-alpha-win64.zip`, a name that never changes, to upload over the last one.
 
 ## Session A — built (2026-10-12)
 

@@ -13,6 +13,34 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md at the 2026-10-12 close** (the hand-over as it ran through that day, superseded by the
+close):
+
+**2026-10-12 — the lithium-ion pack, `P`'s hundred and the hotbar in cubic metres are built and on main;
+the ideal machines' next slice is still IM-6, the first playable.** This session, on his asks:
+- **the lithium-ion pack** (*"Lead acid is so 20th century"*), `overburden:lithium_ion_pack`: 14.4 MJ (four
+  lead-acids) and 2 kW (full in two hours where lead-acid takes four), a carried pack on the channel class
+  like lead-acid, a crimson swatch. His four numbers were taken as recommended;
+- **`P` adds a hundred of each item every press** (`DebugSeed`, in Core with its tests): bodies, pieces, and
+  100 m³ of clay and of glass, the lithium-ion pack among them;
+- **the hotbar's unit, his answer**: a volume reads in litres under a cubic metre and in cubic metres from one
+  up, floored (`VolumeText`, which IM-6's water slot uses);
+- his list's notes: **all seven of IM-5b's build choices taken as built**, and the walled area beneath
+  TajMahal2 closed (no failure).
+
+The record is the WORKLOG's 2026-10-12 entry; COMMANDS.md has the three probes. Suite **2,302**, twenty-five
+mutations red, r6 to the digit. **Main is ahead of its remote** by this and the last session's commits; he
+pushes. **What he can play now:** `P`, a lithium-ion pack in hand, right-click to wear it, Q (MATTHEW-TODO).
+
+**Later the same day: he played the pack (*"i am happy with it really"*), retired the steel pick for the alpha
+(built: a fresh world starts on the hand pick, which doesn't take stone; suite 2,303), and asked for a public
+alpha.** Its pass is written: [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), twenty-three decisions waiting on him.
+
+**Then, the same night: his answers (all as recommended; far mode to F10 and F11 fullscreen, built; his email
+stays; his own `Korobeiniki.mp3` is the collapse music), `QUICKSTART.md`, and session A, the export, built**
+(ALPHA-PLAN's "Session A — built"): `pwsh tools/make-alpha.ps1` makes `Overburden-0.1.0-alpha-win64.zip`, which
+runs unpacked fresh, SQLite included. Suite 2,303, r6 to the digit.
+
 **Moved from CLAUDE.md on 2026-10-12** (the 2026-10-11 close, superseded by the lithium-ion pack's session):
 
 **2026-10-11, session close — IM-5b is built and on main; the ideal machines' next slice is IM-6, the first

@@ -108,8 +108,9 @@ quarry the fix made the water tick 5.5× faster (see the worklog). Check a DLL w
 `DebuggableAttribute`: 2 is optimised, 263 is not.
 
 The alpha zip (needs the 4.7.1 mono export templates; close the game first). It prints the zip's size,
-SHA-256 and commit, and refuses a zip missing its readme, quick start, licence or notices. **Bump `<Version>`
-in `Overburden.Game.csproj` before every zip that goes out**:
+SHA-256 and commit, refuses a zip missing its readme, quick start, licence or notices, and writes a version-free
+copy, `build/Overburden-alpha-win64.zip`, for the upload. **Bump `<Version>` in `Overburden.Game.csproj` before
+every zip that goes out**:
 
 ```bash
 pwsh tools/make-alpha.ps1
@@ -203,37 +204,29 @@ version. A worktree has neither beside it, so give the script `-Godot <exe>` the
 
 ## Where things stand
 
-**2026-10-12 — the lithium-ion pack, `P`'s hundred and the hotbar in cubic metres are built and on main;
-the ideal machines' next slice is still IM-6, the first playable.** This session, on his asks:
-- **the lithium-ion pack** (*"Lead acid is so 20th century"*), `overburden:lithium_ion_pack`: 14.4 MJ (four
-  lead-acids) and 2 kW (full in two hours where lead-acid takes four), a carried pack on the channel class
-  like lead-acid, a crimson swatch. His four numbers were taken as recommended;
-- **`P` adds a hundred of each item every press** (`DebugSeed`, in Core with its tests): bodies, pieces, and
-  100 m³ of clay and of glass, the lithium-ion pack among them;
-- **the hotbar's unit, his answer**: a volume reads in litres under a cubic metre and in cubic metres from one
-  up, floored (`VolumeText`, which IM-6's water slot uses);
-- his list's notes: **all seven of IM-5b's build choices taken as built**, and the walled area beneath
-  TajMahal2 closed (no failure).
+**2026-10-12, session close — the alpha is public.** The repo is `MatthewCarven/OverBurden` and public, and
+**0.1.1-alpha** (`000ee80`) is on his Google Drive behind the README's "Alpha Edition" link (the file there is
+named 0.1.0; the game's corner and the folder inside say 0.1.1). It ran on his older desktop without errors, the
+first machine besides the dev one. This session, all on main:
+- **the lithium-ion pack** (14.4 MJ, 2 kW), **`P` a hundred of each** (`DebugSeed`), **the hotbar in m³**
+  (`VolumeText`), **the steel pick retired** (a fresh world starts on the hand pick, which doesn't take stone);
+- **far mode on F10, fullscreen on F11 and Alt+Enter**; **his own `media/Korobeiniki.mp3`** (the folk melody
+  doubled an octave down) as the collapse music;
+- **[docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md)**: twenty-three decisions taken, session A built (the export, its
+  own saves folder, start.cmd's settings in an export only, the version stamp) and decisions 22–23 done early
+  (the player readme, `THIRD-PARTY-NOTICES.md`, `tools/alpha/licenses/`); **[QUICKSTART.md](QUICKSTART.md)**;
+- **`pwsh tools/make-alpha.ps1`** (about 20 s, game closed) writes `build/Overburden-<version>-win64.zip` and
+  a version-free `build/Overburden-alpha-win64.zip` to upload over the last one. **Bump `<Version>` first.**
 
-The record is the WORKLOG's 2026-10-12 entry; COMMANDS.md has the three probes. Suite **2,302**, twenty-five
-mutations red, r6 to the digit. **Main is ahead of its remote** by this and the last session's commits; he
-pushes. **What he can play now:** `P`, a lithium-ion pack in hand, right-click to wear it, Q (MATTHEW-TODO).
-
-**Later the same day: he played the pack (*"i am happy with it really"*), retired the steel pick for the alpha
-(built: a fresh world starts on the hand pick, which doesn't take stone; suite 2,303), and asked for a public
-alpha.** Its pass is written: [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), twenty-three decisions waiting on him.
-
-**Then, the same night: his answers (all as recommended; far mode to F10 and F11 fullscreen, built; his email
-stays; his own `Korobeiniki.mp3` is the collapse music), `QUICKSTART.md`, and session A, the export, built**
-(ALPHA-PLAN's "Session A — built"): `pwsh tools/make-alpha.ps1` makes `Overburden-0.1.0-alpha-win64.zip`, which
-runs unpacked fresh, SQLite included. Suite 2,303, r6 to the digit.
+Suite **2,303**, r6 to the digit. Main is ahead of GitHub by the close's commits; he pushes.
 
 **Next session, in order:**
-1. **The zip ran on his older desktop without errors** (2026-10-12, his word), the first machine besides the
-   dev one; its specs, if he has them, set the readme's floor. Next **session B** (the Esc menu and controls card, debug keys behind `--dev`, HUD messages, the pack swap) and **C** (the
-   hotbar's slots) in either order, and **D** (the player readme, notices, CONTRIBUTING; the rename and the
-   docs read his).
-2. **IM-6 waits behind the alpha.** Its code-level pass carries: the vault's panel (his warranty line, a lock
+1. **Alpha session B, the first ten minutes** (ALPHA-PLAN 14–20): an Esc menu (Resume, Controls, Quit); the
+   controls card from QUICKSTART on F1, with a credits line; Ctrl+R, H and Alt+H behind `--dev`; the HUD
+   messages that are console-only today; the same-kind pack swap (TODO). It ships as **0.1.2-alpha**.
+2. Then **C** (the hotbar's slots, M10-LADDER-PLAN's inventory decisions) and **D** (the repo's README rewrite,
+   CONTRIBUTING with a contributor rights clause, the docs read, his desktop's specs for the readme).
+3. **IM-6 waits behind the alpha.** Its code-level pass carries: the vault's panel (his warranty line, a lock
    on the channel box, power auto-scaled), water in the hotbar through `VolumeText`, the pile's cyan glitch
    (decision 16), and the windowed read of a real dump. Before it: the ten build warnings, ideally collapse f-1.
 

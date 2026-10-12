@@ -12,6 +12,9 @@
   Apache-2.0 in it, is the source. The zip unpacked and ran with no `ERROR`, reading `Overburden 0.1.1-alpha`.
 - **QUICKSTART's saves section named the dev folder**, not the alpha's; fixed. Every zip that goes out bumps
   `<Version>`.
+- **He uploaded 0.1.1 under 0.1.0's file name** so Drive's replace kept the link, so at his word `make-alpha.ps1`
+  now also writes `build/Overburden-alpha-win64.zip`, the same bytes under a name that never changes. Tested with
+  his two files in `build/` left alone (the test's outputs removed after).
 
 ## 2026-10-12 (night) — Alpha session A: the export works, and one command makes the zip
 
