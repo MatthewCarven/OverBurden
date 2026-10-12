@@ -1,0 +1,139 @@
+Here, glslang proper means core GLSL parsing, HLSL parsing, and SPIR-V code
+generation. Glslang proper requires use of a number of licenses, one that covers
+preprocessing and others that covers non-preprocessing.
+
+Bison was removed long ago. You can build glslang from the source grammar,
+using tools of your choice, without using bison or any bison files.
+
+Other parts, outside of glslang proper, include:
+
+- gl_types.h, only needed for OpenGL-like reflection, and can be left out of
+a parse and codegen project.  See it for its license.
+
+- update_glslang_sources.py, which is not part of the project proper and does
+not need to be used.
+
+- the SPIR-V "remapper", which is optional, but has the same license as
+glslang proper
+
+- Google tests and SPIR-V tools, and anything in the external subdirectory
+are external and optional; see them for their respective licenses.
+
+--------------------------------------------------------------------------------
+
+The core of glslang-proper, minus the preprocessor is licenced as follows:
+
+--------------------------------------------------------------------------------
+3-Clause BSD License
+--------------------------------------------------------------------------------
+
+Copyright (C) 2015-2018 Google, Inc.
+Copyright (C) <various other dates and companies>
+
+All rights reserved.
+
+See: <License: BSD-3-clause>.
+
+--------------------------------------------------------------------------------
+2-Clause BSD License
+--------------------------------------------------------------------------------
+
+Copyright 2020 The Khronos Group Inc
+
+See: <License: BSD-2-clause>.
+
+--------------------------------------------------------------------------------
+The MIT License
+--------------------------------------------------------------------------------
+
+Copyright 2020 The Khronos Group Inc
+
+See: <License: Expat>.
+
+--------------------------------------------------------------------------------
+APACHE LICENSE, VERSION 2.0
+--------------------------------------------------------------------------------
+
+See: <License: Apache-2.0>.
+
+--------------------------------------------------------------------------------
+GPL 3 with special bison exception
+--------------------------------------------------------------------------------
+
+Bison implementation for Yacc-like parsers in C
+
+Copyright (C) 1984, 1989-1990, 2000-2015 Free Software Foundation, Inc.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+As a special exception, you may create a larger work that contains
+part or all of the Bison parser skeleton and distribute that work
+under terms of your choice, so long as that work isn't itself a
+parser generator using the skeleton or a modified version thereof
+as a parser skeleton.  Alternatively, if you modify or redistribute
+the parser skeleton itself, you may (at your option) remove this
+special exception, which will cause the skeleton and the resulting
+Bison output files to be licensed under the GNU General Public
+License without this special exception.
+
+This special exception was added by the Free Software Foundation in
+version 2.2 of Bison.
+
+--------------------------------------------------------------------------------
+================================================================================
+--------------------------------------------------------------------------------
+
+The preprocessor has the core licenses stated above, plus an additional licence:
+
+Copyright (c) 2002, NVIDIA Corporation.
+
+NVIDIA Corporation("NVIDIA") supplies this software to you in
+consideration of your agreement to the following terms, and your use,
+installation, modification or redistribution of this NVIDIA software
+constitutes acceptance of these terms.  If you do not agree with these
+terms, please do not use, install, modify or redistribute this NVIDIA
+software.
+
+In consideration of your agreement to abide by the following terms, and
+subject to these terms, NVIDIA grants you a personal, non-exclusive
+license, under NVIDIA's copyrights in this original NVIDIA software (the
+"NVIDIA Software"), to use, reproduce, modify and redistribute the
+NVIDIA Software, with or without modifications, in source and/or binary
+forms; provided that if you redistribute the NVIDIA Software, you must
+retain the copyright notice of NVIDIA, this notice and the following
+text and disclaimers in all such redistributions of the NVIDIA Software.
+Neither the name, trademarks, service marks nor logos of NVIDIA
+Corporation may be used to endorse or promote products derived from the
+NVIDIA Software without specific prior written permission from NVIDIA.
+Except as expressly stated in this notice, no other rights or licenses
+express or implied, are granted by NVIDIA herein, including but not
+limited to any patent rights that may be infringed by your derivative
+works or by other works in which the NVIDIA Software may be
+incorporated. No hardware is licensed hereunder.
+
+THE NVIDIA SOFTWARE IS BEING PROVIDED ON AN "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+INCLUDING WITHOUT LIMITATION, WARRANTIES OR CONDITIONS OF TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR
+ITS USE AND OPERATION EITHER ALONE OR IN COMBINATION WITH OTHER
+PRODUCTS.
+
+IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY SPECIAL, INDIRECT,
+INCIDENTAL, EXEMPLARY, CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, LOST PROFITS; PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) OR ARISING IN ANY WAY
+OUT OF THE USE, REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION OF THE
+NVIDIA SOFTWARE, HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT,
+TORT (INCLUDING NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF
+NVIDIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

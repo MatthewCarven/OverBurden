@@ -61,11 +61,16 @@ if (Test-Path $music) {
     Write-Warning 'media\Korobeiniki.mp3 not found: this zip plays no music.'
 }
 
-# The papers (ALPHA-PLAN decisions 22 and 23). Each is warned about rather than refused while they are written.
+# The papers (ALPHA-PLAN decisions 22 and 23), and the full licence texts THIRD-PARTY-NOTICES.md points at.
+# A missing one refuses the zip: a download without its notices is the thing they exist to prevent.
 foreach ($paper in 'LICENSE.md', 'QUICKSTART.md', 'THIRD-PARTY-NOTICES.md', 'tools\alpha\README.txt') {
     $path = Join-Path $repo $paper
-    if (Test-Path $path) { Copy-Item $path $stage } else { Write-Warning "$paper not found: not in this zip." }
+    if (-not (Test-Path $path)) { throw "$paper not found: the zip needs it." }
+    Copy-Item $path $stage
 }
+$licenses = Join-Path $repo 'tools\alpha\licenses'
+if (-not (Test-Path (Join-Path $licenses 'godot-engine.txt'))) { throw 'tools\alpha\licenses is missing its texts: run tools\alpha\godot_licenses.gd (see its header).' }
+Copy-Item -Recurse $licenses (Join-Path $stage 'licenses')
 
 $zip = Join-Path $build "Overburden-$version-win64.zip"
 if (Test-Path $zip) { Remove-Item -Force $zip }

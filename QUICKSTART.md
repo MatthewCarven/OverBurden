@@ -114,11 +114,13 @@ To pick one back up, dig it (a quantum tool takes it; the hand pick can't).
 
 ## Saves and logs
 
-Your worlds are in `%APPDATA%\Godot\app_userdata\Overburden\worlds\` and the log in
-`%APPDATA%\Godot\app_userdata\Overburden\logs\godot.log`. If something goes wrong, the log is what helps.
+The alpha download keeps everything in `%APPDATA%\Overburden Alpha\` (paste that into File Explorer's address
+bar): your worlds in `worlds\` (you start in `worlds\default\`) and the log in `logs\godot.log`. If something
+goes wrong, the log is what helps. (Running from the source with `start.cmd` uses
+`%APPDATA%\Godot\app_userdata\Overburden\` instead.)
 
 ---
 
-*Coming before the alpha ships* ([docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md)): an Esc menu with Quit and this
-list on F1; the riskiest test keys (Ctrl+R, H, and Alt+H, which forces a memory clean-up) moved behind a
-`--dev` option; hotbar slots you arrange yourself; the alpha getting its own saves folder.
+*Coming next* ([docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md)): an Esc menu with Quit and this list on F1; the
+riskiest test keys (Ctrl+R, H, and Alt+H, which forces a memory clean-up) moved behind a `--dev` option;
+hotbar slots you arrange yourself.

@@ -108,7 +108,8 @@ quarry the fix made the water tick 5.5× faster (see the worklog). Check a DLL w
 `DebuggableAttribute`: 2 is optimised, 263 is not.
 
 The alpha zip (needs the 4.7.1 mono export templates; close the game first). It prints the zip's size,
-SHA-256 and commit, and warns for any paper not yet written:
+SHA-256 and commit, and refuses a zip missing its readme, quick start, licence or notices. **Bump `<Version>`
+in `Overburden.Game.csproj` before every zip that goes out**:
 
 ```bash
 pwsh tools/make-alpha.ps1
