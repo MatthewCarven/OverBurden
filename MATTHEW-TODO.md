@@ -22,11 +22,6 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **Swap the Drive file for 0.1.1**: `build\Overburden-0.1.1-alpha-win64.zip`. Same game as 0.1.0, plus
-      the readme, the credits and the licence texts the bundled software asks for. If Drive lets you replace
-      the file under the same link ("Manage versions"), the README's link keeps working; otherwise update
-      the link in the README.
-
 - [ ] **Your older desktop's specs, if you know them** (the graphics card and processor): the zip ran there
       without errors, so it's a fair floor for the readme's "what you need" line.
 
@@ -144,6 +139,10 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **0.1.1 is on Drive** (2026-10-12): you renamed the old upload with " - old" and gave 0.1.1 the 0.1.0 file
+  name so Drive's replace kept the README's link. The file says 0.1.0, but the game's corner and the folder
+  inside say 0.1.1, and that's what a report will quote. All pushed.
 
 - **The alpha zip, on another machine** (2026-10-12): *"copied the zip over to my desktop and ran it there and
   it runs fine, well my desktop is a bit older tech like but its working without errors"*. The first time

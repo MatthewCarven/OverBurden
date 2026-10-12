@@ -210,7 +210,9 @@ notices existed. **Decisions 22 and 23 were then done early, as 0.1.1-alpha** (`
 its bundled components and 19 licence texts; plus the .NET 8.0.31 runtime's two files from its package),
 and `tools/alpha/README.txt`, the player's readme, his words first. `make-alpha.ps1` now refuses a zip
 missing any of them. **Each zip that goes out gets its own `<Version>`.** The repo's own README rewrite is
-still session D's.
+still session D's. **0.1.1 replaced 0.1.0 on Drive the same night**, uploaded under 0.1.0's file name so
+Drive's replace kept the link (his: the old one renamed "- old"): the file name says 0.1.0, the game and
+the folder inside say 0.1.1. Offered, not built: a version-free copy of each zip for uploads.
 
 ## Session A — built (2026-10-12)
 
