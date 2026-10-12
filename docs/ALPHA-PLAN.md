@@ -203,6 +203,15 @@ IM-6 waits behind it, and IM-6's header version moves up one if C takes the next
 public, decision 2 in effect. Session D's docs read now edits files going forward only; the history keeps the
 old text. The stale README is the first thing a visitor sees, so D's README moves up.
 
+**He released 0.1.0-alpha the same night**, a Google Drive link added to the README on GitHub, before the
+notices existed. **Decisions 22 and 23 were then done early, as 0.1.1-alpha** (`000ee80`, 74.1 MB):
+`THIRD-PARTY-NOTICES.md` (each bundled component, its licence and copyright line), the full texts in
+`tools/alpha/licenses/` (written by the engine itself through `tools/alpha/godot_licenses.gd`: its licence,
+its bundled components and 19 licence texts; plus the .NET 8.0.31 runtime's two files from its package),
+and `tools/alpha/README.txt`, the player's readme, his words first. `make-alpha.ps1` now refuses a zip
+missing any of them. **Each zip that goes out gets its own `<Version>`.** The repo's own README rewrite is
+still session D's.
+
 ## Session A — built (2026-10-12)
 
 In the worktree `alpha-export`, after he installed the 4.7.1 mono templates. **The export works, SQLite

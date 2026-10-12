@@ -400,6 +400,7 @@ Private at `github.com/MatthewCarven/MinerCraft`, default branch `main`.
 - [ ] **The licence** (PolyForm Noncommercial 1.0.0) — revisit before merging the first outside PR
       (DCO or CLA then); at the first real art or audio assets (split code and content licences);
       and if distro packaging or a contributor community is ever wanted (MIT or Apache-2.0).
-- [ ] Godot's MIT attribution — a credits screen from `Engine.GetLicenseText()` and
-      `Engine.GetCopyrightInfo()`, due with the first distributed build.
+- Godot's MIT attribution: **done for the download** (0.1.1-alpha, 2026-10-12): `THIRD-PARTY-NOTICES.md` and
+  `tools/alpha/licenses/`, written from `Engine.GetLicenseText()` / `GetCopyrightInfo()` / `GetLicenseInfo()`
+  by `tools/alpha/godot_licenses.gd`. The in-game credits line comes with session B's controls card.
 - [ ] The name is protected by trademark and content, not by the engine's copyright.

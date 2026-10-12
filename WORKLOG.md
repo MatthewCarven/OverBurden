@@ -1,5 +1,18 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-12 (late) — Public: the repo renamed OverBurden, 0.1.0 on Drive, 0.1.1 with its notices
+
+- **The repo is public**, renamed `MatthewCarven/OverBurden` (the same repo). He added an "Alpha Edition" Google
+  Drive link and a line to the licence section of the README on GitHub; merged into main as a merge, not a rebase,
+  so the commit stamped into the released zip keeps its ID.
+- **0.1.0-alpha went out without third-party notices**, so **0.1.1-alpha** (`000ee80`) adds them at his word
+  (*"yes please Claude"*): `THIRD-PARTY-NOTICES.md`, the full texts in `tools/alpha/licenses/` (the engine wrote
+  its own: licence, components, 19 licence texts; the .NET runtime's two files copied from its package), and the
+  player's `README.txt`. The SQLite packages carry a licence name but no text, which is why Godot's dump, with
+  Apache-2.0 in it, is the source. The zip unpacked and ran with no `ERROR`, reading `Overburden 0.1.1-alpha`.
+- **QUICKSTART's saves section named the dev folder**, not the alpha's; fixed. Every zip that goes out bumps
+  `<Version>`.
+
 ## 2026-10-12 (night) — Alpha session A: the export works, and one command makes the zip
 
 His templates installed, the export was built in the worktree `alpha-export`; ALPHA-PLAN's "Session A — built"

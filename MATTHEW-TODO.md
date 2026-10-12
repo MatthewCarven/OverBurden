@@ -22,6 +22,11 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
+- [ ] **Swap the Drive file for 0.1.1**: `build\Overburden-0.1.1-alpha-win64.zip`. Same game as 0.1.0, plus
+      the readme, the credits and the licence texts the bundled software asks for. If Drive lets you replace
+      the file under the same link ("Manage versions"), the README's link keeps working; otherwise update
+      the link in the README.
+
 - [ ] **Your older desktop's specs, if you know them** (the graphics card and processor): the zip ran there
       without errors, so it's a fair floor for the readme's "what you need" line.
 
