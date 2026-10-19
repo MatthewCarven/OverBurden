@@ -2694,6 +2694,28 @@ Read as:
 3. **Alpha session C is unaffected.** The hotbar stays the nine-slot row, and C's *"still carried, V reaches
    it"* means in the backpack.
 
+**His answers, the same evening** (verbatim): *"1 yes please the slot appears after you wear an powered
+backpack like (probably only end game) but i was also going to chew energy from the charge slot for your
+computer depending on what you ask from it"*; then, asked whether the quantum battery is the bank's window or
+a battery with its own charge: *"why not "both"? :-D"*, *"like a charge slot on the person for some kind of
+battery and a charge slot in the quantum backpack"*.
+- **Two charge slots.** One is on the player and holds a battery: today's lead-acid and lithium-ion packs, so
+  the alpha's one worn slot is this one. The other is inside the quantum backpack and appears only once a
+  powered backpack is worn, probably only at the end game; it holds the quantum battery, the bank's window, so
+  the one pool still lets you bankrupt yourself.
+- **The computer draws from the charge slots by what you ask of it.** Today it costs nothing. The shapes that
+  exist: the quantum tools pay per voxel (decision 15), and IM-2's priority list orders the consumers on a
+  channel. *Recommended for the pass:* a price per kind of request, in joules, the computer one more
+  consumer; with no charge anywhere it refuses, and the message line says so, as `Q` does with an empty pack.
+- **The draw order, recommended:** the backpack's slot (the bank) first, the player's battery last. The
+  player's battery recharges from the bank at its `rechargeWatts`, as today's worn pack does from its channel,
+  so it is spent only when the bank can't pay: a reserve that keeps your tools and computer alive when the
+  bank fails. *Cost:* it is IM-2 decision 7's revisit trigger (*"a carried buffer, which is two pools
+  again"*), firing in a contained form: the bank's bankruptcy still fuses and dumps the vaults, and only the
+  tools ride the reserve, a lithium-ion's 14.4 MJ being about 4,400 cube bites (10.7 MJ was about 3,300 in his
+  2026-10-12 play). *Other arm:* the player's battery first and the bank behind it, so the bank pays only once
+  the carried battery is flat.
+
 ### What this changes elsewhere
 
 - The M10g row in the split names the screen; decision 8's note points here; the risks
