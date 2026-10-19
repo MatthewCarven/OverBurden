@@ -9,7 +9,7 @@
     <!-- Bump for every zip that goes out, so a report names one build: 0.1.0-alpha went to Google Drive
          without its notices; 0.1.1-alpha carries them; 0.1.2-alpha is session B (the Esc menu, F1,
          the dev flag, the HUD's messages, the swap that asks). -->
-    <Version>0.1.2-alpha</Version>
+    <Version>0.1.3-alpha</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Overburden.Core\Overburden.Core.csproj" />
