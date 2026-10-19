@@ -65,6 +65,20 @@ public sealed class CarriedPacks
     }
 
     /// <summary>
+    /// Whether a right-click asking for a pack of <paramref name="materialId"/> would put on a pack
+    /// holding less than the one worn, of the same kind (ALPHA-PLAN B10): the swap that reads as
+    /// losing the charge, which <see cref="PackSwapGuard"/> asks about before it happens.
+    /// </summary>
+    /// <remarks>
+    /// Only a same-kind swap: asking for another kind is asking for that kind. And only when the
+    /// worn pack holds something, since an empty pack loses nothing by coming off. A window holds
+    /// no charge of its own (IM-2), so it never asks. Equal charges don't ask either: nothing is
+    /// lost, whichever of the two is worn.
+    /// </remarks>
+    public bool WouldWearLess(int materialId, int wornMaterialId, long wornMillijoules) =>
+        materialId == wornMaterialId && wornMillijoules > 0 && FullestMillijoules(materialId) < wornMillijoules;
+
+    /// <summary>
     /// Puts a pack's charge back into the inventory beside its count. Returns whether anything
     /// was kept — a pack holding nothing leaves no entry.
     /// </summary>

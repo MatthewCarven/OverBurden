@@ -632,7 +632,7 @@ hold the litres, put on the ground under the player when the measured window ope
 without a profiler). **Sized rather than fixed, because a fixed ball is a hose** — the automaton
 falls one cell a tick and spreads diffusively, so a source region drains only at its boundary's
 rate, and a run with one measures the hose rather than the flood. In play **`R` puts 10,000 L down
-at the crosshair, Ctrl+R 1,000,000 L (2026-09-19, *"100x … as a test"* — a 6.5 m ball, its top
+at the crosshair, Ctrl+R 1,000,000 L under `--dev` since the alpha (2026-09-19, *"100x … as a test"* — a 6.5 m ball, its top
 half at once and the rest offered every boundary until it fits), and Alt+R — or Alt+G, since NVIDIA's overlay owns Alt+R on his machine (2026-09-26) — takes back everything
 within 2 m**; no material, no JSON, no ID. The
 profile's `fluid` block prints every term of `held == injected − removed − displaced`, and **the
@@ -1147,6 +1147,23 @@ against. `--pilevoxels a,b` (128,512,2048), `--pilecolumns a,b` (squares; 1,4,16
 ```bash
 dotnet run --project Overburden.Bench -c Release -- --pile
 ```
+
+**Alpha session B adds `--dev` and `--openmenu` (2026-10-13, ALPHA-PLAN B7 and B13).** **`--dev`** turns on
+the developer keys a stranger could trip: **Ctrl+R**'s 1,000,000 L (without it, sprinting and pressing R is
+R's 10,000 L), **H**, which holds the whole boundary (water, pumps, power, rain, the dump and the collapse
+sweep) and now says so on the HUD while it holds, and **Alt+H**'s forced collection. Without it H and Alt+H
+print once that they are developer keys and do nothing. `start.cmd` passes it; the export doesn't. It is a
+switch (`--dev=0` is off). No recipe or bench presses these keys, so nothing recorded changes. **`--openmenu`**
+opens the Esc menu at start, and **`--openmenu=controls`** the controls card, for `screenshot.gd`; on a played
+world it leaves the world alone, as `--map` does. The card's developer heading shows only under `--dev`:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --script res://screenshot.gd -- C:/tmp/card.png --nosave --openmenu=controls --dev
+```
+
+**Esc opens the menu since then** (Resume, Controls, Quit; it does not pause), **F1 the card**, and the
+camera no longer frees the mouse on Esc: the menu frees it. Esc still closes a machine's panel or the map
+first. An export shows the card once at a new world's first open; the editor binary never does.
 
 **The world file lives at `user://worlds/<name>/world.db`** — on Windows,
 `%APPDATA%/Godot/app_userdata/Overburden/worlds/`. `--world=<name>` picks one, `--nosave` opens

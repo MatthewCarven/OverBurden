@@ -122,21 +122,12 @@ public partial class FlyCam : Camera3D
 
         SetMouseCaptured(true);
 
+        // The controls are the card's now (ALPHA-PLAN B11, Ui/ControlsCard.cs): this list had gone
+        // stale, and a stranger never reads the console anyway.
         GD.Print(
             $"Overburden — voxel {VoxelConstants.VoxelSize} m, " +
-            $"chunk {VoxelConstants.ChunkSize}³ ({VoxelConstants.ChunkSizeMetres} m)\n" +
-            "  WASD move, Space/Shift up-down, Ctrl faster, Alt crawl\n" +
-            "  F toggles walk and fly — walking, Space jumps, Ctrl sprints, Shift sneaks\n" +
-            "  Sneaking will not walk you off an edge\n" +
-            "  Left mouse mines a sphere, right mouse places a brush\n" +
-            "  Alt+click is precision on either button: one voxel taken, one voxel placed\n" +
-            "  1-9 pick a material from the hotbar, V cycles to the next one\n" +
-            "  B cycles the brush, T cycles the tool tier\n" +
-            "  L places a lamp — a debug bind, and with Q the only way to place at range\n" +
-            "  Q toggles the entangled miner — unlimited reach, 40 swings/s, also a debug bind\n" +
-            "  P puts a relay pump, a relay outlet and a computer in the inventory — a debug bind until crafting; a machine places as one 1 m body\n" +
-            "  With the computer in hand, right-click a machine to open its panel; Esc or a click outside closes it\n" +
-            "  Esc releases the mouse, click to recapture");
+            $"chunk {VoxelConstants.ChunkSize}³ ({VoxelConstants.ChunkSizeMetres} m). " +
+            "Esc for the menu, F1 for the controls.");
     }
 
     /// <summary>Turns the camera about the world's vertical axis, keeping the mouse in step.</summary>
@@ -165,10 +156,11 @@ public partial class FlyCam : Camera3D
     }
 
     /// <summary>
-    /// Gives the mouse to a panel: the cursor shows, looking around stops, the verbs stop
-    /// (M10b-2). The reverse is the camera's own rule — a click outside the panel, which reaches
-    /// here as unhandled input because the panel stops only the clicks on it — or
-    /// <see cref="CaptureMouse"/> from Esc, which <c>Main</c> owns while a panel is open.
+    /// Gives the mouse to a panel or the menu: the cursor shows, looking around stops, the verbs
+    /// stop (M10b-2). The reverse is the camera's own rule — a click outside the panel, which
+    /// reaches here as unhandled input because the panel stops only the clicks on it (the menu's
+    /// shade stops every click, so it never does) — or <see cref="CaptureMouse"/> from Esc, which
+    /// <c>Main</c> owns.
     /// </summary>
     public void ReleaseMouse() => SetMouseCaptured(false);
 
@@ -191,9 +183,8 @@ public partial class FlyCam : Camera3D
                 Rotation = new Vector3(_pitch, _yaw, 0);
                 break;
 
-            case InputEventKey { Pressed: true, Keycode: Key.Escape }:
-                SetMouseCaptured(false);
-                break;
+            // No Esc here since the alpha (ALPHA-PLAN B1): Main owns it alone, and frees the mouse
+            // for the menu, or closes what is open without freeing it.
 
             case InputEventMouseButton { Pressed: true } when !_mouseCaptured:
                 // A click that lands on a Control stopping the mouse never gets here — the panel's

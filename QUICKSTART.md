@@ -15,8 +15,10 @@ There are no monsters. **It's an early alpha: far from complete, and things will
 5. **Press T** to switch to the quantum miner and dig stone at range. **Hold Q** to keep digging.
    The tunneller (2 m) and the excavator (a whole 8 m chunk) are further along T.
 6. **Build** with the right mouse button, **B** to change the brush shape.
-7. **Esc** frees the mouse; click the game to take it back. To quit, close the window (Alt+F4). The
-   world saves on quit and every 30 seconds.
+7. **Esc** opens the menu: Resume, Controls and Quit. **F1** shows every key. The world saves when you
+   quit, and every 30 seconds. The game doesn't pause while the menu is open.
+
+A line above the hotbar says what a key just did, or why it did nothing.
 
 ## All the keys
 
@@ -89,19 +91,28 @@ To pick one back up, dig it (a quantum tool takes it; the hand pick can't).
 | Key | What it does |
 |---|---|
 | R | pour 10,000 litres where you're looking |
-| **Ctrl+R** | **pour 1,000,000 litres. Careful: Ctrl is also sprint, and there's no undo** |
 | Alt+R or Alt+G | take back the water within 2 m of where you're looking |
-| H | **freeze all water** (press again to release; nothing on screen says it's frozen) |
 | L | place a free lamp |
 
-### The view
+### The view and the game
 
 | Key | What it does |
 |---|---|
+| Esc | the menu: Resume, Controls, Quit (and it closes a panel or the map) |
+| F1 | every key, on screen |
 | F10 | see further: each press raises the view distance a step, then back to normal |
 | F11 or Alt+Enter | fullscreen |
 | F12 | the map (Esc closes it) |
-| Esc | free the mouse |
+
+### Developer keys
+
+Only when the game is started with `--dev` (`start.cmd` passes it; the alpha download doesn't):
+
+| Key | What it does |
+|---|---|
+| Ctrl+R | pour 1,000,000 litres (Ctrl is also sprint, and there's no undo) |
+| H | hold all the water, and pumps, rain and roofs with it; H again releases. A line on screen says so |
+| Alt+H | a full memory clean-up, its time in the log |
 
 ## What to watch for
 
@@ -110,7 +121,8 @@ To pick one back up, dig it (a quantum tool takes it; the hand pick can't).
   cyan, with music. Leave pillars. What falls is rubble.
 - **Water goes where it can.** A hole under a lake fills. Pumps and outlets move it; glass and clay hold
   it back.
-- **Modifier keys change things:** Ctrl+R is the million-litre pour, and Alt changes what R, H and P do.
+- **Alt changes what a key does:** Alt+R takes water back, Alt+P fills your power, and Alt with either
+  mouse button works one small block.
 
 ## Saves and logs
 
@@ -121,6 +133,4 @@ goes wrong, the log is what helps. (Running from the source with `start.cmd` use
 
 ---
 
-*Coming next* ([docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md)): an Esc menu with Quit and this list on F1; the
-riskiest test keys (Ctrl+R, H, and Alt+H, which forces a memory clean-up) moved behind a `--dev` option;
-hotbar slots you arrange yourself.
+*Coming next* ([docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md)): hotbar slots you arrange yourself.

@@ -69,6 +69,12 @@ public sealed partial class Hud : CanvasLayer
     /// <summary>How long it takes to fade once the hold has elapsed.</summary>
     private const double SeedFadeSeconds = 3.0;
 
+    /// <summary>How long a message sits at full strength (ALPHA-PLAN B9) before it fades.</summary>
+    private const double MessageHoldSeconds = 4.0;
+
+    /// <summary>How long a message takes to fade once its hold has elapsed.</summary>
+    private const double MessageFadeSeconds = 1.0;
+
     private readonly List<SlotView> _slots = [];
 
     private Label _status = null!;
@@ -77,6 +83,10 @@ public sealed partial class Hud : CanvasLayer
 
     private Label? _seed;
     private double _sinceSeedShown;
+
+    private Label? _message;
+    private double _sinceMessageShown;
+    private Label? _held;
 
     /// <summary>What each slot showed last, so a rebuild only happens when the row changes.</summary>
     private readonly List<int> _shownMaterials = [];
@@ -109,6 +119,103 @@ public sealed partial class Hud : CanvasLayer
         BuildRow(root);
         BuildSeed(root);
         BuildVersion(root);
+        BuildMessage(root);
+        BuildHeld(root);
+    }
+
+    /// <summary>
+    /// The message line (ALPHA-PLAN B9): one short-lived sentence centred above the hotbar, saying
+    /// what a key or a click just did, or why it did nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One line, the newest message.</b> A new message replaces the old, and the same message
+    /// again restarts its clock rather than flickering, so a held Q or a pick swinging at stone
+    /// keeps one sentence up for as long as it goes on. Until the alpha these went to the console
+    /// only, where a stranger never looks; every one still goes there too, for the log.
+    /// </para>
+    /// <para>
+    /// Above the bottom column's 150 px rather than inside it: the column grows upward and was
+    /// clipped once already (see <see cref="BuildRow"/>).
+    /// </para>
+    /// </remarks>
+    private void BuildMessage(Control root)
+    {
+        _message = new Label
+        {
+            Name = "Message",
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            AnchorLeft = 0f,
+            AnchorRight = 1f,
+            AnchorTop = 1f,
+            AnchorBottom = 1f,
+            OffsetLeft = 20f,
+            OffsetRight = -20f,
+            OffsetTop = -196f,
+            OffsetBottom = -160f,
+            Visible = false,
+        };
+
+        _message.AddThemeColorOverride("font_color", new Color(1f, 0.95f, 0.85f));
+        _message.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));
+        _message.AddThemeConstantOverride("outline_size", 5);
+        _message.AddThemeFontSizeOverride("font_size", 18);
+        root.AddChild(_message);
+    }
+
+    /// <summary>Puts <paramref name="text"/> on the message line, or keeps it there a while longer if it is already up.</summary>
+    public void ShowMessage(string text)
+    {
+        if (_message is null) return;
+
+        _message.Text = text;
+        _message.Modulate = Colors.White;
+        _message.Visible = true;
+        _sinceMessageShown = 0.0;
+    }
+
+    /// <summary>What the message line says now, empty when nothing is up — for the log's account of a screenshot.</summary>
+    public string MessageText => _message is { Visible: true } ? _message.Text : string.Empty;
+
+    /// <summary>
+    /// The held-water line (ALPHA-PLAN B8), top centre, amber, for as long as H holds. H stops
+    /// more than the water — the whole boundary waits, pumps, rain and collapses with it — and
+    /// before this nothing on screen said so.
+    /// </summary>
+    private void BuildHeld(Control root)
+    {
+        _held = new Label
+        {
+            Name = "Held",
+            Text = "WATER HELD (H): pumps, rain and roofs wait too",
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            AnchorLeft = 0f,
+            AnchorRight = 1f,
+            AnchorTop = 0f,
+            AnchorBottom = 0f,
+            OffsetLeft = 20f,
+            OffsetRight = -20f,
+            OffsetTop = 40f,
+            OffsetBottom = 70f,
+            Visible = false,
+        };
+
+        _held.AddThemeColorOverride("font_color", new Color(1f, 0.72f, 0.25f));
+        _held.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));
+        _held.AddThemeConstantOverride("outline_size", 5);
+        _held.AddThemeFontSizeOverride("font_size", 18);
+        root.AddChild(_held);
+    }
+
+    /// <summary>Shows or hides the held-water line.</summary>
+    public void ShowHeld(bool held)
+    {
+        if (_held is not null && _held.Visible != held)
+        {
+            _held.Visible = held;
+        }
     }
 
     /// <summary>
@@ -405,6 +512,7 @@ public sealed partial class Hud : CanvasLayer
         float? reliefMetres = null)
     {
         FadeSeed(delta);
+        FadeMessage(delta);
 
         _sinceRefresh += delta;
         bool refreshText = _sinceRefresh >= RefreshSeconds;
@@ -466,6 +574,25 @@ public sealed partial class Hud : CanvasLayer
 
         float remaining = (float)((SeedHoldSeconds + SeedFadeSeconds - _sinceSeedShown) / SeedFadeSeconds);
         _seed.Modulate = new Color(1f, 1f, 1f, remaining);
+    }
+
+    /// <summary>The message line's hold and fade: <see cref="FadeSeed"/>'s shape on its own clock.</summary>
+    private void FadeMessage(double delta)
+    {
+        if (_message is not { Visible: true }) return;
+
+        _sinceMessageShown += delta;
+
+        if (_sinceMessageShown >= MessageHoldSeconds + MessageFadeSeconds)
+        {
+            _message.Visible = false;
+            return;
+        }
+
+        if (_sinceMessageShown <= MessageHoldSeconds) return;
+
+        float remaining = (float)((MessageHoldSeconds + MessageFadeSeconds - _sinceMessageShown) / MessageFadeSeconds);
+        _message.Modulate = new Color(1f, 1f, 1f, remaining);
     }
 
     private static void FillSlot(

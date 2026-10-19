@@ -60,4 +60,68 @@ public sealed class CarriedPacksTests
         reset.Reset(packs.Entries);
         Assert.Equal(packs.Entries, reset.Entries);
     }
+
+    [Fact]
+    public void ASameKindSwapWouldWearLessOnlyWhenEveryCarriedOneHoldsLessThanTheWornOne()
+    {
+        // His play of 2026-10-12: wearing a lithium-ion pack at 5,023.6 kJ, nothing charged carried.
+        const int lithium = 2, lead = 1;
+        const long worn = 5_023_600_000;
+        var packs = new CarriedPacks();
+        Assert.True(packs.WouldWearLess(lithium, lithium, worn));
+
+        packs.Stow(new PackSave(lithium, worn - 1, 0));
+        Assert.True(packs.WouldWearLess(lithium, lithium, worn));
+
+        // Equal loses nothing whichever is worn; fuller is the swap working as meant.
+        packs.Stow(new PackSave(lithium, worn, 4));
+        Assert.False(packs.WouldWearLess(lithium, lithium, worn));
+        packs.Stow(new PackSave(lithium, worn + 1, 0));
+        Assert.False(packs.WouldWearLess(lithium, lithium, worn));
+
+        // Another kind is asked for by name, and an empty worn pack loses nothing coming off.
+        var none = new CarriedPacks();
+        Assert.False(none.WouldWearLess(lead, lithium, worn));
+        Assert.False(none.WouldWearLess(lithium, lithium, 0));
+
+        // A charged pack of another kind carried doesn't count for this one.
+        none.Stow(new PackSave(lead, worn * 2, 0));
+        Assert.True(none.WouldWearLess(lithium, lithium, worn));
+    }
+
+    [Fact]
+    public void TheGuardAsksOnceAndASecondClickForTheSameKindInsideTheWindowIsTheYes()
+    {
+        const int lithium = 2, lead = 1;
+        var guard = new PackSwapGuard();
+
+        // Nothing to ask: through at once, every time.
+        Assert.True(guard.Allows(lithium, wouldWearLess: false, nowSeconds: 0));
+        Assert.True(guard.Allows(lithium, wouldWearLess: false, nowSeconds: 0));
+
+        // Asked, then the yes at the window's edge.
+        Assert.False(guard.Allows(lithium, wouldWearLess: true, nowSeconds: 10));
+        Assert.True(guard.Allows(lithium, wouldWearLess: true, nowSeconds: 10 + PackSwapGuard.WindowSeconds));
+
+        // Past the window, the next click asks again.
+        Assert.False(guard.Allows(lithium, wouldWearLess: true, nowSeconds: 14));
+
+        // Too late is a new question, not the answer to the old one.
+        Assert.False(guard.Allows(lithium, wouldWearLess: true, nowSeconds: 14 + PackSwapGuard.WindowSeconds + 0.01));
+        Assert.True(guard.Allows(lithium, wouldWearLess: true, nowSeconds: 18));
+
+        // A click for another kind in between is not the yes, and a swap that needed no asking
+        // clears the question.
+        Assert.False(guard.Allows(lithium, wouldWearLess: true, nowSeconds: 30));
+        Assert.False(guard.Allows(lead, wouldWearLess: true, nowSeconds: 31));
+        Assert.False(guard.Allows(lithium, wouldWearLess: true, nowSeconds: 32));
+        Assert.True(guard.Allows(lead, wouldWearLess: false, nowSeconds: 33));
+        Assert.False(guard.Allows(lithium, wouldWearLess: true, nowSeconds: 34));
+
+        // The yes is spent at once: a third click straight after it asks again, though it lands
+        // inside the window the question opened. (Without this line nothing caught a yes that
+        // stayed open: the battery's recipe, written before it ran.)
+        Assert.True(guard.Allows(lithium, wouldWearLess: true, nowSeconds: 35));
+        Assert.False(guard.Allows(lithium, wouldWearLess: true, nowSeconds: 36));
+    }
 }

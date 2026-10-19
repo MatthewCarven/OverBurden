@@ -38,10 +38,13 @@ rem --fluidnear=2 is the water thread's first slice (docs/WATER-THREAD-PLAN.md):
 rem column around you is visited every Tier B tick and water further off is deferred past the
 rem boundary under a quota. Off by default for the reason the other two are: every recorded figure
 rem was taken without it. --fluidnear=0 is the control arm, --fluidfar=<cells> the floor's sweep.
+rem --dev turns on the developer keys a stranger could trip (ALPHA-PLAN B7): Ctrl+R's million litres,
+rem H holding the water (and pumps, rain and roofs with it), and Alt+H's forced collection. Without it
+rem Ctrl+R pours R's 10,000 L and H does nothing; the exported alpha has it off.
 rem Godot launched with --path does not rebuild: it loads whatever DLL is in .godot/mono/temp/bin,
 rem so a Core change committed while the game was open plays the previous binary (2026-09-22). An
 rem incremental build of an unchanged tree is a few seconds; a failed one stops here rather than
 rem launching stale code.
 dotnet build Overburden.Game --nologo -v q || (echo. & echo Build failed - not launching. & pause & exit /b 1)
-"%EXE%" --path Overburden.Game -- --lightbudget=16 --adaptive=1 --fluidnear=2 --fluidjob=1 "--world=LakeTest2" %*
+"%EXE%" --path Overburden.Game -- --lightbudget=16 --adaptive=1 --fluidnear=2 --fluidjob=1 --dev "--world=LakeTest2" %*
 pause

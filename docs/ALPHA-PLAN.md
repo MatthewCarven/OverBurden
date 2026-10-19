@@ -259,3 +259,161 @@ Suite 2,303; r6 to the digit on the editor binary, which still saves under `app_
 feels on first open), and any machine but his. **Then checked, the same night, on a second machine**: he
 copied the zip to his older desktop and ran it there, *"it runs fine, well my desktop is a bit older tech like
 but its working without errors"*. The first run of Overburden on a machine that isn't the dev one.
+
+## Session B — the code-level pass (2026-10-12)
+
+Three read-only searches in parallel against `74d3fec`: Esc and the card, the debug keys and `--dev`, and the
+HUD's messages with the swap. The load-bearing facts were checked by hand. **Two findings change the plan as
+taken**: decision 19's refusal would make a second pack of a kind impossible to charge (fact 9), and decision
+18's "too hard" message has nothing behind it today (fact 7).
+
+### Facts
+
+**Esc and the menu**
+1. **Two places own Esc.** `FlyCam._UnhandledInput` frees the mouse on every Esc (`FlyCam.cs:194`) and runs
+   before `Main._UnhandledInput` (`Main.cs:2907`), which closes the panel (`2928`) or the map (`2960`). So the Esc
+   that closes the map also frees the mouse. Nothing calls `SetInputAsHandled`.
+2. **With the mouse free and nothing open, the game's keys still act**: B, V, T, 1–9, F, Ctrl+Z, F10 and F12
+   (`Main.cs:2942-2998`). Only the panel's early return (`2928`) stops them. The polled keys (Q, R, H, P, L) and
+   both mouse verbs already need the mouse captured.
+3. **There is no pause, on purpose** (`Main.cs:2938-2941`). Pausing the tree would stop the world clock (and the
+   collapse fuse with it), the autosave timer, the collection of a water tick already on a worker, and the
+   player; the collapse's cuts on `Task.Run` would carry on, and the music times itself by its own stopwatch.
+4. **A quit from code saves like the window's X**: `_ExitTree` (`Main.cs:10251`) is the one save path,
+   `auto_accept_quit` is at Godot's default, and the worklog verified that `quit()` runs the same teardown. A
+   worker tick is cancelled and waited for, up to 5 s.
+5. **All UI is built in code**: Labels on the default font, no Theme, and nothing yet uses a Button,
+   ScrollContainer or RichTextLabel. Nothing scales with the window. The HUD is a CanvasLayer at 10 and the
+   panel at 11; the map has no CanvasLayer and draws under both (the comment at `Main.cs:3226` says otherwise).
+6. **`_newWorld`** (`Main.cs:253`) is true only when the world had no header (`9812`). It is not saved, and the
+   header is first written by the first autosave (30 s) or the quit. `--nosave` and profile runs never set it.
+   `screenshot.gd` instantiates `Main.tscn` as a play does, so a card shown at a new world's first open would be
+   in a screenshot of a new world.
+
+**The messages and the swap**
+7. **There is no "too hard" message.** A free tool on stone is counted (`MiningController.cs:577`) and said
+   nowhere outside a profile report, because `PrintGate` returns when nothing went unpowered (`Main.cs:5629`).
+   The hand pick swings about 3.3 times a second.
+8. **The pack gate's three lines print once a session** (no pack, ran out mid-bite, spent: `Main.cs:5636-5658`,
+   their flags at `192` never reset). The undo's outcomes print once a press (`4886-4923`), except
+   `UndoOutcome.VaultHolds` (`EditHistory.cs:312`), which has no case and prints nothing. A placement refused as
+   occupied, inside the player, wet or unreachable is counted and never printed (`PlaceController.cs:840-844`).
+   The HUD's only timed text is a new world's seed (`Hud.cs:211`: 7 s, then a 3 s fade), and its bottom column
+   reserves 132 px.
+9. **Only the worn pack charges**: the channel's recharge (`MachineTick.cs:1081`) and Alt+P (`388-406`) fill
+   `Pack` alone, and there is no take-off verb. **So today the same-kind swap is the only way to charge a second
+   pack of a kind**, and decision 19's refusal as written would make that impossible while the worn one holds
+   anything.
+10. **The swap's choice is made in `Main.EquipPackFromInventory`** (`3370`), which no test can reach (the tests
+    reference Core and Persistence only). `CarriedPacks.FullestMillijoules` (`CarriedPacks.cs:53`) is the peek a
+    refusal needs, taken before `_inventory.Take` (`Main.cs:3384`); a refusal there touches no identity term.
+
+**The debug keys**
+11. **His logs hold 71 Ctrl+R pours across 7 plays** (the latest 2026-10-09) **and no H or Alt+H at all.** No
+    recipe, test or bench presses any of the three; the headless pours have their own flags (`--injectlitres`,
+    `--fillbasin`, `--dampour`).
+12. **H holds more than the water**: `_fluidHeld` (`Main.cs:7248`) skips the whole boundary block, so pumps,
+    power, rain, the dump and the collapse sweep wait too, with nothing on screen. **Ctrl+R's size is one
+    ternary** (`8493`): gating only that branch leaves sprint + R as a plain 10,000 L pour. `--dev` is a private
+    bool on `Main`, set in the flag switch beside `--nogate` (`2340`).
+
+### Decisions
+
+Each with a recommendation; "as recommended" takes them all. Decision 20 stays as taken: a fresh world starts as
+today, with no pack worn.
+
+**Taken 2026-10-13, all as recommended** (*"as recommended please Claude, yes add --dev to mine too"*): B7's
+`--dev` goes on his untracked `start2`–`start5` and `pondlook.cmd` as well. On decision 20 he added *"i was going
+to make you mine lead and get acid somehow"*: that is M10-LADDER-PLAN's Tier 2 already (the furnace's sulphur +
+water → acid; lead-acid = lead + acid + a glass jar; lead and gypsum or sulphur mid-depth).
+
+- **B1. Esc belongs to Main alone.** FlyCam stops freeing the mouse on Esc. Main's order: with the panel open,
+  Esc closes it (as today); with the map open, Esc closes it and the mouse stays as it was; with the menu or the
+  card open, Esc closes it and takes the mouse back; with nothing open, Esc opens the menu. *Cost:* Esc no longer
+  frees the mouse by itself; the menu does.
+- **B2. The menu does not pause** (fact 3): the world runs under it as it does under the map and the panel.
+  *Cost:* a roof's fuse and the water carry on while a stranger reads the card. *Other arm:* a pause, its own
+  pass. *Revisit:* a fall or a flood while the menu was open that reads as unfair.
+- **B3. While the menu or the card is open, no game key acts** except F11, Alt+Enter, F1 and Esc: the panel's
+  early return (fact 2), extended to both.
+- **B4. The menu: Resume, Controls, Quit**, centred, on a CanvasLayer above the panel. Quit says it is saving and
+  calls `GetTree().Quit()` (fact 4). No confirmation, since nothing is lost.
+- **B5. The card's text lives in code** (one file, `Ui/ControlsCard.cs`), written from QUICKSTART's "All the
+  keys", in a scrolling panel that F1 and Esc close. The developer keys appear only under `--dev`, under their
+  own heading. Its last lines are the credits: the version, *by Matthew Carven*, the music's credit line, *Made
+  with Godot Engine*, and where the notices are. *Cost:* two copies of the keys (the card and QUICKSTART), kept
+  in step by hand. *Revisit:* rebindable keys, when the card would be generated from the binding table.
+- **B6. At a world's first open the card shows in an export only**, when `_newWorld` is true (fact 6), once.
+  The editor binary's plays, probes and screenshots stay as they are: the line session A drew for `start.cmd`'s
+  settings. *Cost:* a crash in a new world's first 30 s shows it again.
+- **B7. `--dev` gates Ctrl+R, H and Alt+H.** Without it, Ctrl+R pours R's 10,000 L (sprinting and pressing R is
+  just R), and H and Alt+H do nothing, with one log line the first time. **`start.cmd` passes `--dev`**, and so
+  do his untracked `start2`–`start5` and `pondlook.cmd` on his word.
+- **B8. Under `--dev`, a held H shows on the HUD**: *"WATER HELD (H): pumps, rain and roofs wait too"* for as long
+  as it holds (fact 12).
+- **B9. One message line on the HUD**, centred above the hotbar: a few seconds, then a fade. A new message
+  replaces the old one and a repeat restarts its clock, so a held Q, or the pick on stone, keeps one message up
+  rather than flickering. Every `GD.Print` stays for the log. It carries:
+  - **the pick on stone**, new (fact 7): *"The hand pick can't take stone. T for a quantum tool (it needs a
+    charged pack)."*;
+  - **an empty pack, or one that ran out mid-bite**: *"The pack is empty. Alt+P fills it."*, every time rather
+    than once a session (no pack at all stays the status line's);
+  - **every undo outcome**, with `VaultHolds` given its case and its words (fact 8);
+  - **out of material**, and **the swap's result**;
+  - **what P, Alt+P, R and Alt+R or Alt+G just did**, one line each.
+
+  *Not in it:* a placement refused as occupied, inside you, wet or unreachable (counted and unprinted today).
+  *Other arm:* those too, a line each.
+- **B10. The swap asks rather than refuses** (fact 9). A right-click with a pack of the worn kind in hand, when
+  every carried one holds less than the worn one, does nothing the first time and says *"You're wearing your
+  fullest lithium-ion pack (5.0 MJ). Right-click again to wear an empty one."*; a second right-click within 3 s
+  swaps, as today. The rule is a Core function with its tests (fact 10). *Other arms:* refuse outright (a second
+  pack of a kind could never be charged while the first holds anything), or swap as today and only say so.
+- **B11. The stale console list goes** (`FlyCam.cs:125-139`); the log's first lines say *F1 for the controls*.
+  QUICKSTART gains the Esc menu and F1, and moves Ctrl+R and H into a short "Developer keys (`--dev`)" section.
+- **B12. The new UI's text is a size up** from the HUD's default (fact 5), fixed. Scaling the whole UI with the
+  window is a decision of its own, not this session's.
+- **B13. B ends with 0.1.2-alpha built**: `<Version>` bumped, `make-alpha.ps1` run, the zip in `build/`, and a
+  screenshot each of the menu and the card (through a flag that opens them, for `screenshot.gd`). The upload is
+  his, after his look.
+
+## Session B — built (2026-10-13, finished 2026-10-19)
+
+**Built on 2026-10-13 in the worktree `alpha-b`, and left there uncommitted and unrecorded**: main's hand-over
+still said B was next. Found on 2026-10-19, when he asked to queue his tests and keep going. The code was read
+whole before anything was added to it, and it does what B1–B12 say:
+- **B1–B4, the menu** (`Ui/EscMenu.cs`, a CanvasLayer at 12): Resume, Controls, Quit over a shade that stops
+  every click. Esc is `Main._UnhandledInput`'s alone (FlyCam's Esc is gone): the panel first, then the menu or
+  card, then F1, then the map, and with nothing open the menu. F11 and Alt+Enter stay above all of it. Quit
+  shows *Saving…* for 0.1 s, then `GetTree().Quit()`, the window's X's save path.
+- **B5, B6, the card** (`Ui/ControlsCard.cs`, BBCode tables in a scrolling `RichTextLabel`): QUICKSTART's keys,
+  the developer heading only under `--dev`, then the version, the music's credit and the notices. At a new
+  world's first open it shows in an export only.
+- **B7, B8, `--dev`**: Ctrl+R's million litres, H and Alt+H; without it Ctrl+R is R and H prints once that it
+  is a developer key. Under `--dev` a held H puts an amber line at the top: *"WATER HELD (H): pumps, rain and
+  roofs wait too"*. `start.cmd` passes it, and `start2`–`start5` carry it (`pondlook.cmd` calls `start.cmd`).
+- **B9, the message line** (`Hud.ShowMessage`, centred above the hotbar, 4 s then a 1 s fade, the same text
+  again restarting its clock): the pick on stone (*"The hand pick can't take that. T for a quantum tool (it
+  needs a charged pack)."*), an empty pack or bank, a refused fill at range, out of material, every undo
+  outcome (`VaultHolds` given its case and its print), the swap's result, and what P, Alt+P, R and Alt+R just
+  did. Every one keeps its `GD.Print`.
+- **B10, the swap asks** (`CarriedPacks.WouldWearLess`, `PackSwapGuard`, both in Core): a same-kind swap that
+  would wear less than the worn pack does nothing and says *"You're wearing your fullest lithium-ion pack (5.0
+  MJ). Right-click again to wear an empty one."*; a second right-click within 3 s swaps.
+- **B11, B12**: the stale console list is one line (*"Esc for the menu, F1 for the controls"*); QUICKSTART and
+  the player's README name Esc's menu and F1 and move Ctrl+R and H under "Developer keys". The menu and card
+  are a size up (18, buttons 20, titles 26).
+
+**Added on 2026-10-19:** a space the undo's refusal lacked (*"1.00 m³ moreclay"*), and one assertion. Writing the
+battery's recipes before running them found that nothing checked a yes being spent at once: a guard whose yes
+stayed open for the rest of the window passed the test as written (run to confirm: green), so the test now
+clicks a third time straight after a yes.
+
+**Checks.** Suite **2,305** (two new tests). **The battery: 9 of 9 red**, plus one identity: dropping
+`wornMillijoules > 0` can't change the answer, since a carried pack's charge is never below zero (kept, it says
+what the rule means). The r6 control to the digit from the worktree (2601 / 325 / 3446 at 411, no `ERROR`).
+Headless, `--openmenu` and `--openmenu=controls --dev` each print their line with no `ERROR`, and `--dev=maybe`
+is refused. **Screenshots of the menu and the card** (`--openmenu`, `--openmenu=controls --dev`): both read, and
+against a shot of the same scene without them the shade takes the sky from 199 to 90, so it covers the window
+and stops the clicks beside the menu. **Not checked**: the message line and the held line on screen (no flag
+puts them up), how the card reads in fullscreen, and his hands on any of it.

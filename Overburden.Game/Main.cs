@@ -124,6 +124,9 @@ public partial class Main : Node3D
     /// <summary>The computer's panel (M10b-2), built with the HUD and open on at most one machine.</summary>
     private MachinePanel? _panel;
     private MapPanel? _map;
+
+    /// <summary>The Esc menu and the controls card (ALPHA-PLAN B1–B6), built with the HUD.</summary>
+    private EscMenu? _menu;
     private bool _openMap;
     private float? _mapMetresPerPixel;
     private MapWater? _mapWater;
@@ -136,6 +139,16 @@ public partial class Main : Node3D
 
     /// <summary><c>--nogate</c>: the pre-M10c arm — the pool off, every pump free, the miner free (c-3) — printed.</summary>
     private bool _noGate;
+
+    /// <summary>
+    /// <c>--dev</c> (ALPHA-PLAN B7): the developer keys a stranger could trip by accident — Ctrl+R's
+    /// million litres (Ctrl is also sprint), H's hold on the whole boundary, Alt+H's forced
+    /// collection. Without it Ctrl+R pours R's 10,000 L and H does nothing. <c>start.cmd</c> passes it.
+    /// </summary>
+    private bool _dev;
+
+    /// <summary><c>--openmenu</c>: the Esc menu (bare) or the controls card (<c>=controls</c>) open at start, for a screenshot.</summary>
+    private string? _openMenu;
 
     /// <summary><c>--cell=0</c> omits the charged vacuum cell <c>--pump</c> places beside the outlet (M10c-2).</summary>
     private bool _cellWithPump = true;
@@ -189,7 +202,10 @@ public partial class Main : Node3D
     private string? _tierAtOpen;
 
     /// <summary>The gate's two one-off prints: the swing the pack ran out inside, and the first that took nothing.</summary>
-    private bool _printedGateRanOut, _printedGateEmpty, _printedGateNoPack, _printedFillRefused;
+    private bool _printedGateRanOut, _printedGateEmpty, _printedGateNoPack, _printedFillRefused, _printedDevKey;
+
+    /// <summary>The same-kind swap's question (ALPHA-PLAN B10): a second right-click inside its window wears the emptier pack.</summary>
+    private readonly PackSwapGuard _swapGuard = new();
 
     /// <summary><c>--panelset=&lt;name&gt;=&lt;value&gt;</c>: typed into the open panel's box after <c>--openpanel</c> opens it — the widget's wire, headless.</summary>
     private readonly List<(string Name, long Value)> _panelSets = [];
@@ -2341,6 +2357,22 @@ public partial class Main : Node3D
                     _noGate = true;
                     break;
 
+                // ALPHA-PLAN B7: the developer keys (Ctrl+R, H, Alt+H), off for a stranger. Bare
+                // means on, as a switch reads it.
+                case "dev":
+                    if (TryParseSwitch("dev", value, out bool dev))
+                    {
+                        _dev = dev;
+                    }
+
+                    break;
+
+                // ALPHA-PLAN B13: the Esc menu, or with =controls the controls card, open at start,
+                // so screenshot.gd can shoot what nobody presses Esc for headless.
+                case "openmenu":
+                    _openMenu = string.IsNullOrEmpty(value) ? "menu" : value.ToLowerInvariant();
+                    break;
+
                 // 2026-09-26, Matthew's table of watched functions: a stopwatch round each one
                 // CallWatch names — calls, min / mean / max a call — over the whole run, the open
                 // included (the window's analysis and the fill are costs a branch can move), and
@@ -2921,10 +2953,10 @@ public partial class Main : Node3D
         }
 
         // M10b-2: the panel has the keyboard while it is open. Esc closes it and takes the mouse
-        // back — the camera, a child, saw the same Esc first and released a mouse that was already
-        // released, so the order comes out captured — and every other key is left alone: a digit
-        // here is a port value on its way to a field, not a hotbar slot. Below this line nothing
-        // changes, and a key a focused field consumed never reaches here at all.
+        // back, and every other key is left alone: a digit here is a port value on its way to a
+        // field, not a hotbar slot. Below this line nothing changes, and a key a focused field
+        // consumed never reaches here at all. Esc is this method's alone since the alpha's B1: the
+        // camera used to free the mouse on every Esc first.
         if (_panel is { IsOpen: true })
         {
             if (key.Keycode == Key.Escape)
@@ -2932,6 +2964,29 @@ public partial class Main : Node3D
                 ClosePanel("Esc");
             }
 
+            return;
+        }
+
+        // ALPHA-PLAN B1 and B3: the menu or the card has the keyboard while it is up, the panel's
+        // rule. Esc steps back (the card to the menu it came from, anything else to the game) and
+        // F1 opens or closes the card; F11 still works, above; every other key is left alone.
+        if (_menu is { IsOpen: true })
+        {
+            if (key.Keycode == Key.Escape || (key.Keycode == Key.F1 && _menu.CardOpen))
+            {
+                _menu.Back();
+            }
+            else if (key.Keycode == Key.F1)
+            {
+                _menu.OpenCard(fromMenu: true);
+            }
+
+            return;
+        }
+
+        if (key.Keycode == Key.F1)
+        {
+            OpenControls("F1");
             return;
         }
 
@@ -2957,10 +3012,18 @@ public partial class Main : Node3D
             return;
         }
 
+        // The map closes on Esc and the mouse stays as it was: the map never took it.
         if (key.Keycode == Key.Escape && _map is { IsOpen: true })
         {
             _map.Close();
             GD.Print("M12: the map is closed (Esc)");
+            return;
+        }
+
+        // ALPHA-PLAN B1: Esc with nothing open is the menu.
+        if (key.Keycode == Key.Escape)
+        {
+            OpenMenu("Esc");
             return;
         }
 
@@ -3240,6 +3303,66 @@ public partial class Main : Node3D
             _map.Toggle();
             GD.Print("M12: the map is open (--map)");
         }
+
+        // The menu and the card over everything (layer 12): either can be opened over the map.
+        _menu = new EscMenu { Name = "EscMenu" };
+        AddChild(_menu);
+        _menu.CardText = ControlsCard.Text(_dev, Hud.VersionText);
+        _menu.Resumed += () =>
+        {
+            _camera?.CaptureMouse();
+            GD.Print("M2c: back to the game");
+        };
+        _menu.QuitRequested += () =>
+        {
+            GD.Print("M2c: quit from the menu — saving");
+            GetTree().Quit();
+        };
+
+        if (_openMenu is not null)
+        {
+            if (_openMenu == "controls")
+            {
+                OpenControls("--openmenu=controls");
+            }
+            else
+            {
+                OpenMenu("--openmenu");
+            }
+        }
+        else if (_newWorld && ExportFolder is not null)
+        {
+            // ALPHA-PLAN B6: once, at a new world's first open, in an export only, so the editor
+            // binary's plays, probes and screenshots stay as they were (session A's line).
+            OpenControls("a new world's first open");
+        }
+    }
+
+    /// <summary>Esc with nothing open (ALPHA-PLAN B1): the menu, and the mouse freed for it.</summary>
+    private void OpenMenu(string how)
+    {
+        _camera?.ReleaseMouse();
+        if (_menu is null)
+        {
+            // A profile run builds no menu; Esc frees the mouse, as it always did.
+            return;
+        }
+
+        _menu.OpenMenu();
+        GD.Print($"M2c: the menu is open ({how})");
+    }
+
+    /// <summary>F1, or a first open (ALPHA-PLAN B5, B6): the controls card on its own, closing back to the game.</summary>
+    private void OpenControls(string how)
+    {
+        if (_menu is null)
+        {
+            return;
+        }
+
+        _camera?.ReleaseMouse();
+        _menu.OpenCard(fromMenu: false);
+        GD.Print($"M2c: the controls card is open ({how}){(_dev ? ", the developer keys on it (--dev)" : string.Empty)}");
     }
 
     /// <summary>
@@ -3381,6 +3504,27 @@ public partial class Main : Node3D
             return;
         }
 
+        // ALPHA-PLAN B10: a same-kind swap that would put on less than the worn pack holds asks first,
+        // and a second right-click inside the guard's window is the yes. Asked before the count is
+        // touched, so a question changes nothing; and only with one to take, so it never asks about
+        // a swap that couldn't happen.
+        if (_pack is { } worn
+            && _inventory.Voxels(materialId) >= 1
+            && !_swapGuard.Allows(
+                materialId,
+                _carriedPacks.WouldWearLess(materialId, worn.MaterialId, worn.ChargeMillijoules),
+                Time.GetTicksMsec() / 1000.0))
+        {
+            long fullest = _carriedPacks.FullestMillijoules(materialId);
+            string kind = Hud.DisplayName(Content.Materials, materialId);
+            string other = fullest == 0 ? "an empty one" : $"one holding {MachinePanel.Joules(fullest)}";
+            GD.Print(
+                $"M10: pack — asked before swapping ({how}): the worn {kind} holds {MachinePanel.Joules(worn.ChargeMillijoules)}, "
+                + $"the fullest carried {MachinePanel.Joules(fullest)}; a right-click within {PackSwapGuard.WindowSeconds:F0} s wears it");
+            Tell($"You're wearing your fullest {kind} ({MachinePanel.Joules(worn.ChargeMillijoules)}). Right-click again to wear {other}.");
+            return;
+        }
+
         if (_inventory.Take(materialId, 1) < 1)
         {
             GD.Print($"M10: no {Hud.DisplayName(Content.Materials, materialId)} in the inventory to equip ({how})");
@@ -3403,14 +3547,25 @@ public partial class Main : Node3D
             ? $"empty, {MachinePanel.Joules(pack.CapacityMillijoules)} capacity, channel {pack.Channel}; Alt+P fills it"
             : $"{MachinePanel.ChargeOf(pack.ChargeMillijoules, pack.CapacityMillijoules)} from the inventory, channel {pack.Channel}";
 
+        string wearing = pack.IsWindow
+            ? $"Wearing the {label}, a window on channel {pack.Channel}'s bank."
+            : carried is null
+                ? $"Wearing an empty {label}. Alt+P fills it."
+                : $"Wearing a {label} holding {MachinePanel.Joules(pack.ChargeMillijoules)}.";
+
         if (outgoing is null)
         {
             GD.Print($"M10: pack — {label} equipped ({how}): {charged}");
+            Tell(wearing);
             return;
         }
 
         _inventory.Add(outgoing.MaterialId, 1);
         bool kept = _carriedPacks.Stow(new PackSave(outgoing.MaterialId, outgoing.ChargeMillijoules, outgoing.Channel));
+        string outgoingLabel = Hud.DisplayName(Content.Materials, outgoing.MaterialId);
+        Tell(kept
+            ? $"{wearing} Your {outgoingLabel} ({MachinePanel.Joules(stowed)}) is in your pocket."
+            : $"{wearing} Your empty {outgoingLabel} is in your pocket.");
         GD.Print(
             $"M10: pack — {label} equipped in place of {Hud.DisplayName(Content.Materials, outgoing.MaterialId)} ({how}): {charged}; "
             + (kept
@@ -4889,6 +5044,7 @@ public partial class Main : Node3D
             GD.Print(
                 $"M10: undo — {cancelled} placement(s) waiting for the boundary cancelled, nothing else undone "
                 + $"({place.PlacementsCancelled} cancelled this session); press again for the step before");
+            Tell($"Undo: {cancelled:N0} placement(s) waiting for the water cancelled. Ctrl+Z again for the step before.");
             return;
         }
 
@@ -4902,23 +5058,40 @@ public partial class Main : Node3D
                     + (report.MachineRows > 0 ? $", {report.MachineRows} machine row(s)" : string.Empty)
                     + $"; {report.Debited * litre:N0} L out of the inventory, {report.Credited * litre:N0} L back in"
                     + $"; {report.StepsLeft} step(s) left");
+                Tell($"Undone. {report.StepsLeft} step(s) left.");
                 break;
             case UndoOutcome.Empty:
                 GD.Print("M10: undo — nothing to undo");
+                Tell("Nothing to undo.");
                 break;
             case UndoOutcome.EmptyAfterAFall:
-                GD.Print(_collapseDirector is { Events.Count: > 0 }
+                bool underWay = _collapseDirector is { Events.Count: > 0 };
+                GD.Print(underWay
                     ? "M10: undo — nothing to undo: a collapse is under way, and rubble cannot be put back"
                     : "M10: undo — nothing to undo: the roof came down since your last edit, and rubble cannot be put back");
+                Tell(underWay
+                    ? "Nothing to undo: a collapse is under way, and rubble can't be put back."
+                    : "Nothing to undo: the roof came down, and rubble can't be put back.");
                 break;
             case UndoOutcome.OutOfStock:
                 GD.Print(
                     $"M10: undo — refused whole: putting it back needs {report.RefusedShortfall * litre:N0} L more "
                     + $"{Hud.DisplayName(Content.Materials, report.RefusedMaterialId)} than the inventory holds; "
                     + $"the step is kept ({report.StepsLeft} step(s))");
+                Tell(
+                    $"Can't undo: putting it back needs {VolumeText.OfVoxels(report.RefusedShortfall)} more "
+                    + $"{Hud.DisplayName(Content.Materials, report.RefusedMaterialId)} than you carry.");
                 break;
             case UndoOutcome.Unreachable:
                 GD.Print($"M10: undo — refused whole: a voxel's chunk is not loaded; the step is kept ({report.StepsLeft} step(s))");
+                Tell("Can't undo: part of it is too far away now. Go back nearer and try again.");
+                break;
+            case UndoOutcome.VaultHolds:
+                // Printed nothing until the alpha (ALPHA-PLAN fact 8): IM-3's refusal had no case here.
+                GD.Print(
+                    $"M10: undo — refused whole: the step would take away a {Hud.DisplayName(Content.Materials, report.RefusedMaterialId)} "
+                    + $"that holds something; the step is kept ({report.StepsLeft} step(s))");
+                Tell($"Can't undo: that would take away a {Hud.DisplayName(Content.Materials, report.RefusedMaterialId)} that holds something.");
                 break;
         }
     }
@@ -4973,6 +5146,19 @@ public partial class Main : Node3D
             return;
         }
 
+        // ALPHA-PLAN B7: both are developer keys. Gated after the latch, so the edge stays honest,
+        // and above Alt's branch, so one gate covers H and Alt+H.
+        if (!_dev)
+        {
+            if (!_printedDevKey)
+            {
+                _printedDevKey = true;
+                GD.Print("M8b: H and Alt+H are developer keys — start with --dev to use them");
+            }
+
+            return;
+        }
+
         if (Input.IsKeyPressed(Key.Alt))
         {
             long before = Stopwatch.GetTimestamp();
@@ -4994,6 +5180,7 @@ public partial class Main : Node3D
         }
 
         _fluidHeld = !_fluidHeld;
+        _hud?.ShowHeld(_fluidHeld);
         GD.Print(_fluidHeld
             ? $"M8b: H — the water is held at tick {_fluid.Ticks:N0}: no tick begins until H again ({(_fluid.GridOwnedByTick ? "the tick in flight lands first" : "nothing in flight")})"
             : $"M8b: H — the water is released at tick {_fluid.Ticks:N0}");
@@ -5039,6 +5226,7 @@ public partial class Main : Node3D
             $"M10: P — {DebugSeed.Each} of each added to the inventory: relay pumps, relay outlets, solar panels and vacuum cells, "
             + $"{DebugSeed.Each} m³ of clay and of glass, computers, lead-acid packs and lithium-ion packs; pick them on the number row "
             + "(right-click with a pack in hand equips it). Alt+P fills every placed cell and the pack");
+        Tell($"{DebugSeed.Each} of each added: machines, clay, glass, computers and packs. Right-click with a pack in hand to wear it.");
     }
 
     /// <summary>Every placed storage row charged to its capacity, through the set's one debug door.</summary>
@@ -5074,6 +5262,12 @@ public partial class Main : Node3D
             $"M10: Alt+P — {filled} cell(s) filled with {MachinePanel.Joules(millijoules)}"
             + (_pack is null ? string.Empty : $", the pack given {MachinePanel.Joules(packGiven)} to {MachinePanel.Joules(_pack.ChargeMillijoules)}")
             + " (debug)");
+        string cells = filled == 1 ? "1 power cell" : $"{filled:N0} power cells";
+        Tell(_pack is null
+            ? $"Filled {cells}. No pack worn to fill."
+            : _pack.IsWindow
+                ? $"Filled {cells}."
+                : $"Filled {cells} and your pack ({MachinePanel.Joules(_pack.ChargeMillijoules)}).");
     }
 
     /// <summary>Ends the process with no save, when <c>--abort=</c> asked for it.</summary>
@@ -5542,6 +5736,13 @@ public partial class Main : Node3D
             OpenPackPanel("right-click with the computer on nothing");
         }
 
+        if (_place.RefusedUnpoweredThisFrame)
+        {
+            Tell(_pack is null
+                ? "Building at range needs a pack. P for a kit, then right-click with a pack in hand."
+                : $"The {PackNoun()} can't pay for the rest of that. Alt+P fills it.");
+        }
+
         if (_place.RefusedUnpoweredThisFrame && !_printedFillRefused)
         {
             // Once, until a shape lands whole: the fill at range stops where the charge ends
@@ -5558,6 +5759,12 @@ public partial class Main : Node3D
         else if (placed && !_place.RefusedUnpoweredThisFrame)
         {
             _printedFillRefused = false;
+        }
+
+        if (placed && _place.RanOutThisFrame)
+        {
+            // "That", not a name: the controller may have re-selected the frame it ran out.
+            Tell("Out of that material. Mine some more, or V for something else.");
         }
 
         if (placed && _place.RanOutThisFrame && !_announcedEmpty)
@@ -5626,6 +5833,16 @@ public partial class Main : Node3D
         }
 
         CarveResult last = _mining.LastResult;
+
+        // ALPHA-PLAN B9, fact 7: a tool that met something too hard for it took it silently until
+        // the alpha. The hand pick on stone is the case a stranger meets in their first minute.
+        if (last.TooHard > 0 && last.Removed == 0)
+        {
+            Tell(_mining.Tool.AtRange
+                ? $"Too hard for the {ToolName(_mining.Tool)}."
+                : $"The {ToolName(_mining.Tool)} can't take that. T for a quantum tool (it needs a charged pack).");
+        }
+
         if (last.Unpowered == 0)
         {
             return;
@@ -5633,6 +5850,7 @@ public partial class Main : Node3D
 
         if (_pack is null)
         {
+            // No pack at all is the status line's to say, all the time (Hud's NeedsAPack line).
             if (!_printedGateNoPack)
             {
                 _printedGateNoPack = true;
@@ -5641,6 +5859,12 @@ public partial class Main : Node3D
 
             return;
         }
+
+        // Every time on screen, once a session in the log: the log is the instrument, the screen
+        // is the player's, and a player who fills the pack and drains it again wants telling again.
+        Tell(_pack.IsWindow
+            ? $"The bank on channel {_pack.Channel} is empty. Alt+P fills it."
+            : "The pack is empty. Alt+P fills it.");
 
         if (last.Removed > 0 && !_printedGateRanOut)
         {
@@ -5660,6 +5884,15 @@ public partial class Main : Node3D
 
     /// <summary>What the gate's lines call what the tool spends: the pack, or for a window its channel's bank (IM-2).</summary>
     private string PackNoun() => _pack is { IsWindow: true } window ? $"bank on channel {window.Channel}" : "pack";
+
+    /// <summary>A tool as a sentence names it: <c>overburden:hand_pick</c> is "hand pick".</summary>
+    private static string ToolName(ToolDefinition tool) => tool.Id.Path.Replace('_', ' ');
+
+    /// <summary>
+    /// Puts a sentence on the HUD's message line (ALPHA-PLAN B9). The log keeps its own print beside
+    /// every call, since a headless run has no HUD and the log is its only output.
+    /// </summary>
+    private void Tell(string text) => _hud?.ShowMessage(text);
 
     private void UpdateMining(double delta)
     {
@@ -8484,19 +8717,23 @@ public partial class Main : Node3D
             _relayPendingMillilitres = 0;
             _relayTakeAt = at;
             GD.Print($"M8b: relay will take back everything within {TakeRadiusMetres:F0} m of {at} at the boundary");
+            Tell($"Taking back the water within {TakeRadiusMetres:F0} m.");
             return;
         }
 
         // A ball half in the ground delivers its top half at once and offers the rest every
         // boundary until it fits — the hose the pour's own remarks name, and at 1 ML the pour
         // loop is 53³ cells a boundary until it has.
-        long litres = Input.IsKeyPressed(Key.Ctrl) ? RelayBigLitres : RelayLitres;
+        // Ctrl+R's million litres is a developer key (ALPHA-PLAN B7): without --dev, sprinting and
+        // pressing R is just R.
+        long litres = _dev && Input.IsKeyPressed(Key.Ctrl) ? RelayBigLitres : RelayLitres;
         _relayAt = at;
         _relayPendingMillilitres += litres * FluidConstants.MillilitresPerLitre;
         _relayRadiusVoxels = RadiusVoxelsFor(_relayPendingMillilitres);
         GD.Print(
             $"M8b: relay pouring {litres:N0} L at {at} in a ball of radius {_relayRadiusVoxels} voxels; "
             + $"{_relayPendingMillilitres / (double)FluidConstants.MillilitresPerLitre:N0} L pending");
+        Tell($"Pouring {litres:N0} litres. Alt+R or Alt+G takes it back.");
     }
 
     private long TakeWaterAround(VoxelPos centre)

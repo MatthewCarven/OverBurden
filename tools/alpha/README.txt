@@ -17,7 +17,7 @@ PLAYING
    "Run anyway".
 3. You need Windows 10 or 11 (64-bit) and a graphics card that supports Vulkan.
 
-Every key is in QUICKSTART.md, beside this file. The short version:
+Every key is on F1 in the game, and in QUICKSTART.md beside this file. The short version:
 
   W A S D, mouse      move and look            F         walk / fly
   Left mouse          dig                      T         next tool
@@ -26,7 +26,8 @@ Every key is in QUICKSTART.md, beside this file. The short version:
   P                   a kit of everything      Alt+P     charge your pack and power cells
   F10                 see further              F11       fullscreen
   F12                 the map                  Ctrl+Z    undo
-  Esc                 free the mouse           close the window to quit (it saves)
+  Esc                 menu: resume, quit       F1        every key
+  Quitting saves the world, from the menu or by closing the window.
 
 Your bare hands dig dirt, not stone. Press P, wear a battery pack (choose it, right-click), press Alt+P to
 charge it, then T to the quantum miner: that digs anything.
