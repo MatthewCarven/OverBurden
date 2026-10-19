@@ -218,9 +218,11 @@ upload.** His untested 2026-10-12 builds and 0.1.2's check are at the top of his
 Suite **2,305**, r6 to the digit. Main is ahead of GitHub; he pushes.
 
 **Next session, in order:**
-1. **Alpha session C, the hotbar's slots** (ALPHA-PLAN 21: nine slots that stay put, saved with the world, new
-   things into the first empty slot, a key to pin what V selected; M10-LADDER-PLAN's inventory decisions 2, 3
-   and 7 for the Core half). It takes a header version, so IM-6's moves up one. Its code-level pass first.
+1. **Alpha session C, the hotbar's slots: its code-level pass is written** (ALPHA-PLAN, "Session C — the
+   code-level pass", `ed74c57`): eighteen facts, **thirteen decisions C1–C13 waiting on his word** (C3 which
+   things take a slot, C4 the pin key, C5 the hand on a spent block are the ones that are really his). Once
+   taken, build it as C13 says (one session, worktree if he may play, ending in 0.1.3-alpha), and fix the copies
+   its "What this changes elsewhere" lists: C takes header v8, so IM-6's mode byte moves to v9.
 2. Then **D** (the repo's README rewrite, CONTRIBUTING with a contributor rights clause, the docs read, his
    desktop's specs for the readme).
 3. **IM-6 waits behind the alpha.** Its code-level pass carries: the vault's panel (his warranty line, a lock

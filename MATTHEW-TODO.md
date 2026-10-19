@@ -119,6 +119,19 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
+- [ ] **The hotbar's slots, thirteen decisions** ([docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), "Session C — the
+      code-level pass", 2026-10-19). "As recommended" takes them all. In short: nine slots that keep what's in them,
+      even at zero (dimmed); something new goes in the first empty slot; your worlds keep the row they show today.
+      Three are really yours:
+      - **C3: only blocks take a slot by themselves.** The computer and the packs go on by a pin, so P's kit fills
+        the row with grass, dirt, the machines, clay, glass, and your first stone lands in slot 9. *Other arm:*
+        everything takes a slot, and stone finds the row full.
+      - **C4: the pin is hold V and press 1–9.** What's in your hand goes in that slot. *Other arms:* Alt+digit
+        (but Alt is held for crawling and one-voxel building), or a letter then a digit.
+      - **C5: your hand stays on a block that runs out** (a click says *out of stone*) instead of jumping to
+        whatever you have most of.
+      It ships as 0.1.3, and a world opened in 0.1.3 won't open in 0.1.2 again.
+
 
 - [ ] **The collapse: pieces that jump — I gave you the wrong size.** You said "leave it" when I
       said "at most a metre". On a copy of your tower, one piece jumped 4.5 m (about 20 pieces in

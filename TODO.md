@@ -24,7 +24,9 @@ IM-6 waits behind it; if C takes the next header version, IM-6's moves up one. *
 plan's "Session A — built"): `pwsh tools/make-alpha.ps1` makes the zip. His windowed run: it ran on his older
 desktop without errors; F11, the version corner and the music are queued on his list (2026-10-19). **B is built**
 (2026-10-13, committed 2026-10-19; the plan's "Session B — built") and zipped as 0.1.2-alpha; its play is on his
-list, the upload his. Next C, then D.
+list, the upload his. **C's code-level pass is written** (2026-10-19, `ed74c57`: eighteen facts, thirteen
+decisions C1–C13, his); C takes header v8, so IM-6's mode byte moves to v9 once taken (the pass's "What this
+changes elsewhere" lists every copy to fix). Then D.
 
 **Do first, before the slice named:**
 1. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
