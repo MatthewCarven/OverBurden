@@ -2593,7 +2593,8 @@ difficulty"*), which "generous" already answers. Open, his:
    overflow goes to the store (IDEAL-MACHINES-PLAN fork 13 already names that handover).
 3. **How generous**, as a volume: for scale, a brush cube is 1 m³, the tunneller's bite 8 m³, a chunk 512 m³,
    and his played worlds carry over a million m³ of stone.
-4. **What the hands carry with no backpack at all.**
+4. ~~What the hands carry with no backpack at all.~~ **Answered the same day: the hotbar** (his player slots,
+   below).
 5. **Cloth needs a fibre**, and nothing in the world grows one yet: the recipe waits on M10g's recipes and
    M10h's plants, or a stand-in from grass.
 
@@ -2656,6 +2657,42 @@ It amends decision 1 (a tap of `E` aimed at a container opens it beside you) and
 decision 21, the stock section of the computer's panel, which IM-6 builds first. **Recommended there:** IM-6
 builds that section as planned, so the vault is playable before M10g; the screen calls the same moves; and
 M10g's pass decides whether the panel keeps its verbs once the screen exists.
+
+#### His design for the player's slots (2026-10-19)
+
+> Matthew: *"Ok the pack was eventually going to go in the back pack slot, like your player has slots on its
+> inventory like when you press e not aiming at a container, and are greeted with the inventory screen you'd
+> have your hotbar, backpack inventory and the player slots, like left hand and right hand, head, chest, legs,
+> feet for like armor later left hand and right had for weapons and shields, backpack slot for a backpack
+> means you can use more than the hotbar to store stuff, like in our alpha I have always assumed that you were
+> wearing the quantum backpack and are carrying charge in the charge slot(on the player) \*in the form of a
+> quantum battery for quantum backpack"*
+
+Read as:
+- **`E` with no container aimed at**: the hotbar, the backpack's grid, and the player's slots: two hands, head,
+  chest, legs, feet, **a backpack slot** and **a charge slot**.
+- **The backpack slot is what lets you carry more than the hotbar.** With no backpack the hotbar is all you
+  carry, which answers the cloth backpack's question 4 above. The cloth backpack is generous; the quantum
+  backpack is the store.
+- **The charge slot holds the battery.** Today's worn pack (lead-acid, lithium-ion; the header's v4 pack) is
+  this slot already, and its top rung is a quantum battery.
+- **The alpha is already this, in his reading**: the unbounded pocket is the quantum backpack worn, and the
+  worn pack is the charge slot. Nothing the alpha does changes.
+
+**For M10g's pass**, three things it meets, each with a recommendation:
+1. **The code has one worn slot, and the quantum backpack is in it**: IDEAL-MACHINES-PLAN decision 7 makes the
+   backpack a window onto the bank that *"rides today's pack slot with charge 0"*. His slots split that in two:
+   the backpack slot for things (the store's window) and the charge slot for energy, where the quantum battery
+   is the bank's window. *Recommended:* the v4 pack slot becomes the charge slot by name, the backpack slot is
+   new header state at M10g's version, and IM-2's energy window moves from the backpack to the quantum battery.
+   **His to confirm:** is the quantum battery the bank's window (his one pool, 2026-09-29: *"you should be
+   able to bankrupt yourself energy wise at the last tech"*), or a battery with a charge of its own?
+2. **"Weapons and shields" meets DESIGN's scope**: no mobs, no combat (`DESIGN.md:21`). The hand and armour
+   slots have uses against the mine: a tool in one hand and a lamp in the other; a hard hat against falling
+   rock once M11 brings collapse damage; his rebreather (M10-NOTES) on the head; boots for wading.
+   *Recommended:* the slots, with the mine's uses; weapons wait for something to fight.
+3. **Alpha session C is unaffected.** The hotbar stays the nine-slot row, and C's *"still carried, V reaches
+   it"* means in the backpack.
 
 ### What this changes elsewhere
 

@@ -209,7 +209,10 @@ Each one is a recommendation, then its cost, then the trigger that would reverse
    carried buffer, which is two pools again.
    **His note, 2026-09-29** (verbatim): *"dreaming of a lithium ion, li poly or quantum portable(wearable)
    battery/storage backpack"*. The quantum one is this window, built in IM-2. Lithium-ion and lithium-polymer
-   are the middle rungs of the carried pack, between lead-acid and the window. Each would be a storage like
+   are the middle rungs of the carried pack, between lead-acid and the window. **His player slots (2026-10-19,
+   M10-LADDER-PLAN, "His design for the player's slots")** split this slot in two at M10g: a backpack slot
+   for things and a charge slot for energy; recommended there, not yet taken, the window moves to a quantum
+   battery. Each would be a storage like
    lead-acid, with its own `capacityJoules` and `rechargeWatts`, and would wait on M10g's recipes. They are
    carried buffers, but on the lower rungs, where there is no one pool, so this revisit does not fire.
    **The lithium-ion pack shipped early, 2026-10-12, on his ask** (*"Lead acid is so 20th century"*), seeded by
