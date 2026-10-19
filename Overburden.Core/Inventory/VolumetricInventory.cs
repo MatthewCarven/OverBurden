@@ -77,6 +77,28 @@ public sealed class VolumetricInventory
     /// <summary>Whether this pocket refuses <paramref name="materialId"/>.</summary>
     public bool Refuses(int materialId) => _refused?.Contains(materialId) == true;
 
+    // Alpha session C, decision C3: the materials that never take a slot by themselves — the items.
+    private HashSet<int>? _offRow;
+
+    /// <summary>The hotbar: nine slots the player arranges, kept here so that <see cref="Add"/> can offer each arrival a slot.</summary>
+    public HotbarSlots Hotbar { get; } = new();
+
+    /// <summary>
+    /// Keeps <paramref name="materialIds"/> off the row unless pinned — the table's items, the
+    /// computer and the packs (alpha session C, decision C3).
+    /// </summary>
+    /// <remarks>
+    /// <b>Only placeable materials take a slot by themselves</b>, so P's kit fills an empty row with
+    /// blocks and machines and leaves room for the first stone; an item is a V away, and a pin puts
+    /// it on the row for good. The same shape as <see cref="RefuseMaterials"/>: set once at open
+    /// from the table, consulted at the one door.
+    /// </remarks>
+    public void KeepOffTheRow(IEnumerable<int> materialIds)
+    {
+        ArgumentNullException.ThrowIfNull(materialIds);
+        _offRow = [.. materialIds];
+    }
+
     /// <summary>Voxels <see cref="Add"/> turned away because the pocket refuses their material, over its lifetime.</summary>
     public long RefusedVoxels { get; private set; }
 
@@ -113,8 +135,16 @@ public sealed class VolumetricInventory
     /// it as <c>AlreadyAir</c> before the removal — so an air deposit is a caller that has lost
     /// track of what it removed, and silently accepting it would put a number in the save file
     /// that no amount of play could explain.
+    /// <para>
+    /// <b>And every credit offers the material a slot</b> (alpha session C, decision C2): one not on
+    /// the row takes the first empty slot, or none when the row is full. One already on it — an
+    /// undo's refund, a pack handed back after a swap — stays where it is, because a slot keeps
+    /// its material at zero. <see cref="Reset"/>, the load path, offers nothing.
+    /// </para>
     /// </remarks>
-    public void Add(int materialId, long voxels)
+    public void Add(int materialId, long voxels) => Credit(materialId, voxels, offer: true);
+
+    private void Credit(int materialId, long voxels, bool offer)
     {
         if (materialId == MaterialIds.AirNumericId)
         {
@@ -139,6 +169,11 @@ public sealed class VolumetricInventory
         }
 
         _voxels[materialId] = Voxels(materialId) + voxels;
+
+        if (offer && _offRow?.Contains(materialId) != true)
+        {
+            Hotbar.Offer(materialId);
+        }
     }
 
     /// <summary>
@@ -186,11 +221,11 @@ public sealed class VolumetricInventory
     /// every "did this change?" question — in a test, in a diff, in a bug report — unanswerable.
     /// </para>
     /// <para>
-    /// <b>M6d-3 gave that guarantee a second dependant, and it is a louder one.</b>
-    /// <see cref="MaterialInSlot"/> is the hotbar, so this ordering is now what a number key
-    /// means — and where a shuffled save is merely unanswerable, a shuffled hotbar moves the
-    /// player's materials under their fingers mid-build. The sort is not an implementation
-    /// detail of the writer any more. Removing it now breaks two things that look unrelated.
+    /// <b>V's cycle walks it too</b> (<c>PlaceController.NextMaterial</c>). From M6d-3 to alpha
+    /// session C it was also the hotbar, whose slots were its first nine; the row is
+    /// <see cref="Hotbar"/> now, and this order survives in it only as the row a world written
+    /// before the slots opens with (<see cref="HotbarSlots.RowFor"/>).
+    /// </para>
     /// </remarks>
     public IReadOnlyList<(int MaterialId, long Voxels)> Entries()
     {
@@ -210,40 +245,24 @@ public sealed class VolumetricInventory
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The hotbar is what you are carrying, not what exists.</b> Same argument as
-    /// <c>PlaceController.NextMaterial</c> cycling the inventory rather than the material table:
-    /// a slot offering a material you have none of is a selection that cannot be acted on, and
-    /// with five shipped materials most of the row would be that.
+    /// <b>The row the player arranged, read from <see cref="Hotbar"/></b> (alpha session C). Until
+    /// then it was the carried materials in ascending ID order — so picking up a material shifted
+    /// every slot after it, which M6d-3 accepted with a named fix: an assignment the player
+    /// arranges, saved with the world. That is the hotbar now, in header v8.
     /// </para>
     /// <para>
-    /// <b>Slots are carried materials in ascending ID order, and the cost of that is stated
-    /// rather than hidden: picking up a material you did not have shifts every slot after it.</b>
-    /// Mine your first dirt and the stone you had on 1 may become 2 while your hand is on the
-    /// key. It is accepted at M6 because the alternative — an explicit slot assignment the
-    /// player arranges — is state that has to survive a quit, which is a world-header field and
-    /// a format version, and this is the part of M6 most likely to be redone. <b>Revisit
-    /// trigger: the play reports a slot moving under their fingers</b>, or the first player who
-    /// wants to arrange the row.
-    /// </para>
-    /// <para>
-    /// <b>Ascending ID and not first-acquired order</b>, which was the other candidate and is
-    /// stable within a session. It loses across a quit: the restored inventory comes back in ID
-    /// order, so the row a player learned in one session would be a different row in the next.
-    /// A rule that is always the same beats one that is usually better and occasionally lies.
+    /// <b>A slot can name a material held at zero</b>: the slot keeps it, dimmed, so the next bite
+    /// lands back where the player's hand expects it.
     /// </para>
     /// </remarks>
-    public int MaterialInSlot(int slot)
-    {
-        if (slot < 0)
-        {
-            return -1;
-        }
-
-        IReadOnlyList<(int MaterialId, long Voxels)> held = Entries();
-        return slot < held.Count ? held[slot].MaterialId : -1;
-    }
+    public int MaterialInSlot(int slot) => Hotbar.MaterialInSlot(slot);
 
     /// <summary>Replaces everything held with <paramref name="entries"/>. The load path.</summary>
+    /// <remarks>
+    /// <b>Offers nothing and leaves the row alone</b>: the world file carries the row too, and
+    /// re-crediting every holding through the offer would hand the empty slots out in ID order
+    /// before the saved row could be put back. The opener restores <see cref="Hotbar"/> beside this.
+    /// </remarks>
     public void Reset(IEnumerable<(int MaterialId, long Voxels)> entries)
     {
         ArgumentNullException.ThrowIfNull(entries);
@@ -252,7 +271,7 @@ public sealed class VolumetricInventory
 
         foreach ((int materialId, long voxels) in entries)
         {
-            Add(materialId, voxels);
+            Credit(materialId, voxels, offer: false);
         }
     }
 

@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using Overburden.Core.Building;
+using Overburden.Core.Content;
 using Overburden.Core.Inventory;
 using Overburden.Core.Mining;
 using Overburden.Core.Voxels;
@@ -286,7 +287,14 @@ public class InventoryTests
         Assert.Equal(0, inventory.TotalVoxels);
     }
 
-    // ------------------------------------------------------------------ the hotbar (M6d-3)
+    // ------------------------------------------- the hotbar (M6d-3; slots that stay put, alpha C)
+
+    /// <summary>Materials past the helpers' three, for a row longer than they can fill. The inventory never reads the table.</summary>
+    private const int Clay = 4, Glass = 5, Grass = 6, Pump = 7, Outlet = 8, Cell = 9, Panel = 10, Rubble = 11, Lamp = 12;
+
+    /// <summary>The row as nine IDs, for asserting a whole row at once.</summary>
+    private static int[] Row(VolumetricInventory inventory) =>
+        [.. Enumerable.Range(0, HotbarSlots.Count).Select(inventory.MaterialInSlot)];
 
     [Fact]
     public void AnEmptyInventoryHasNoSlots()
@@ -295,21 +303,6 @@ public class InventoryTests
 
         Assert.Equal(-1, inventory.MaterialInSlot(0));
         Assert.Equal(-1, inventory.MaterialInSlot(8));
-    }
-
-    [Fact]
-    public void SlotsAreTheCarriedMaterialsInAscendingIdOrder()
-    {
-        var inventory = new VolumetricInventory();
-
-        // Added out of order on purpose: the row must not depend on acquisition order, because
-        // a restored inventory has no acquisition order to depend on.
-        inventory.Add(Stone, 10);
-        inventory.Add(Dirt, 5);
-
-        Assert.Equal(Dirt, inventory.MaterialInSlot(0));
-        Assert.Equal(Stone, inventory.MaterialInSlot(1));
-        Assert.Equal(-1, inventory.MaterialInSlot(2));
     }
 
     /// <summary>
@@ -331,51 +324,192 @@ public class InventoryTests
     }
 
     /// <summary>
-    /// Spending the last of a material closes its slot up, and the row above it shifts down.
+    /// A new material takes the first empty slot, in the order things arrive — not ID order, which
+    /// was M6d-3's row and shifted every slot after a newcomer.
+    /// </summary>
+    [Fact]
+    public void ANewMaterialTakesTheFirstEmptySlotInTheOrderItArrives()
+    {
+        var inventory = new VolumetricInventory();
+
+        inventory.Add(Stone, 10);
+        inventory.Add(Dirt, 5);
+
+        Assert.Equal(Stone, inventory.MaterialInSlot(0));
+        Assert.Equal(Dirt, inventory.MaterialInSlot(1));
+        Assert.Equal(-1, inventory.MaterialInSlot(2));
+    }
+
+    /// <summary>
+    /// Spending the last of a material keeps its slot: nothing above it shifts, and the next bite
+    /// lands back in it.
     /// </summary>
     /// <remarks>
-    /// <b>Asserted rather than left implied, because it is the documented cost of the ID-order
-    /// rule.</b> The same shift happens in reverse when a material is acquired — mine your first
-    /// dirt and the stone on slot 1 becomes slot 2 under your hand. If this test is ever
-    /// "fixed" to assert stability instead, the rule has changed and
-    /// <see cref="VolumetricInventory.MaterialInSlot"/>'s revisit trigger has fired.
+    /// <b>The inversion of M6d-3's <c>EmptyingAMaterialShiftsEverySlotAboveIt</c></b>, which asserted
+    /// the shift as the documented cost of the ID-order row and said that if it were ever "fixed"
+    /// the rule had changed. It has: alpha session C, decision C2.
     /// </remarks>
     [Fact]
-    public void EmptyingAMaterialShiftsEverySlotAboveIt()
+    public void SpendingTheLastOfAMaterialKeepsItsSlotAndTheNextBiteLandsBackInIt()
     {
         var inventory = new VolumetricInventory();
         inventory.Add(Dirt, 1);
         inventory.Add(Stone, 1);
 
-        Assert.Equal(Stone, inventory.MaterialInSlot(1));
-
         inventory.Take(Dirt, 1);
 
-        Assert.Equal(Stone, inventory.MaterialInSlot(0));
-        Assert.Equal(-1, inventory.MaterialInSlot(1));
+        Assert.False(inventory.Has(Dirt));
+        Assert.Equal(Dirt, inventory.MaterialInSlot(0));
+        Assert.Equal(Stone, inventory.MaterialInSlot(1));
+
+        inventory.Add(Glass, 3);
+        Assert.Equal(Glass, inventory.MaterialInSlot(2));
+
+        inventory.Add(Dirt, 2);
+        Assert.Equal([Dirt, Stone, Glass, -1, -1, -1, -1, -1, -1], Row(inventory));
     }
 
     /// <summary>
-    /// The row survives a save and reload, which is the whole reason it is ID order.
+    /// The swap's 1 → 0 → 1: wearing your last pack of a kind and taking the worn one back leaves
+    /// the kind where it was. Under the ID-order row the same call shifted every slot after it and
+    /// shifted them back.
     /// </summary>
-    /// <remarks>
-    /// The rejected alternative — first-acquired order — passes every test above and fails this
-    /// one, because <see cref="VolumetricInventory.Reset"/> replays entries in the order the
-    /// header stored them and a session's acquisition order is not written down anywhere.
-    /// </remarks>
+    [Fact]
+    public void ASwapThatSpendsTheLastPackAndHandsOneBackLeavesItsSlotWhereItWas()
+    {
+        var inventory = new VolumetricInventory();
+        inventory.Add(Stone, 64);
+        inventory.Add(Pump, 1);
+        inventory.Add(Glass, 64);
+        int[] before = Row(inventory);
+
+        Assert.Equal(1, inventory.Take(Pump, 1));
+        Assert.Equal(before, Row(inventory));
+
+        inventory.Add(Pump, 1);
+        Assert.Equal(before, Row(inventory));
+    }
+
+    /// <summary>
+    /// A full row turns a newcomer away and still carries it, and says so once a session for each.
+    /// </summary>
+    [Fact]
+    public void AFullRowCarriesANewcomerOffTheRowAndNamesItOnce()
+    {
+        var inventory = new VolumetricInventory();
+        foreach (int material in new[] { Dirt, Clay, Glass, Grass, Pump, Outlet, Cell, Panel, Rubble })
+        {
+            inventory.Add(material, 1);
+        }
+
+        Assert.Equal(-1, inventory.Hotbar.FirstEmpty());
+        inventory.Hotbar.DrainTurnedAway();
+
+        inventory.Add(Stone, 640);
+
+        Assert.Equal(640, inventory.Voxels(Stone));
+        Assert.False(inventory.Hotbar.Contains(Stone));
+        Assert.Equal([Stone], inventory.Hotbar.DrainTurnedAway());
+
+        inventory.Add(Stone, 1);
+        inventory.Add(Lamp, 1);
+        Assert.Equal([Lamp], inventory.Hotbar.DrainTurnedAway());
+    }
+
+    /// <summary>
+    /// The items — the computer, the packs — take a slot only by a pin (decision C3), so P's kit
+    /// fills an empty row with blocks and machines and leaves room for the first stone.
+    /// </summary>
+    [Fact]
+    public void AnItemKeptOffTheRowIsCarriedButTakesNoSlotUntilPinned()
+    {
+        const int Computer = 13, Pack = 14;
+        var inventory = new VolumetricInventory();
+        inventory.KeepOffTheRow([Computer, Pack]);
+
+        inventory.Add(Computer, 100);
+        inventory.Add(Pack, 100);
+        inventory.Add(Glass, 6400);
+
+        Assert.Equal([Glass, -1, -1, -1, -1, -1, -1, -1, -1], Row(inventory));
+        Assert.Equal(100, inventory.Voxels(Computer));
+        Assert.Empty(inventory.Hotbar.DrainTurnedAway());
+
+        inventory.Hotbar.Pin(4, Pack);
+        Assert.Equal(Pack, inventory.MaterialInSlot(4));
+
+        // And once pinned it is on the row like anything else: worn to zero and handed back, it
+        // stays in its slot.
+        inventory.Take(Pack, 100);
+        inventory.Add(Pack, 1);
+        Assert.Equal(Pack, inventory.MaterialInSlot(4));
+    }
+
+    /// <summary>A material the pocket refuses (water) is never offered: the refusal comes first.</summary>
+    [Fact]
+    public void ARefusedMaterialIsNeverOfferedASlot()
+    {
+        var inventory = new VolumetricInventory();
+        inventory.RefuseMaterials([Water]);
+
+        inventory.Add(Water, 1000);
+
+        Assert.Equal(HotbarSlots.EmptyRow, Row(inventory));
+        Assert.Empty(inventory.Hotbar.DrainTurnedAway());
+    }
+
+    /// <summary>
+    /// The load path offers nothing: re-crediting every holding through the offer would hand the
+    /// empty slots out in ID order before the saved row could be put back.
+    /// </summary>
+    [Fact]
+    public void AResetOffersNothingAndLeavesTheRowAlone()
+    {
+        var inventory = new VolumetricInventory();
+        inventory.Hotbar.Restore([Glass, -1, Stone, -1, -1, -1, -1, -1, -1]);
+
+        inventory.Reset([(Dirt, 5), (Stone, 10), (Glass, 7)]);
+
+        Assert.Equal([Glass, -1, Stone, -1, -1, -1, -1, -1, -1], Row(inventory));
+        Assert.Equal(5, inventory.Voxels(Dirt));
+    }
+
+    /// <summary>
+    /// The row survives a save and reload with the holdings it names, including one held at zero,
+    /// through the world file's own bytes.
+    /// </summary>
     [Fact]
     public void TheRowIsUnchangedAcrossASaveAndReload()
     {
         var played = new VolumetricInventory();
         played.Add(Stone, 10);
         played.Add(Dirt, 5);
+        played.Add(Glass, 3);
+        played.Take(Dirt, 5);
+        played.Hotbar.Pin(8, Glass);
 
-        int[] before = [played.MaterialInSlot(0), played.MaterialInSlot(1)];
+        int[] before = Row(played);
+        Assert.Equal([Stone, Dirt, -1, -1, -1, -1, -1, -1, Glass], before);
+
+        Identifier[] table =
+        [
+            Overburden.Core.Content.MaterialIds.Air, .. Enumerable.Range(1, 12).Select(i => Identifier.Parse($"test:m{i}")),
+        ];
+        byte[] blob = Overburden.Core.Persistence.WorldHeaderBlob.Write(new Overburden.Core.Persistence.WorldHeader
+        {
+            Settings = new Overburden.Core.Worldgen.WorldGenSettings { Seed = 7 },
+            MaterialIdTable = table,
+            Inventory = [.. played.Entries().Select(e => new Overburden.Core.Persistence.InventoryEntry(e.MaterialId, e.Voxels))],
+            Hotbar = played.Hotbar.ToArray(),
+        });
+        Overburden.Core.Persistence.WorldHeader read = Overburden.Core.Persistence.WorldHeaderBlob.Read(blob);
 
         var reopened = new VolumetricInventory();
-        reopened.Reset(played.Entries());
+        reopened.Reset(read.Inventory.Select(e => (e.MaterialId, e.Voxels)));
+        reopened.Hotbar.Restore(read.Hotbar);
 
-        Assert.Equal(before, [reopened.MaterialInSlot(0), reopened.MaterialInSlot(1)]);
+        Assert.Equal(before, Row(reopened));
+        Assert.False(reopened.Has(Dirt));
     }
 
     private static TestWorld SolidStone() => new() { Background = _ => Stone };

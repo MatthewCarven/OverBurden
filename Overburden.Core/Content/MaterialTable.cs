@@ -106,6 +106,18 @@ public sealed class MaterialTable
         }
     }
 
+    /// <summary>
+    /// Every material that is never placed — the items (M10b decision 2), the computer and the
+    /// packs today — which take a hotbar slot only by a pin (alpha session C, decision C3).
+    /// </summary>
+    public IEnumerable<int> Items()
+    {
+        for (int id = 1; id < _isPlaceable.Length; id++)
+        {
+            if (!_isPlaceable[id]) yield return id;
+        }
+    }
+
     public int TextureLayer(int materialId) => _textureLayer[materialId];
 
     /// <summary>Relative effort to mine. A carve removes a voxel only when a tool's

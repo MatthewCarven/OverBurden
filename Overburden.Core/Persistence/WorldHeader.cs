@@ -3,6 +3,7 @@ using System.Numerics;
 using System.Text;
 using Overburden.Core.Content;
 using Overburden.Core.Hydrology;
+using Overburden.Core.Inventory;
 using Overburden.Core.Machines;
 using Overburden.Core.Voxels;
 using Overburden.Core.Worldgen;
@@ -109,6 +110,15 @@ public sealed record WorldHeader
     /// a swapped-out pack's charge. See <see cref="Core.Inventory.CarriedPacks"/> for the rule.
     /// </remarks>
     public IReadOnlyList<PackSave> CarriedPacks { get; init; } = [];
+
+    /// <summary>The hotbar's nine slots, each a material by the world's numeric ID or −1 for empty (alpha session C, header v8).</summary>
+    /// <remarks>
+    /// <b>State the player authors</b>, so it rides the header with the inventory it names. A slot
+    /// may name a material held at zero — the slot keeps it, which is the point. A world written
+    /// before v8 reads as the row it showed: its first nine holdings in ID order
+    /// (<see cref="HotbarSlots.RowFor"/>), so nothing moves on its first open.
+    /// </remarks>
+    public IReadOnlyList<int> Hotbar { get; init; } = HotbarSlots.EmptyRow;
 }
 
 /// <summary>The equipped pack as the header carries it: its material through the world's table, its charge, its channel.</summary>
@@ -172,11 +182,13 @@ public static class WorldHeaderBlob
     /// <b>to 3 at M7b-2</b> for the world clock and the watershed lattice, and <b>to 4 at
     /// M10c-3</b> for the equipped pack, and <b>to 5 on 2026-09-18</b> for the carried packs'
     /// charges, <b>to 6 on 2026-09-23</b> for the relief variation and <b>to 7 the same day</b>
-    /// for the floor and ceiling that replaced it. All six migrate under the policy in
-    /// <see cref="OldestVersion"/>, though v7 is the first that is not purely additive — see
-    /// there. During a milestone the only person holding a saved world is
-    /// the one building it. (The inventory screen's hotbar assignment, folded into M10g, was
-    /// written down as "v5" before this bump; the number is a counter and it takes the next.)
+    /// for the floor and ceiling that replaced it, and <b>to 8 on 2026-10-19</b> (alpha session C)
+    /// for the hotbar's slots. All seven migrate under the policy in <see cref="OldestVersion"/>,
+    /// though v7 is the first that is not purely additive — see there. (The hotbar assignment was
+    /// written down as "v5", then "v6", then planned after IM-6's v8 before the alpha took it
+    /// first; the number is a counter. IM-6's mode byte takes v9.) <b>From v8, people other than
+    /// the one building it hold saved worlds</b>: an alpha that opens a world rewrites its header
+    /// at its own version, so a world opened in 0.1.3 is refused by 0.1.2 by name.
     /// </remarks>
     /// <remarks>
     /// <b>v6 is the first bump that grows a section in the middle of the payload rather than
@@ -184,7 +196,7 @@ public static class WorldHeaderBlob
     /// a <em>shorter</em> block and then a different offset for everything after it — see
     /// <see cref="SettingsBytesFor"/>.
     /// </remarks>
-    public const byte Version = 7;
+    public const byte Version = 8;
 
     /// <summary>The oldest layout this build can still read.</summary>
     /// <remarks>
@@ -197,7 +209,8 @@ public static class WorldHeaderBlob
     /// equipped — and all of them are true statements about a world written before the field
     /// existed. A v4 header is a v5 one without its carried packs, which reads as none charged,
     /// and a v5 header is a v6 one without its relief variation, which reads as a world of even
-    /// lumpiness — which every world written before 2026-09-23 is.
+    /// lumpiness — which every world written before 2026-09-23 is. A v7 header is a v8 one without
+    /// its hotbar, which reads as the row such a world showed: its first nine holdings in ID order.
     /// </para>
     /// <para>
     /// <b>v7 is the one exception to "additive", and it is allowed for a reason that will not
@@ -232,6 +245,9 @@ public static class WorldHeaderBlob
 
     /// <summary>Bytes a present <see cref="PackSave"/> occupies, after its presence byte: an int32 ID, an int64 charge, an int32 channel — and one carried pack's row, after the section's count.</summary>
     private const int PackBytes = sizeof(int) + sizeof(long) + sizeof(int);
+
+    /// <summary>Bytes the hotbar occupies (v8): nine int32s, −1 for an empty slot. No presence byte, since a row always exists.</summary>
+    internal const int HotbarBytes = HotbarSlots.Count * sizeof(int);
 
     /// <summary>
     /// Bytes one <see cref="WorldGenSettings"/> occupies: 8 + 4×2 + 4×6 + 1 + 4×3, and
@@ -333,6 +349,13 @@ public static class WorldHeaderBlob
         IReadOnlyList<PackSave> carried = header.CarriedPacks ?? [];
         ValidateCarriedPacks(carried, inventory, header.MaterialIdTable.Count, message => new ArgumentException(message, nameof(header)));
 
+        // v8: the hotbar, held to the rules the reader holds it to — the inventory's reason again.
+        IReadOnlyList<int> hotbar = header.Hotbar ?? HotbarSlots.EmptyRow;
+        if (HotbarSlots.Problem(hotbar, header.MaterialIdTable.Count) is string hotbarProblem)
+        {
+            throw new ArgumentException(hotbarProblem, nameof(header));
+        }
+
         int payloadLength = SettingsBytes
                             + sizeof(int)
                             + sizeof(int)
@@ -344,7 +367,8 @@ public static class WorldHeaderBlob
                             + 1
                             + (header.Pack is null ? 0 : PackBytes)
                             + sizeof(int)
-                            + (carried.Count * PackBytes);
+                            + (carried.Count * PackBytes)
+                            + HotbarBytes;
 
         for (int i = 0; i < table.Count; i++)
         {
@@ -432,6 +456,23 @@ public static class WorldHeaderBlob
             BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(offset + 4), stowed.ChargeMillijoules);
             BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(offset + 12), stowed.Channel);
             offset += PackBytes;
+        }
+
+        // Version 8: the hotbar's nine slots, in slot order.
+        foreach (int materialId in hotbar)
+        {
+            BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(offset), materialId);
+            offset += sizeof(int);
+        }
+
+        if (offset != payloadLength)
+        {
+            // The length above is summed by hand, section by section. A section written without
+            // its term would leave trailing zeros the reader refuses, on the next open rather than
+            // here (alpha session C's pass, fact 13); a term without its section would throw on
+            // the span instead. Either is this build's bug, so it is named here, at the write.
+            throw new InvalidOperationException(
+                $"World header: wrote {offset} bytes of a payload summed as {payloadLength}.");
         }
 
         byte[]? compressed = BlobFormat.TryCompress(payload);
@@ -749,6 +790,15 @@ public static class WorldHeaderBlob
             carried = ReadCarriedPacks(payload, count, inventory, ref offset);
         }
 
+        // Version 7 stopped here, so a world written before alpha session C has no row of its own
+        // — and the row it showed was its first nine holdings in ID order, which is what it reads
+        // as. Nothing moves on its first open.
+        IReadOnlyList<int> hotbar = HotbarSlots.RowFor(inventory.Select(entry => entry.MaterialId));
+        if (version >= 8)
+        {
+            hotbar = ReadHotbar(payload, count, ref offset);
+        }
+
         if (offset != payload.Length)
         {
             throw new BlobFormatException(
@@ -777,7 +827,33 @@ public static class WorldHeaderBlob
             WatershedCellMetres = watershedCellMetres,
             Pack = pack,
             CarriedPacks = carried,
+            Hotbar = hotbar,
         };
+    }
+
+    /// <summary>Reads the hotbar's nine slots (v8), held to the rules the writer holds them to.</summary>
+    private static int[] ReadHotbar(ReadOnlySpan<byte> payload, int materialCount, ref int offset)
+    {
+        const string What = "World header";
+
+        if (payload.Length - offset < HotbarBytes)
+        {
+            throw new BlobFormatException($"{What}: ran out of bytes reading the hotbar.");
+        }
+
+        var row = new int[HotbarSlots.Count];
+        for (int slot = 0; slot < row.Length; slot++)
+        {
+            row[slot] = BinaryPrimitives.ReadInt32LittleEndian(payload[offset..]);
+            offset += sizeof(int);
+        }
+
+        if (HotbarSlots.Problem(row, materialCount) is string problem)
+        {
+            throw new BlobFormatException($"{What}: {problem}");
+        }
+
+        return row;
     }
 
     /// <summary>Reads the carried packs' charges (v5), checked against the table and the inventory's counts.</summary>

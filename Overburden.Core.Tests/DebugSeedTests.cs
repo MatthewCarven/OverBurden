@@ -121,4 +121,46 @@ public class DebugSeedTests
         Assert.Equal(64L, DebugSeed.VoxelsPerUnit(MaterialUnit.Litres));
         Assert.Equal(100, DebugSeed.Each);
     }
+
+    /// <summary>
+    /// The alpha's own path (session C's pass, fact 6): the hand pick's grass and dirt, then P. The
+    /// blocks and machines land in the empty slots in P's order, the computer and the packs stay
+    /// off the row (decision C3), and the first stone a quantum tool takes still finds slot 9.
+    /// </summary>
+    [Fact]
+    public void APressFillsAnEmptyRowWithItsBlocksAndMachinesInOrderAndLeavesSlotNineForStone()
+    {
+        Registry<MaterialDefinition> materials = Shipped();
+        var inventory = new VolumetricInventory();
+        inventory.KeepOffTheRow(MaterialTable.From(materials).Items());
+
+        inventory.Add(Id(materials, "grass"), 12);
+        inventory.Add(Id(materials, "dirt"), 30);
+        Assert.True(DebugSeed.Press(materials, inventory, out _));
+
+        string[] row = [.. Enumerable.Range(0, HotbarSlots.Count)
+            .Select(inventory.MaterialInSlot)
+            .Select(id => id < 0 ? "-" : materials.GetIdentifier(id).Path)];
+        Assert.Equal(["grass", "dirt", "relay_pump", "relay_outlet", "solar_panel", "vacuum_cell", "clay", "glass", "-"], row);
+
+        inventory.Add(Id(materials, "stone"), 64);
+        Assert.Equal(Id(materials, "stone"), inventory.MaterialInSlot(8));
+
+        foreach (string item in new[] { "computer", "lead_acid_pack", "lithium_ion_pack" })
+        {
+            Assert.Equal(100, inventory.Voxels(Id(materials, item)));
+            Assert.False(inventory.Hotbar.Contains(Id(materials, item)), $"{item} took a slot by itself");
+        }
+    }
+
+    /// <summary>What keeps off the row by itself in the shipped content: the five materials nothing places.</summary>
+    [Fact]
+    public void TheShippedItemsAreTheComputerThePacksAndWater()
+    {
+        Registry<MaterialDefinition> materials = Shipped();
+
+        string[] items = [.. MaterialTable.From(materials).Items().Select(id => materials.GetIdentifier(id).Path).Order()];
+
+        Assert.Equal(["computer", "lead_acid_pack", "lithium_ion_pack", "quantum_backpack", "water"], items);
+    }
 }

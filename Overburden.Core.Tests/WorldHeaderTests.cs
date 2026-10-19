@@ -384,6 +384,13 @@ public class WorldHeaderTests
     private const int CarriedAbsentBytes = 4;
 
     /// <summary>
+    /// The hotbar v8 appended (alpha session C, 2026-10-19): nine int32 slots, always present. Every
+    /// offset counted back from the end steps over it, and every older layout is this payload
+    /// without it.
+    /// </summary>
+    private const int HotbarBytes = 9 * sizeof(int);
+
+    /// <summary>
     /// Everything after the inventory rows in a header with no player, no pack and no carried
     /// charge: the player flag, the clock and lattice, the pack flag, the carried count. <b>Every
     /// offset counted back from the end goes through this</b>, because the v4 bump found two
@@ -391,7 +398,7 @@ public class WorldHeaderTests
     /// player flag read 9, or 1 with no player behind it) — <c>ClockAndLatticeBytes</c> happens
     /// to equal <c>EntryBytes</c>.
     /// </summary>
-    private const int TrailerBytes = 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes;
+    private const int TrailerBytes = 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes + HotbarBytes;
 
     private const int EntryBytes = 12;
 
@@ -474,7 +481,7 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(
             Header(Air, Stone, Copper) with { Inventory = inventory, Player = player }));
 
-        byte[] older = payload[..^(ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes)];
+        byte[] older = payload[..^(ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes + HotbarBytes)];
         WorldHeader read = WorldHeaderBlob.Read(Reframe(SettingsBlockAsAt(older, 2), version: 2));
 
         Assert.Equal(0, read.ElapsedMillis);
@@ -510,7 +517,7 @@ public class WorldHeaderTests
         // And on read, because a header can arrive from a file rather than from this process.
         byte[] blob = WorldHeaderBlob.Write(Header(Air, Stone));
         byte[] payload = PayloadOf(blob);
-        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - ClockAndLatticeBytes - PackAbsentBytes - CarriedAbsentBytes), -1);
+        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - ClockAndLatticeBytes - PackAbsentBytes - CarriedAbsentBytes - HotbarBytes), -1);
 
         Assert.Throws<BlobFormatException>(
             () => WorldHeaderBlob.Read(Reframe(payload, WorldHeaderBlob.Version)));
@@ -523,7 +530,7 @@ public class WorldHeaderTests
             () => WorldHeaderBlob.Write(Header(Air, Stone) with { WatershedCellMetres = 0 }));
 
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone)));
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - sizeof(int) - PackAbsentBytes - CarriedAbsentBytes), 0);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - sizeof(int) - PackAbsentBytes - CarriedAbsentBytes - HotbarBytes), 0);
 
         Assert.Throws<BlobFormatException>(
             () => WorldHeaderBlob.Read(Reframe(payload, WorldHeaderBlob.Version)));
@@ -623,7 +630,7 @@ public class WorldHeaderTests
         };
 
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(header));
-        payload[^(PlayerPayloadBytes + 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes)] = 2;
+        payload[^(PlayerPayloadBytes + 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes + HotbarBytes)] = 2;
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
     }
@@ -701,7 +708,7 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(
             Header(Air, Stone, Copper) with { Inventory = inventory, Player = player, ElapsedMillis = 42 }));
 
-        byte[] older = payload[..^(PackAbsentBytes + CarriedAbsentBytes)];
+        byte[] older = payload[..^(PackAbsentBytes + CarriedAbsentBytes + HotbarBytes)];
         WorldHeader read = WorldHeaderBlob.Read(Reframe(SettingsBlockAsAt(older, 3), version: 3));
 
         Assert.Null(read.Pack);
@@ -731,7 +738,7 @@ public class WorldHeaderTests
         // And on read: a valid pack rewritten to an ID past the table. The material sits four
         // bytes after the pack flag, sixteen before the carried count that ends the payload.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - PackPayloadBytes - CarriedAbsentBytes), 9);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - PackPayloadBytes - CarriedAbsentBytes - HotbarBytes), 9);
 
         var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
         Assert.Contains("material ID 9", refused.Message);
@@ -748,7 +755,7 @@ public class WorldHeaderTests
         // Write refuses it too; the read is the arm a damaged file reaches. The charge sits
         // twelve bytes before the carried count that ends the payload.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
-        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - 12 - CarriedAbsentBytes), -1);
+        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - 12 - CarriedAbsentBytes - HotbarBytes), -1);
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
         Assert.Throws<ArgumentException>(
@@ -762,7 +769,7 @@ public class WorldHeaderTests
             () => WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 16) }));
 
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - 4 - CarriedAbsentBytes), 16);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - 4 - CarriedAbsentBytes - HotbarBytes), 16);
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
     }
@@ -773,7 +780,7 @@ public class WorldHeaderTests
         // Written with a pack present, for the reason the player's twin records: with none, the
         // check removed leaves "ran out of bytes reading the pack" to fire instead.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
-        payload[^(PackPayloadBytes + 1 + CarriedAbsentBytes)] = 2;
+        payload[^(PackPayloadBytes + 1 + CarriedAbsentBytes + HotbarBytes)] = 2;
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
     }
@@ -815,7 +822,7 @@ public class WorldHeaderTests
         var pack = new PackSave(2, 99, 1);
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((2, 2)) with { Pack = pack, ElapsedMillis = 42 }));
 
-        byte[] older = payload[..^CarriedAbsentBytes];
+        byte[] older = payload[..^(CarriedAbsentBytes + HotbarBytes)];
         WorldHeader read = WorldHeaderBlob.Read(Reframe(SettingsBlockAsAt(older, 4), version: 4));
 
         Assert.Empty(read.CarriedPacks);
@@ -837,7 +844,7 @@ public class WorldHeaderTests
             WithInventory((2, 2)) with { Pack = pack, ElapsedMillis = 42 }));
 
         WorldHeader read = WorldHeaderBlob.Read(
-            Reframe(SettingsBlockAsAt(payload, 5), version: 5));
+            Reframe(SettingsBlockAsAt(payload[..^HotbarBytes], 5), version: 5));
 
         // "Uniform" is the floor sitting on the ceiling, which is what every world written
         // before 2026-09-23 is.
@@ -883,7 +890,7 @@ public class WorldHeaderTests
         }));
 
         WorldHeader read = WorldHeaderBlob.Read(
-            Reframe(SettingsBlockAsAt(payload, 6), version: 6));
+            Reframe(SettingsBlockAsAt(payload[..^HotbarBytes], 6), version: 6));
 
         // Ceiling kept, floor taken as the flattest the old multiplier could ever have produced.
         Assert.Equal(100.0f, read.Settings.SurfaceAmplitudeVoxels);
@@ -911,7 +918,7 @@ public class WorldHeaderTests
         }));
 
         WorldHeader read = WorldHeaderBlob.Read(
-            Reframe(SettingsBlockAsAt(payload, 6), version: 6));
+            Reframe(SettingsBlockAsAt(payload[..^HotbarBytes], 6), version: 6));
 
         Assert.Equal(48.0f, read.Settings.SurfaceAmplitudeVoxels);
         Assert.Equal(48.0f, read.Settings.ReliefBaseVoxels);
@@ -956,7 +963,7 @@ public class WorldHeaderTests
         // lattice, the pack flag, the carried count and two carried rows.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(
             WithInventory((2, 2)) with { CarriedPacks = [new PackSave(2, 1, 0), new PackSave(2, 2, 0)] }));
-        int trailer = 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes + (2 * PackPayloadBytes);
+        int trailer = 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes + (2 * PackPayloadBytes) + HotbarBytes;
         int row = payload.Length - trailer - EntryBytes;
         Assert.Equal(2, BinaryPrimitives.ReadInt32LittleEndian(payload.AsSpan(row)));
         Assert.Equal(2L, BinaryPrimitives.ReadInt64LittleEndian(payload.AsSpan(row + sizeof(int))));
@@ -972,9 +979,9 @@ public class WorldHeaderTests
         Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(
             WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, 0, 0)] }));
 
-        // On read: the one carried row's charge sits twelve bytes before the end.
+        // On read: the one carried row's charge sits twelve bytes before the hotbar.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, 1, 0)] }));
-        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - 12), 0);
+        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - 12 - HotbarBytes), 0);
 
         var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
         Assert.Contains("holds nothing", refused.Message);
@@ -993,9 +1000,9 @@ public class WorldHeaderTests
         Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(
             WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, -1, 0)] }));
 
-        // On read the channel is the last four bytes of the one carried row.
+        // On read the channel is the last four bytes of the one carried row, before the hotbar.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, 1, 0)] }));
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - 4), 16);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - 4 - HotbarBytes), 16);
         var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
         Assert.Contains("Carried pack 0", refused.Message);
     }
@@ -1004,10 +1011,154 @@ public class WorldHeaderTests
     public void ACarriedCountPastTheBytesIsRefusedBeforeAnyRowIsRead()
     {
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, 1, 0)] }));
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - PackPayloadBytes - sizeof(int)), 2);
+        // Past the bytes that follow, the hotbar's included: since v8 a count of two against one row
+        // would read the hotbar's first sixteen bytes as the second and fail on something else.
+        int overrun = 2 + (HotbarBytes / PackPayloadBytes);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - PackPayloadBytes - sizeof(int) - HotbarBytes), overrun);
 
         var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
         Assert.Contains("bytes remain", refused.Message);
+    }
+
+    // -------------------------------------------------------------------------------------
+    // Version 8: the hotbar's nine slots (alpha session C, 2026-10-19). Nine int32s after the
+    // carried packs, -1 for empty; a slot may name a material held at zero, and a world written
+    // before v8 opens with the row it showed: its first nine holdings in ID order.
+    // -------------------------------------------------------------------------------------
+
+    private const int NoSlot = Overburden.Core.Inventory.HotbarSlots.Empty;
+
+    /// <summary>The payload offset of hotbar slot <paramref name="slot"/>, zero-based: the hotbar ends the payload.</summary>
+    private static int SlotOffset(byte[] payload, int slot) => payload.Length - HotbarBytes + (slot * sizeof(int));
+
+    [Fact]
+    public void TheHotbarSurvivesTheRoundTripIncludingASlotWhoseMaterialIsNotHeld()
+    {
+        // Material 2 is on slot 1 and not in the inventory: spent to zero, the slot keeps it.
+        int[] row = [2, NoSlot, 1, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot];
+        WorldHeader written = WithInventory((1, 5)) with { Hotbar = row };
+
+        WorldHeader read = WorldHeaderBlob.Read(WorldHeaderBlob.Write(written));
+
+        Assert.Equal(row, read.Hotbar);
+        Assert.Equal(written.Inventory, read.Inventory);
+    }
+
+    [Fact]
+    public void AHeaderWithNoRowSetWritesNineEmptySlots()
+    {
+        WorldHeader read = WorldHeaderBlob.Read(WorldHeaderBlob.Write(WithInventory((1, 5))));
+
+        Assert.Equal(Overburden.Core.Inventory.HotbarSlots.EmptyRow, read.Hotbar);
+    }
+
+    [Fact]
+    public void ARealV7HeaderOpensWithItsFirstNineHoldingsInIdOrder()
+    {
+        // Written by the v7 writer itself, the evening before the bump (the generator is recorded in
+        // ALPHA-PLAN's "Session C — built"): LakeTest2's table shape, with P's nine plus dirt, grass
+        // and stone carried. Twelve holdings, so the three with the highest IDs - stone, the vacuum
+        // cell and the appended lithium-ion pack - were past slot nine, and still are.
+        byte[] blob = Fixture("v7-header-before-the-hotbar.bin");
+        Assert.Equal(7, blob[0]);
+
+        WorldHeader read = WorldHeaderBlob.Read(blob);
+
+        string[] names = [.. read.Hotbar.Select(id => read.MaterialIdTable[id].Path)];
+        Assert.Equal(
+            ["clay", "computer", "dirt", "glass", "grass", "lead_acid_pack", "relay_outlet", "relay_pump", "solar_panel"],
+            names);
+        Assert.Equal(12, read.Inventory.Count);
+        Assert.NotNull(read.Pack);
+        Assert.Single(read.CarriedPacks);
+        Assert.NotNull(read.Player);
+    }
+
+    [Fact]
+    public void ARealV7HeaderResavedAtV8KeepsItsRow()
+    {
+        WorldHeader v7 = WorldHeaderBlob.Read(Fixture("v7-header-before-the-hotbar.bin"));
+
+        byte[] rewritten = WorldHeaderBlob.Write(v7);
+        WorldHeader v8 = WorldHeaderBlob.Read(rewritten);
+
+        Assert.Equal(WorldHeaderBlob.Version, rewritten[0]);
+        Assert.Equal(v7.Hotbar, v8.Hotbar);
+        Assert.Equal(v7.Inventory, v8.Inventory);
+        Assert.Equal(v7.CarriedPacks, v8.CarriedPacks);
+    }
+
+    [Fact]
+    public void AWorldWrittenBeforeTheHotbarExistedReadsItsRowFromTheInventoryNotFromItsBytes()
+    {
+        // The sixth migration, an append again: a v7 header is a v8 one without its last 36
+        // bytes. The row written here puts 2 before 1; the v7 reading of the same holdings is ID
+        // order, which is what that world's row showed.
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(
+            WithInventory((1, 3), (2, 4)) with { Hotbar = [2, 1, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot] }));
+
+        WorldHeader read = WorldHeaderBlob.Read(Reframe(payload[..^HotbarBytes], version: 7));
+
+        Assert.Equal([1, 2, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot], read.Hotbar);
+    }
+
+    [Fact]
+    public void AHoleOnTheRowPassesTheReaderForTheOpenerToEmpty()
+    {
+        // The header has the table and not the definitions, so a removed mod's material on a slot
+        // is the opener's to drop and say so, as a non-pack in the pack slot is.
+        WorldHeader written = Header(Air, default, Stone) with
+        {
+            Hotbar = [1, 2, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot],
+        };
+
+        Assert.Equal(written.Hotbar, WorldHeaderBlob.Read(WorldHeaderBlob.Write(written)).Hotbar);
+    }
+
+    [Fact]
+    public void ABadRowIsRefusedOnWriteNamingTheSlot()
+    {
+        WorldHeader header = WithInventory((1, 5));
+
+        Assert.Contains("slot 1 names air",
+            Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(header with { Hotbar = [0, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot] })).Message);
+        Assert.Contains("slot 4 names material ID 3",
+            Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(header with { Hotbar = [1, NoSlot, NoSlot, 3, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot] })).Message);
+        Assert.Contains("slots 2 and 9 both name material ID 1",
+            Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(header with { Hotbar = [NoSlot, 1, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, 1] })).Message);
+        Assert.Contains("holds 8 slots",
+            Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(header with { Hotbar = [NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot] })).Message);
+        Assert.Contains("slot 5 is -7",
+            Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(header with { Hotbar = [NoSlot, NoSlot, NoSlot, NoSlot, -7, NoSlot, NoSlot, NoSlot, NoSlot] })).Message);
+    }
+
+    [Fact]
+    public void ABadRowIsRefusedOnReadNamingTheSlot()
+    {
+        // Written valid, then one slot rewritten in the payload: the reader holds the bytes to the
+        // writer's rule, and the refusal names the slot rather than whatever fires first.
+        byte[] Patched(int slot, int value)
+        {
+            byte[] payload = PayloadOf(WorldHeaderBlob.Write(
+                WithInventory((1, 5)) with { Hotbar = [1, 2, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot] }));
+            Assert.Equal(slot < 2 ? slot + 1 : NoSlot, BinaryPrimitives.ReadInt32LittleEndian(payload.AsSpan(SlotOffset(payload, slot))));
+            BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(SlotOffset(payload, slot)), value);
+            return Reframe(payload);
+        }
+
+        Assert.Contains("slot 9 names material ID 3", Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Patched(8, 3))).Message);
+        Assert.Contains("slot 1 names air", Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Patched(0, 0))).Message);
+        Assert.Contains("slots 2 and 3 both name material ID 2", Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Patched(2, 2))).Message);
+        Assert.Contains("slot 6 is -9", Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Patched(5, -9))).Message);
+    }
+
+    [Fact]
+    public void AHotbarCutShortIsRefusedRatherThanReadAsEmpty()
+    {
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((1, 5))));
+
+        var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload[..^4])));
+        Assert.Contains("reading the hotbar", refused.Message);
     }
 
     /// <summary>The blob's payload, decompressed if it was compressed. BCL only.</summary>

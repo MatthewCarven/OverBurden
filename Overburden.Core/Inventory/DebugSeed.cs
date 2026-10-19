@@ -35,7 +35,12 @@ public static class DebugSeed
     /// <summary>Voxels in a brush cell: one machine body, and one cubic metre.</summary>
     public const long CellVoxels = (long)BrushCell.Voxels * BrushCell.Voxels * BrushCell.Voxels;
 
-    /// <summary>The items, in the order they first land on the hotbar.</summary>
+    /// <summary>
+    /// The items, in the order they land on the hotbar's empty slots — the blocks and machines; the
+    /// computer and the packs take a slot only by a pin (alpha session C, decision C3). So on the
+    /// alpha's path, after the hand pick's grass and dirt, P fills slots 3 to 8 and leaves 9 for
+    /// the first stone.
+    /// </summary>
     public static readonly IReadOnlyList<Identifier> Materials =
     [
         Identifier.Parse("overburden:relay_pump"),
