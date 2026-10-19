@@ -22,6 +22,19 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
+**Still to test, queued at your word** (2026-10-19: *"I know i've still got stuff to test can we put that on
+my todo and keep going?"*). Nothing below blocks the next build; the oldest is from 2026-09-30.
+
+- [ ] **The 2026-10-12 builds, in one sitting** (none has had a look yet):
+      - **F11 and Alt+Enter** go fullscreen and back; **F10** is far mode now.
+      - **The version** reads small in the upper-left corner (`Overburden 0.1.1-alpha (…)` in the zip).
+      - **Your Korobeiniki under a collapse**: bring a roof down and listen through the fuse. *Does it fit, and
+        is it too loud or too quiet?*
+      - **A fresh world starts on the hand pick**: `start.cmd "--world=HandTest"`, dig dirt, then try stone
+        (refused: it wants a quantum tool, so `P`, right-click a pack, `Alt+P`). *Does that read as a start, or
+        as broken?*
+      - **The hotbar in m³**: anything over a cubic metre reads `1,767,903 m³`, not litres.
+
 - [ ] **Your older desktop's specs, if you know them** (the graphics card and processor): the zip ran there
       without errors, so it's a fair floor for the readme's "what you need" line.
 

@@ -21,7 +21,8 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 **The public alpha comes first now** (2026-10-12, his ask): [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), twenty-three
 decisions his, then four sessions (A the export, B the first ten minutes, C the hotbar's slots, D going public).
 IM-6 waits behind it; if C takes the next header version, IM-6's moves up one. **A is built** (2026-10-12; the
-plan's "Session A — built"): `pwsh tools/make-alpha.ps1` makes the zip. Owed: his windowed run of it. Next B, C, D.
+plan's "Session A — built"): `pwsh tools/make-alpha.ps1` makes the zip. His windowed run: it ran on his older
+desktop without errors; F11, the version corner and the music are queued on his list (2026-10-19). Next B, C, D.
 
 **Do first, before the slice named:**
 1. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
