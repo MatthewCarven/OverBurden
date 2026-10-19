@@ -85,7 +85,7 @@ another f key that is available please"*):
     status line sends a newcomer to P (`Hud.cs:566`), whose packs arrive empty, and only Alt+P charges one.
 15. **The hotbar overflows.** It is the first nine holdings in ID order (`Hud.Slots`); `P`'s nine items plus
     mined dirt, grass and stone push the newest past nine, reachable only by V. The fix is planned
-    (M10-LADDER-PLAN, "The inventory screen — folded into M10g").
+    (M10-LADDER-PLAN, "The inventory screen — folded into M10g"). *(Half right: session C's fact 5.)*
 16. **A same-kind pack swap hands you an emptier pack** (his play today; TODO).
 
 **Licences, provenance, privacy**
@@ -417,3 +417,188 @@ is refused. **Screenshots of the menu and the card** (`--openmenu`, `--openmenu=
 against a shot of the same scene without them the shade takes the sky from 199 to 90, so it covers the window
 and stops the clicks beside the menu. **Not checked**: the message line and the held line on screen (no flag
 puts them up), how the card reads in fullscreen, and his hands on any of it.
+
+## Session C — the code-level pass (2026-10-19)
+
+Three read-only searches in parallel against `c39bd8a`: the row and P's overflow, the world header and its
+versions, and V, the number keys and the inventory's Core types. The load-bearing facts were checked by hand (2,
+3, 4, 6, 7, 9, 12, 13, 14). **Three findings shape it**: a holding at zero is deleted, so a slot that keeps its
+material needs its own record (fact 2); every credit reaches one door, `Add`, the restore included, so the
+first-empty-slot rule can live there but must stay out of the restore (fact 3); and **on the alpha's own path
+the row is full before the first stone arrives** (fact 6), which is C3's question.
+
+**C takes header v8, so IM-6's mode byte moves to v9.** IDEAL-MACHINES-PLAN decision 51 says the opposite
+(*"M10g's hotbar assignment moves to v9"*, fact 16). M10g's screen needs no version of its own for the row: it
+builds on C's.
+
+### Facts
+
+**The row today**
+1. **The row is a projection, sorted nine times a frame.** `MaterialInSlot(slot)` is `Entries()[slot]`, the
+   carried materials in ascending ID (`VolumetricInventory.cs:195-244`). `Hud.Slots = 9` (`Hud.cs:48`) is read
+   once, to build the row (`:427`); the refresh calls `MaterialInSlot` for every slot every frame (`:524-539`),
+   each call a new list and a sort.
+2. **A holding at zero is deleted, not kept.** `Take` removes the entry (`VolumetricInventory.cs:167-170`), an
+   `Add` of zero returns early (`:133`), and the header refuses a zero row (`WorldHeader.cs:485-491`). So a slot
+   that keeps its material at zero can't be read off the inventory.
+3. **Every credit reaches `Add`** (`VolumetricInventory.cs:117-142`): the carve (`Carve.cs:772`), a dismantle
+   (`MachineSet.cs:661`), a body returned or wrecked at a chunk's arrival (`:525, :535, :642`), the undo's refund
+   (`EditHistory.cs:407`), P (`DebugSeed.cs:94`), the swap's return (`Main.cs:3563`), `--stock=` (`:5641`), and
+   the restore: `Reset` clears and re-adds every holding (`VolumetricInventory.cs:247-257`, from
+   `Main.cs:1651`). It is already the one site the fluids are refused at (`:57-75`, `Main.cs:1554`). **`Add`
+   says nothing about whether a material is new, and a hook in it would fire for every holding at every open.**
+4. **The swap goes 1 → 0 → 1 in one call**: `Take` at `Main.cs:3528` deletes the last pack's entry and `Add` at
+   `:3563` brings the kind back. An undo refunds through `Add` and debits through `Take` (`EditHistory.cs:405-
+   415`). Under today's rule each is a shift; with slots that keep their material, each lands back in its slot.
+5. **Fact 15 is half right.** Numeric IDs are air's 0, then the base mod's files in file-name order, and a world
+   appends what its table has never seen (`Registry.cs:137-154`, `ContentLoader.cs:264-267`,
+   `GameContent.cs:56`). In a fresh world the order is alphabetical, so with P's nine plus dirt, grass and stone
+   the three past nine are **the solar panel, stone and the vacuum cell**, not the newest. In his `LakeTest2`
+   (made 2026-10-11; the lithium-ion pack's file added 2026-10-12, `fcec2bb`) the pack is appended and sits past
+   nine with stone and the vacuum cell: derived from the append rule, not read from his world file. (Fact 14's
+   `Hud.cs:566` is `:748` now.)
+6. **P adds nine, a hundred each, in this order** (`DebugSeed.cs:39-50`): relay pump, relay outlet, solar panel,
+   vacuum cell (`cells`), clay, glass (100 m³ each), computer, lead-acid pack, lithium-ion pack (`count`). Its
+   comment, *"in the order they first land on the hotbar"*, is untrue today and comes true under first-empty-
+   slot. `placeable: false`: the computer, both packs, the quantum backpack and water. **On the alpha's path**,
+   the hand pick's grass and dirt take slots 1 and 2, P's first seven take 3–9, and the lead-acid pack, the
+   lithium-ion pack and the first stone a quantum tool takes all find the row full.
+7. **The hand is a material ID, never a slot** (`PlaceController.MaterialId`, `:158`), and isn't saved
+   (`PlayerSave` is the feet and flying, `WorldHeader.cs:145`). When it runs out it jumps to the largest
+   placeable holding (`PlaceController.cs:531-534, 964-990`); the same fill picks a hand at open and before a
+   first bite. **One recorded recipe runs a material out**: COMMANDS.md's orphan check (`--place --stock=64
+   --material=overburden:relay_pump`, reading 128 orphan voxels after a reopen), so it may be reading the jump.
+8. **An off-row selection is invisible.** The highlight compares IDs (`Hud.cs:537-538`): a block V reached past
+   slot nine lights no slot, and the status line names no block (`:714-807`). V and the number keys print to
+   the log only (`Main.cs:3731-3775`). A material on two slots would light both.
+
+**Keys**
+9. **The digits and V ignore every modifier** (`Main.cs:3045-3061`; only Ctrl+Z checks one), and key echoes are
+   dropped (`:2941`), so a held V cycles once. Shift is sneak and descend, Ctrl sprint, Alt one voxel and slow
+   flight (`FlyCam.cs:238`; `Main.cs:3147, 5678, 5925`): all three are held while moving or building, and each
+   with a digit selects today. Free bare letters: C, E (M10g's, `Main.cs:3783`), G (Alt+G is taken), I, J, K, M,
+   N, O, U, X, Y, Z; and 0, F2–F9 and the wheel.
+10. **The panel and the Esc menu swallow every key** but F11 and Alt+Enter (`Main.cs:2960-2985`); **the map
+    swallows none**, so digits select under it.
+11. **V cycles every holding by ID**, items and machines included, and wraps (`PlaceController.cs:905-919`).
+    There is no back cycle.
+
+**The header**
+12. **v7's payload** (`WorldHeader.cs:365-435`): settings (61 B), the table, the inventory (an int32 count and
+    12-byte rows by ascending ID), the player behind a presence byte, the clock and lattice, v4's pack behind a
+    presence byte, v5's carried packs. Writer and reader share `ValidatePack` and `ValidateCarriedPacks`
+    (`:513-584`); the reader checks shape and range against the table's count, so a removed mod's hole passes,
+    and the opener decides what a pack is (`Main.RestoreCarriedPacks`, `:10209-10228`, drops a non-pack with a
+    log line). `:178-179` already reserves the next version for this.
+13. **The writer sums its length by hand** (`:336-347`) and never checks it wrote that many bytes. A slip writes
+    trailing zeros the reader refuses, or throws.
+14. **The tests count from the payload's end.** `TrailerBytes` and `CarriedAbsentBytes`
+    (`WorldHeaderTests.cs:384-400`) and every migration test's cut (`:456, :477, :704, :818`) or relabel (`:840,
+    :886, :914`) move with an appended section. The only golden blobs are two v3 headers (`Fixtures/`); there is
+    no v7 one.
+15. **One open moves a world forward for good.** Opening rewrites the header at the build's version before any
+    play (`Main.cs:1660`); a v7 build then refuses the world with *"format version 8, but this build reads
+    versions 1 to 7"* (`BlobFormat.cs:219-221`), in a box, and quits (`Main.cs:1535-1539`). Every export shares
+    `%APPDATA%\Overburden Alpha\`, so 0.1.2 and 0.1.3 share worlds; the editor binary doesn't.
+16. **IM-6 planned v8 for the mode byte** (IDEAL-MACHINES-PLAN decision 51 and its IM-6 row, `:576-582`, `:649`;
+    TODO's collision 5), and its decision 23 puts water *"in the hotbar's last slot while the backpack is
+    worn"*, though the pocket refuses water (`:348-351`).
+
+**Tests and text**
+17. **Five slot tests** (`InventoryTests.cs:292-379`), one asserting the shift C removes
+    (`EmptyingAMaterialShiftsEverySlotAboveIt`), and the header's ID-order test (`WorldHeaderTests.cs:433`).
+    `NextMaterial`, `SelectSlot`, the hand's fill and the key dispatch live in Game, which no test reaches.
+18. **What a player reads**: QUICKSTART.md:13, 59-60 and 136 (*"Coming next … hotbar slots you arrange
+    yourself"*); `ControlsCard.cs:59-60`, kept in step by hand; `tools/alpha/README.txt:25`; the HUD's status
+    line, *"1-9 material, V cycle"* nine times (`Hud.cs:726-807`) and `:748`'s *"pick it on the number row"*;
+    the prints at `Main.cs:5227` and `:5656`.
+
+### Decisions
+
+Each with a recommendation; "as recommended" takes them all. M10-LADDER-PLAN's inventory decision 2 is the
+object (C1, C2, C8); decision 3's key path is the pin until the grid exists (C4); decision 7's Core first is
+C11's order.
+
+- **C1. The row is its own record, owned by the inventory.** `HotbarSlots` in `Overburden.Core/Inventory/`: nine
+  material IDs, −1 for empty, no ID twice, held by `VolumetricInventory` so that `Add` reaches it (C2).
+  `MaterialInSlot` reads it, an array read in place of nine sorts a frame (fact 1); `Entries()` keeps its sort
+  for the save and for V. *Cost:* the five slot tests are rewritten, one inverted. *Other arm:* a row beside the
+  inventory that the HUD reconciles each frame; rejected, because P's nine arrive in one frame and a reconcile
+  sees them in dictionary order, not arrival order.
+- **C2. A slot keeps its material at zero; a material not on the row takes the first empty slot when it is
+  credited.** The offer is in `Add` (fact 3), so every door has it; `Reset` offers nothing and takes the row
+  from the header. A slot at zero dims and reads `0 L` or `× 0`, and the undo's refund and the swap's return land
+  back in their own slot (fact 4). The offer sees every writer, so a body returned at a chunk's arrival can
+  fill an empty slot with no key pressed: the rule working. *Cost:* no slot ever frees itself, so a row fills
+  with things you once carried and stays full until a pin replaces them. *Other arm:* when no slot is empty, a
+  slot at zero goes to the newcomer (a slot then moves only when the row is full and something on it is
+  spent). *Revisit:* his play wants dead slots back.
+- **C3. Only placeable materials take a slot by themselves; an item (the computer, a pack, M10g's parts) goes on
+  the row by a pin.** This narrows decision 21's "new things", so it is his. On the alpha's path (fact 6) the
+  row then reads grass, dirt, pump, outlet, solar panel, cell, clay, glass, and the first stone in slot 9; the
+  computer and both packs are a V away, and a pack is worn once a session. Ladder decision 8 wanted a placeable
+  filter on the row so parts would not take it over, and this keeps that for an empty row. *Cost:* a stranger's
+  first pack is reached by V (QUICKSTART:13 already offers it), and his computer wants one pin per world.
+  *Other arm:* everything takes a slot, Minecraft's rule, with P reordered pack first; then the row is grass,
+  dirt, lithium-ion pack, pump, outlet, cell, solar panel, computer, glass, and clay, the lead-acid pack and
+  **stone** find it full. *Revisit:* his play finds the pack or the computer a chase.
+- **C4. The pin: hold V and press 1–9**, and what's in your hand goes in that slot. Already on the row, the two
+  slots swap; not on it, the slot's old material takes the first empty slot, or leaves the row (still carried,
+  still reached by V). Pinning to its own slot, or with nothing in hand, does nothing. It is decision 21's *"a
+  key to pin what V has selected"* in V itself, and spends no letter (fact 9). *Cost:* V let go before the digit
+  selects instead, and a quick V then a digit pins where a select was meant; the message line says which
+  happened (C6). *Other arms:* Alt+1–9, the house's "Alt does the other thing", but Alt is held for slow flight
+  and one voxel, so a digit pressed while crawling would pin; or a prefix letter (G, then a digit within 3 s).
+  Shift and Ctrl are out: sneak and sprint are held. *Revisit:* he presses V and a digit and gets the other one.
+- **C5. The hand stays on a material that runs out.** The fill picks a hand only when there is none (at open,
+  before a first bite), and no longer jumps to the largest holding when the hand's material is spent (fact 7).
+  A number key on a slot at zero selects it and a click says *out of stone*; an empty slot is still a miss.
+  Shift, Ctrl or Alt with a digit still selects, so sprinting while switching works. *Cost:* placing your last
+  stone and clicking again says so rather than building in dirt; and the orphan check (fact 7) may read the
+  jump, so the build runs it on both arms and re-records it, with the reason, if it moves. *Other arm:* today's
+  jump, with a slot at zero a miss like an empty one.
+- **C6. The message line says what V and the keys did**, which only the log hears today (fact 8): V's choice,
+  with *"not on the row: hold V and press 1–9 to pin it"* when it's off it; a pin's result (*"Stone pinned to 4;
+  glass moved to 7"*, or *"… glass left the row"*); an empty slot pressed; and, once a session for each
+  material that finds the row full, *"Stone has no slot. V selects it; hold V and press 1–9 to pin it."* A
+  select on the row stays silent: the highlight is the answer.
+- **C7. V is unchanged**: every holding in ID order. *Other arm:* the row's slots first, then what's off it.
+- **C8. Header v8 appends the row after the carried packs**: nine int32s, −1 for empty, no presence byte (a row
+  always exists). One validator for writer and reader, as the pack has: each −1 or a non-air ID inside the
+  table, no ID twice, each refusal naming the slot. **A slot may name any material the table has, held or
+  not**: zero is C2's state, and water on a slot is IM-6's decision 23 (C never puts it there, since the pocket
+  refuses water before the offer). At open, a slot naming a removed mod's hole is emptied with a log line, as a
+  non-pack is (fact 12). **A v7 world opens with the first nine holdings in ID order**, the row it showed, so
+  nothing moves on its first open. The writer gains the length check it lacks (fact 13). *Cost:* 36 bytes, and
+  every tail constant in the header tests grows by them (fact 14). *Not C's:* a holding of a hole's material
+  isn't filtered at the restore either (`Main.cs:1651`); that is the inventory's.
+- **C9. The hand isn't saved**, as today: it is a material, and the section is the row. *Other arm:* four more
+  bytes, the hand's material, so a reopen keeps it. *Revisit:* a reopen whose hand reads wrong.
+- **C10. Worlds move forward, not back** (fact 15): 0.1.3's readme says a world opened in it won't open in
+  0.1.2 again. Nothing in code.
+- **C11. The tests, Core first.** The round trip; a v7 world from a real v7 blob
+  (`Fixtures/played-world-v7-header.bin`, written by today's code before the bump) opening with its ID-order
+  row; each refusal at write and at read; a slot at zero kept; the first empty slot, and none when full;
+  `Reset` offering nothing; the undo's refund and the swap's 1 → 0 → 1 back in their slot; P's placeables
+  landing in its order; an item not offered (C3); the pin's swap, its displacement to an empty slot, its
+  leaving the row and its two no-ops. **The battery's recipes are written before it runs** (session B's
+  lesson), among them: offer from `Reset`; drop the swap branch; clear the slot on a `Take` to zero; skip the
+  duplicate check; offer items.
+- **C12. The seams and the end.** `--pin=<slot>=<identifier>` (repeatable) after open, and one log line printing
+  the row at open and after every pin or offer (`hotbar: 1 grass, 2 dirt, 3 —, …`), so a headless open, pin,
+  quit and reopen proves the round trip; r6 to the digit. The player's text (fact 18), DebugSeed's comment,
+  `MaterialInSlot`'s remarks and every "v8" in the plans (below) move in the same commit. C ends with
+  **0.1.3-alpha** built (`<Version>`, `make-alpha.ps1`) and a screenshot of the row with a dim slot; the upload
+  is his.
+- **C13. One session**: Core and its battery, then the wire, then the zip; in a worktree if he may be playing
+  (`start.cmd` builds the main folder).
+
+### What this changes elsewhere, once taken
+- **IDEAL-MACHINES-PLAN**: decision 51 and IM-6's row put the mode byte in **v9**, and IM-6's oracle *"a v7
+  world opens as sandbox"* reads v8; decision 51's last sentence turns round. Decision 23's water on the row is
+  a slot under C8.
+- **M10-LADDER-PLAN's inventory section**: decision 2 is built by C (its *"v4 world"* is a v7 one, and fact 3's
+  *"v6"* is v8); decision 3's grid assigns, and drags, through the call C4's pin uses; decision 4's filter stays
+  the grid's, and C3 decides only what lands on an empty slot.
+- **TODO** (collision 5, the M10g line and the millilitre line), CLAUDE.md's hand-over, and
+  `WorldHeader.cs:178-179`'s comment. QUICKSTART's *"Coming next"* loses the hotbar.
