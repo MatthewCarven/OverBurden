@@ -344,6 +344,13 @@ His answers of 2026-09-29 to MATTHEW-TODO's "things I'd like your eye on", as wo
   line).
 - **The seed after the banner fades** — no pause screen or world listing shows it. Trigger: the
   first time he wants the seed of a world he is standing in.
+- **Machinery that makes items from resources by itself** — his, 2026-10-19, for the far future: *"i was
+  going to implement some kind of machinery to automate creation of items from resources etc but like don't
+  worry about it for the forseeable plan but feel free to note it down for when we run out of ideas"*. What
+  it would build on: a powered station already runs its job while you walk away (M10-LADDER-PLAN decision
+  11), the quarry digs by itself (IM-7), and DESIGN's core set and M11 have conveyors for item transport. The
+  step past those is a station that draws its inputs from storage and feeds its output on, so stations
+  chain. **Trigger: the current plans run dry**, after M10g's stations and M11's conveyors at the earliest.
 
 ### Multiplayer / servers — its own full planning pass
 
