@@ -20,13 +20,12 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 
 **The public alpha comes first now** (2026-10-12, his ask): [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), twenty-three
 decisions his, then four sessions (A the export, B the first ten minutes, C the hotbar's slots, D going public).
-IM-6 waits behind it; if C takes the next header version, IM-6's moves up one. **A is built** (2026-10-12; the
+IM-6 waits behind it; C takes header v8, so IM-6's mode byte is v9. **A is built** (2026-10-12; the
 plan's "Session A — built"): `pwsh tools/make-alpha.ps1` makes the zip. His windowed run: it ran on his older
 desktop without errors; F11, the version corner and the music are queued on his list (2026-10-19). **B is built**
 (2026-10-13, committed 2026-10-19; the plan's "Session B — built") and zipped as 0.1.2-alpha; its play is on his
-list, the upload his. **C's code-level pass is written** (2026-10-19, `ed74c57`: eighteen facts, thirteen
-decisions C1–C13, his); C takes header v8, so IM-6's mode byte moves to v9 once taken (the pass's "What this
-changes elsewhere" lists every copy to fix). Then D.
+list, the upload his. **C's thirteen decisions are taken** (2026-10-19, as recommended; the pass is `ed74c57`),
+and C is being built in the worktree `alpha-c`, ending in 0.1.3-alpha. Then D.
 
 **Do first, before the slice named:**
 1. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
@@ -62,8 +61,8 @@ IM-6's water slot uses).
    the rungs go in.
 4. **TNT's six decisions and IM-5.** A blast that destroys a vault makes a wreck, which dumps by IM-5's rules
    (the end of a dump, 5b's pile). TNT's pass reads IM-5 first.
-5. **Header versions.** The header is v7 and IM-6 takes v8. M10g's line below said "v6; a v5 world" and
-   M11's "v5 at M11"; both are corrected to "the next version after IM-6's".
+5. **Header versions.** The header is v7 until alpha C ships v8 (the hotbar's slots); IM-6 then takes v9 (the
+   mode). M10g's line below said "v6; a v5 world" and M11's "v5 at M11"; both are corrected.
 6. **IM-6's water slot and M10g's nine-slot hotbar.** IM-6's pass reads the history's "An inventory screen,
    and slots that stay put", so the water slot fits the assignment M10g brings. **And IM-6's stock section
    and M10g's screen** (his design, 2026-10-19: the store as a box on `E`'s screen, a container aimed at as a
@@ -196,9 +195,8 @@ IM-6's water slot uses).
       `shaft`, media order, the dock, `pipe_outlet`, `flooded`.
 - [ ] **M10g — recipes, stations, parts and the inventory screen**: the loader's second pass,
       jobs by value, the remainder per output, `unit`; the inventory screen — one `Control` on
-      `E` tapped: the grid of every holding, the hotbar as a nine-slot assignment in the header
-      at the next version after IM-6's v8 (the header is v7 today; an older world opens with its first
-      nine holdings in ID order), assign
+      `E` tapped: the grid of every holding, the hotbar's nine-slot assignment (alpha C's, header
+      v8; the grid assigns through the same call as C's pin), assign
       by number key and by drag, the grid's filter (all / blocks / parts / machines), the craft
       pane within reach of a station, every volume through `VolumeText` (litres under a cubic
       metre, m³ from one up; his answer, built 2026-10-12), a total and no cap; `--assign=<slot>=<id>` and `--openinventory` the seams; the
@@ -381,7 +379,7 @@ Not scheduled; *"It will get a full planning pass too"* (2026-09-29). What it st
       - [ ] **The periodic table as data underneath, never as blocks** — all 118 in
             `elements.json`; a material declares a composition in element mass-parts; recipes
             checked for element balance at load. Cost: the inventory leaves whole voxels for
-            millilitres (a header version of its own at M11, after IM-6's v8 and M10g's).
+            millilitres (a header version of its own at M11, after IM-6's v9).
 
 ### M12 — Modding tier 2
 

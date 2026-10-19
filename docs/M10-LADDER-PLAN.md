@@ -2490,7 +2490,7 @@ suite 1,662 → 1,671.
    an additive version migrates. **Decision 6 reserved "v5" for the inventory's millilitre move;
    the number is a counter, not a name** — the assignment takes the next number after whatever
    ships before it (v5 went to the carried packs' charges the same day this was written, so the
-   assignment is v6 as things stand) and the millilitre bump, still on its narrowed trigger,
+   assignment is v6 as things stand; **v8 as alpha session C built it**, 2026-10-19) and the millilitre bump, still on its narrowed trigger,
    takes the one after.
 4. **The game has one mouse-releasing UI and every rule a second one needs.** `MachinePanel`
    (M10b-2): a `Control` with `MouseFilter.Stop` owns its clicks and a focused field its keys;
@@ -2542,7 +2542,7 @@ sort for the save form and the grid's default order. A slot keeps its material w
 goes to zero (the tile dims and reads `0 L`; the next bite of stone lands back in *your* stone
 slot); a material acquired for the first time takes the first empty slot, or none if there is
 none (it is in the grid). Written as a header section behind the carried packs', validated as the pack
-is — every ID in the table, no ID twice, exactly nine — and **a v4 world opens with the first
+is — every ID in the table, no ID twice, exactly nine — and **an older world (v7, as alpha C built it at v8) opens with the first
 nine holdings in ID order**, which is exactly what its row showed, so nothing moves on the first
 open of an old world.
 
@@ -2615,7 +2615,7 @@ the grid will. Either detail is a one-line change if he prefers this section's.
 #### 7. Core first, the screen second, the header in between — *recommended; the split is M10g's pass's*
 
 The assignment is Core with its battery before any Control exists: the round trip through the
-header; a v4 world opening with its ID-order default; a duplicate ID, an unknown ID, a wrong count
+header; an older world (v7) opening with its ID-order default; a duplicate ID, an unknown ID, a wrong count
 refused at read and write naming which; an assignment surviving a holding at zero; a first
 acquisition landing in the first empty slot and in none when full; `SelectSlot` reading the
 assignment; `--assign=` headless. The screen is a screenshot — `--openinventory` the prop — and
@@ -2726,7 +2726,7 @@ battery and a charge slot in the quantum backpack"*.
 - DESIGN's M10 row gains *the inventory screen*.
 - Decision 6's "v5 (millilitres)" reads as *the next version after the assignment's* — and v5
   itself went to the carried packs' charges the same day (the amendment at the end of "M10c-3 —
-  built"), so the assignment is v6.
+  built"), so the assignment is v6; it shipped at **v8**, alpha session C (2026-10-19).
 
 ## M10d — the planning pass
 

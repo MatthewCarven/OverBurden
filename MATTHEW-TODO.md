@@ -119,20 +119,6 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
-- [ ] **The hotbar's slots, thirteen decisions** ([docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), "Session C — the
-      code-level pass", 2026-10-19). "As recommended" takes them all. In short: nine slots that keep what's in them,
-      even at zero (dimmed); something new goes in the first empty slot; your worlds keep the row they show today.
-      Three are really yours:
-      - **C3: only blocks take a slot by themselves.** The computer and the packs go on by a pin, so P's kit fills
-        the row with grass, dirt, the machines, clay, glass, and your first stone lands in slot 9. *Other arm:*
-        everything takes a slot, and stone finds the row full.
-      - **C4: the pin is hold V and press 1–9.** What's in your hand goes in that slot. *Other arms:* Alt+digit
-        (but Alt is held for crawling and one-voxel building), or a letter then a digit.
-      - **C5: your hand stays on a block that runs out** (a click says *out of stone*) instead of jumping to
-        whatever you have most of.
-      It ships as 0.1.3, and a world opened in 0.1.3 won't open in 0.1.2 again.
-
-
 - [ ] **The collapse: pieces that jump — I gave you the wrong size.** You said "leave it" when I
       said "at most a metre". On a copy of your tower, one piece jumped 4.5 m (about 20 pieces in
       800 jumped at all). Watch for it when you play: if you see a piece hop up, say "fix it" —
@@ -179,6 +165,13 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **The hotbar's slots, thirteen decisions** (2026-10-19): *"As recommended please Claude"*. Nine slots that keep
+  what's in them, even at zero (dimmed); a new block goes in the first empty slot (the computer and packs by a
+  pin); hold V and press 1–9 to pin what's in your hand; your hand stays on a block that runs out. Your worlds
+  keep the row they show today. Being built now, as 0.1.3; a world opened in 0.1.3 won't open in 0.1.2 again.
+  Your same-evening designs (the store as a box on E's screen, a cloth backpack, the player's slots, two charge
+  slots) are in the ladder plan for M10g and change nothing in C.
 
 - **Your tests, queued** (2026-10-19): *"I know i've still got stuff to test can we put that on my todo and keep
   going?"* They're at the top. Keeping going turned up session B already built in a side folder on 10-13 and never

@@ -519,6 +519,10 @@ Each with a recommendation; "as recommended" takes them all. M10-LADDER-PLAN's i
 object (C1, C2, C8); decision 3's key path is the pin until the grid exists (C4); decision 7's Core first is
 C11's order.
 
+**Taken 2026-10-19, all as recommended** (*"As recommended please Claude"*, his answer to the parent session).
+His player-slot design the same evening (M10-LADDER-PLAN, "His design for the player's slots") changes none of
+them: the row stays nine slots, and "still carried" means in the backpack.
+
 - **C1. The row is its own record, owned by the inventory.** `HotbarSlots` in `Overburden.Core/Inventory/`: nine
   material IDs, −1 for empty, no ID twice, held by `VolumetricInventory` so that `Add` reaches it (C2).
   `MaterialInSlot` reads it, an array read in place of nine sorts a frame (fact 1); `Entries()` keeps its sort
