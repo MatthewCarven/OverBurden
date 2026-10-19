@@ -16,6 +16,32 @@ or two each.
 **Moved from CLAUDE.md at the 2026-10-12 close** (the hand-over as it ran through that day, superseded by the
 close):
 
+**2026-10-12, session close — the alpha is public.** The repo is `MatthewCarven/OverBurden` and public, and
+**0.1.1-alpha** (`000ee80`) is on his Google Drive behind the README's "Alpha Edition" link (the file there is
+named 0.1.0; the game's corner and the folder inside say 0.1.1). It ran on his older desktop without errors, the
+first machine besides the dev one. This session, all on main:
+- **the lithium-ion pack** (14.4 MJ, 2 kW), **`P` a hundred of each** (`DebugSeed`), **the hotbar in m³**
+  (`VolumeText`), **the steel pick retired** (a fresh world starts on the hand pick, which doesn't take stone);
+- **far mode on F10, fullscreen on F11 and Alt+Enter**; **his own `media/Korobeiniki.mp3`** (the folk melody
+  doubled an octave down) as the collapse music;
+- **[docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md)**: twenty-three decisions taken, session A built (the export, its
+  own saves folder, start.cmd's settings in an export only, the version stamp) and decisions 22–23 done early
+  (the player readme, `THIRD-PARTY-NOTICES.md`, `tools/alpha/licenses/`); **[QUICKSTART.md](QUICKSTART.md)**;
+- **`pwsh tools/make-alpha.ps1`** (about 20 s, game closed) writes `build/Overburden-<version>-win64.zip` and
+  a version-free `build/Overburden-alpha-win64.zip` to upload over the last one. **Bump `<Version>` first.**
+
+Suite **2,303**, r6 to the digit. Main is ahead of GitHub by the close's commits; he pushes.
+
+**Next session, in order:**
+1. **Alpha session B, the first ten minutes** (ALPHA-PLAN 14–20): an Esc menu (Resume, Controls, Quit); the
+   controls card from QUICKSTART on F1, with a credits line; Ctrl+R, H and Alt+H behind `--dev`; the HUD
+   messages that are console-only today; the same-kind pack swap (TODO). It ships as **0.1.2-alpha**.
+2. Then **C** (the hotbar's slots, M10-LADDER-PLAN's inventory decisions) and **D** (the repo's README rewrite,
+   CONTRIBUTING with a contributor rights clause, the docs read, his desktop's specs for the readme).
+3. **IM-6 waits behind the alpha.** Its code-level pass carries: the vault's panel (his warranty line, a lock
+   on the channel box, power auto-scaled), water in the hotbar through `VolumeText`, the pile's cyan glitch
+   (decision 16), and the windowed read of a real dump. Before it: the ten build warnings, ideally collapse f-1.
+
 **2026-10-12 — the lithium-ion pack, `P`'s hundred and the hotbar in cubic metres are built and on main;
 the ideal machines' next slice is still IM-6, the first playable.** This session, on his asks:
 - **the lithium-ion pack** (*"Lead acid is so 20th century"*), `overburden:lithium_ion_pack`: 14.4 MJ (four

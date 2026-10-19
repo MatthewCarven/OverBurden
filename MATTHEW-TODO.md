@@ -25,6 +25,17 @@ care about. I keep it current at the end of each session.
 **Still to test, queued at your word** (2026-10-19: *"I know i've still got stuff to test can we put that on
 my todo and keep going?"*). Nothing below blocks the next build; the oldest is from 2026-09-30.
 
+- [ ] **0.1.2-alpha, the first ten minutes** (built and on main 2026-10-19; `start.cmd` plays it):
+      - **Esc** opens the menu (Resume, Controls, Quit); **F1** the controls card. Esc still closes a panel or
+        the map first. Quit should say *Saving…* and close.
+      - **A line above the hotbar** says what just happened: the hand pick on stone, an empty pack, Ctrl+Z's
+        result, P, Alt+P and R.
+      - **The swap asks**: wear a charged lithium-ion pack, right-click another (empty) one. It should say
+        you're wearing your fullest and do nothing; a second right-click within 3 s swaps.
+      - **H** (you have `--dev`: `start.cmd` and your `start2`–`start5` pass it) shows an amber *WATER HELD*
+        line until H again.
+      - *Does any of it read wrong, and is the card's text the right size?* Then the zip's yours to upload
+        (below).
 - [ ] **The 2026-10-12 builds, in one sitting** (none has had a look yet):
       - **F11 and Alt+Enter** go fullscreen and back; **F10** is far mode now.
       - **The version** reads small in the upper-left corner (`Overburden 0.1.1-alpha (…)` in the zip).
@@ -122,6 +133,9 @@ Nothing is blocked on these; each is a small change once you have a view.
 ## Yours to run
 
 - [ ] **`git push`** whenever I say the tree is ahead.
+- [ ] **Upload 0.1.2-alpha, after your look at it**: `build\Overburden-alpha-win64.zip` over the file on Drive (the
+      same name every time, so the README's link holds). It's the same bytes as
+      `build\Overburden-0.1.2-alpha-win64.zip`.
 - [ ] **Delete the scratch worlds** if you want the space back (under
       `%APPDATA%\Godot\app_userdata\Overburden\worlds\`): `edge`, `m6d2dug`, `m7c-clock`,
       `m7c-shaft`, `m7c-shot`, `m7d-pond`, `m7d-water`, and `Regions1`–`Regions9`. **Keep** the
@@ -152,6 +166,15 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **Your tests, queued** (2026-10-19): *"I know i've still got stuff to test can we put that on my todo and keep
+  going?"* They're at the top. Keeping going turned up session B already built in a side folder on 10-13 and never
+  saved into the project; it's checked, finished and on main now, and zipped as 0.1.2.
+
+- **Session B's thirteen decisions** (2026-10-13): *"as recommended please Claude, yes add --dev to mine too"*.
+  Your `start2`–`start5` carry `--dev`. On a fresh world starting with a charged pack you added *"i was going to
+  make you mine lead and get acid somehow"*: that's the ladder's tier 2 already (the furnace's sulphur and water
+  make acid; lead-acid is lead, acid and a glass jar).
 
 - **0.1.1 is on Drive** (2026-10-12): you renamed the old upload with " - old" and gave 0.1.1 the 0.1.0 file
   name so Drive's replace kept the README's link. The file says 0.1.0, but the game's corner and the folder
@@ -345,15 +368,21 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-12, session close**. **Main is a few commits ahead of GitHub (this close's): a `git push`
-whenever suits.**
+Updated **2026-10-19**. **Main is ahead of GitHub (10-12's close and today's commits): a `git push` whenever
+suits.**
 
+- **0.1.2-alpha is built, session B** (2026-10-19): Esc's menu (Resume, Controls, Quit), the controls card on
+  F1 (and once at a new world's first open, in the download only), Ctrl+R's million litres, H and Alt+H behind
+  `--dev`, a message line above the hotbar, and the pack swap that asks before wearing an emptier pack. It was
+  built on 10-13 and never saved into the project; today I read it through, fixed one missing space, found and
+  closed a gap in its test, and broke the swap rule 9 deliberate ways (every one caught). All 2,305 tests pass,
+  the quick check reads exactly as recorded, and the zip ran clean from a fresh folder. **Your look first, then
+  the upload** (both on your list).
 - **The alpha is public**: the repo is `OverBurden`, public, and 0.1.1 is on your Drive with its readme,
-  credits and licence texts. It ran on your older desktop. **For the next upload:** bump the version in
+  credits and licence texts. It ran on your older desktop. **For each upload:** bump the version in
   `Overburden.Game\Overburden.Game.csproj`, run `pwsh tools/make-alpha.ps1` with the game closed (about 20
   seconds), and upload `build\Overburden-alpha-win64.zip`: its name never changes, so Drive's replace keeps
-  the link. Next is session B (an Esc menu with Quit, the controls card on F1, the risky test keys behind
-  `--dev`), shipping as 0.1.2; then C (hotbar slots that stay put) and D (the repo's readme, CONTRIBUTING).
+  the link. Next is C (hotbar slots that stay put), then D (the repo's readme, CONTRIBUTING).
 - **The lithium-ion pack is in, and `P` gives a hundred of everything** (2026-10-12). The pack holds 14.4 MJ
   and charges at 2 kW. Everything else about it works like the lead-acid: you wear it, swap it, and it keeps
   its charge in your inventory. A volume on the hotbar now reads in cubic metres from one up. All 2,302 tests
@@ -404,7 +433,7 @@ whenever suits.**
   Ctrl+Z. The build you started at 4:49 PM already has it. A Ctrl+Z right after a roof comes down now
   says *the roof came down*, as it should.
 - **The first LakeTest is retired** (2026-10-11, your word), as `retired-LakeTest-2026-10-11`, so you can
-  playtest fresh. Your new test world is **`LakeTest2`** (seed `0x3794C6C5`), and `start.cmd` opens it. The old
+  playtest fresh. Your new test world is **`LakeTest2`** (seed `0xD8FF0AD`, as its world file reads), and `start.cmd` opens it. The old
   one stays because the lake-split numbers were measured on it. TajMahal2 is `retired-TajMahal2-2026-10-01`, and
   the first TajMahal `retired-TajMahal-2026-09-29`.
 - **The collapse sensor:** all thirteen decisions taken, the first build step is ready.

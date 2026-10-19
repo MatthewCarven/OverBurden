@@ -1,5 +1,34 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-19 — Alpha session B, found unfinished and finished; 0.1.2-alpha built
+
+His ask: *"I know i've still got stuff to test can we put that on my todo and keep going?"*
+- **His list**: the 2026-10-12 builds had no check on it (F11 and Alt+Enter, F10, the version corner, Korobeiniki
+  under a collapse, a fresh world on the hand pick, the hotbar in m³). Queued at the top of "Now" as one sitting
+  (`5205e7b`).
+- **Session B had already been built, on 2026-10-13, and never committed.** `git worktree list` showed
+  `.claude/worktrees/alpha-b` at `74d3fec` with the pass written into ALPHA-PLAN (thirteen decisions, taken that
+  night: *"as recommended please Claude, yes add --dev to mine too"*) and B1–B12 built, uncommitted. Main's
+  hand-over still said "next: session B", so the session ended before its records. Three read-only searches I had
+  started for a fresh pass were stopped. Godot logs show probes from that worktree on 2026-10-15 (one with
+  `--openmenu=controls` before the bare `--`, dropped as the rule says).
+- **Read whole before anything was added.** One fix: the undo's refusal lacked a space (*"1.00 m³ moreclay"*).
+- **The battery's recipes, written first, found a hole**: nothing checked that a yes is spent at once, and a guard
+  whose yes stayed open passed (run to confirm: green). One assertion added. Then **9 of 9 red**, plus one
+  identity (`wornMillijoules > 0` can't change the answer: a carried pack's charge is never negative).
+- **Checks**: suite 2,305; r6 to the digit from the worktree (2601 / 325 / 3446 at 411); `--openmenu` and
+  `--openmenu=controls --dev` headless with no `ERROR`; `--dev=maybe` refused. Screenshots of the menu and the
+  card, and one of the same scene without them: the shade takes the sky from 199 to 90, so it covers the window.
+- **Merged** (`57ece15`), the worktree removed (its folder held until the shell's working directory left it).
+- **0.1.2-alpha** (`0d52f6f`): `Overburden-0.1.2-alpha-win64.zip`, 74.1 MB, sha256 `3a624767…9996d4`, and the
+  version-free copy. Unpacked to the scratchpad and run headless from another folder on a new probe world: the
+  stamp reads `0.1.2-alpha (0d52f6f)`, content and music from beside the exe, no `ERROR`, **the card opened at the
+  new world's first open and not on its reopen**. The probe world and the unpacked copy were deleted; his alpha
+  folder holds `default` alone, as before. The upload is his.
+- **LakeTest2's seed**: its world file reads `0xD8FF0AD` (the 2026-10-15 open's `M6:` line), not the
+  `0x3794C6C5` recorded when it was made. Corrected in CLAUDE.md and his list; where the old figure came from is
+  unknown.
+
 ## 2026-10-12 (late) — Public: the repo renamed OverBurden, 0.1.0 on Drive, 0.1.1 with its notices
 
 - **The repo is public**, renamed `MatthewCarven/OverBurden` (the same repo). He added an "Alpha Edition" Google

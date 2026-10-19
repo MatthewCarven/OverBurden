@@ -22,7 +22,9 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 decisions his, then four sessions (A the export, B the first ten minutes, C the hotbar's slots, D going public).
 IM-6 waits behind it; if C takes the next header version, IM-6's moves up one. **A is built** (2026-10-12; the
 plan's "Session A — built"): `pwsh tools/make-alpha.ps1` makes the zip. His windowed run: it ran on his older
-desktop without errors; F11, the version corner and the music are queued on his list (2026-10-19). Next B, C, D.
+desktop without errors; F11, the version corner and the music are queued on his list (2026-10-19). **B is built**
+(2026-10-13, committed 2026-10-19; the plan's "Session B — built") and zipped as 0.1.2-alpha; its play is on his
+list, the upload his. Next C, then D.
 
 **Do first, before the slice named:**
 1. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
@@ -250,12 +252,6 @@ IM-6's water slot uses).
       `Control.Scale` (CS0108), and CA2014 on a `stackalloc` in a loop in `LightPropagator.ForEachCellAround`
       — checked, six passes of 12 bytes, no risk. A small chore: clear them so a real warning stands out.
 
-- [ ] **A same-kind pack swap can hand you an emptier pack** (his play, 2026-10-12, LakeTest2's log): a
-      right-click with a lithium-ion pack in hand, while wearing one holding 5,023.6 kJ, equipped an empty one
-      (`CarriedPacks.TakeFullest` found no charged lithium-ion pack carried) and stowed the 5.0 MJ. Nothing is
-      lost and the identity stays exact, but it reads as losing the charge. For the alpha pass: refuse a swap
-      to a same-material pack holding less than the worn one, or say so on screen.
-
 ## Levers named and not built
 
 Each waits on its trigger; the history has the measurement behind each (grep it for "lever").
@@ -394,7 +390,7 @@ Not scheduled; *"It will get a full planning pass too"* (2026-09-29). What it st
 
 ## Before the repo goes public
 
-Private at `github.com/MatthewCarven/MinerCraft`, default branch `main`.
+Public since 2026-10-12 as `github.com/MatthewCarven/OverBurden` (renamed from `MinerCraft`), default branch `main`.
 
 - **Commit authorship: no rewrite**, his word 2026-10-12 (*"i dont care if they get my email"*); ALPHA-PLAN
   decision 3. The rename and the docs read stay (ALPHA-PLAN, session D).
@@ -403,5 +399,5 @@ Private at `github.com/MatthewCarven/MinerCraft`, default branch `main`.
       and if distro packaging or a contributor community is ever wanted (MIT or Apache-2.0).
 - Godot's MIT attribution: **done for the download** (0.1.1-alpha, 2026-10-12): `THIRD-PARTY-NOTICES.md` and
   `tools/alpha/licenses/`, written from `Engine.GetLicenseText()` / `GetCopyrightInfo()` / `GetLicenseInfo()`
-  by `tools/alpha/godot_licenses.gd`. The in-game credits line comes with session B's controls card.
+  by `tools/alpha/godot_licenses.gd`. The in-game credits line is the controls card's last lines (0.1.2-alpha).
 - [ ] The name is protected by trademark and content, not by the engine's copyright.
