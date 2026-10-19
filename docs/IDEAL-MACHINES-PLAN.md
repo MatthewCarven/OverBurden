@@ -327,6 +327,9 @@ full high vault of water for about 35 hours with no sun; a full god vault for ab
     water, the bill, the state (`HOLDING`, `FUSE 12 s`, `DUMPING — owes 3.1 ML`), and the to-pocket and
     to-store verbs. It opens on a vault, and on the backpack (the computer's right-click on nothing). It is
     M10b's deferred stock tab, with something to show at last. The HUD adds `store 68%` beside the bank line.
+    **His design for M10g's screen (2026-10-19)** puts the store's stock in `E`'s inventory screen as a second
+    box, and a container aimed at as a box beside pocket-and-store; IM-6 builds this section as planned and
+    the screen uses the same moves (M10-LADDER-PLAN, "His design for the screen's boxes").
     **His warranty line goes on the vault** (2026-09-29, during IM-3's build, verbatim): *"While all care is
     taken please understand that warranty in case of battery discharge or negligence, is not implied or
     otherwise available under these circumstances."* It lands with IM-6's stock section, at the foot of a

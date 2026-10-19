@@ -2610,6 +2610,35 @@ The play is next, then M10e and M10f, and M10g's pass after them reads this sect
 row's overflow is a nuisance tonight, not a blocker: `V` reaches every holding, and the pack sits
 on the number row while fewer than ten materials are carried after it.
 
+#### His design for the screen's boxes (2026-10-19, during alpha session C's pass)
+
+> Matthew: *"Yeah i like m10 also show store stock, as a separate box on the screen like so that you can put
+> things in it, and the e key when pressed and close and aiming at a storage container should show your
+> inventory & store stock (like they can be combined in this instance) but with the target container as a
+> separate box"*
+
+Read as two layouts, both on `E` tapped:
+- **Anywhere**: the pocket's grid, and the store's stock as a second box with moves between the two. The store
+  box shows while the quantum backpack is worn, since the backpack is the store's window
+  (IDEAL-MACHINES-PLAN decision 21: its stock section opens *"on the backpack"*). *His to correct if he meant
+  always.*
+- **Within reach and aiming at a storage container** (a crate, a vault): pocket and store as one box, and the
+  container as the other.
+
+**For M10g's pass**, three things it meets in the code as it stands, each with a recommendation:
+1. **A vault on the backpack's channel is part of the store**, so aimed at one, its contents would be in both
+   boxes. The container's box shows that vault alone and the combined box the rest; Core already moves into
+   and out of one row (`MachineSet.DepositInto` and `WithdrawFrom`, `MachineSet.Vaults.cs:520-527`, beside the
+   channel-wide `Deposit` and `Withdraw` at `:501-508`).
+2. **A move out of the combined box needs an order**: the pocket first, then the store.
+3. **Water is the store's and a vault's only**, never the pocket's or a crate's (IDEAL-MACHINES-PLAN decision
+   23). It shows in the combined box from the store and moves only into a vault.
+
+It amends decision 1 (a tap of `E` aimed at a container opens it beside you) and meets IDEAL-MACHINES-PLAN
+decision 21, the stock section of the computer's panel, which IM-6 builds first. **Recommended there:** IM-6
+builds that section as planned, so the vault is playable before M10g; the screen calls the same moves; and
+M10g's pass decides whether the panel keeps its verbs once the screen exists.
+
 ### What this changes elsewhere
 
 - The M10g row in the split names the screen; decision 8's note points here; the risks

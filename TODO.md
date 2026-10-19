@@ -65,7 +65,10 @@ IM-6's water slot uses).
 5. **Header versions.** The header is v7 and IM-6 takes v8. M10g's line below said "v6; a v5 world" and
    M11's "v5 at M11"; both are corrected to "the next version after IM-6's".
 6. **IM-6's water slot and M10g's nine-slot hotbar.** IM-6's pass reads the history's "An inventory screen,
-   and slots that stay put", so the water slot fits the assignment M10g brings.
+   and slots that stay put", so the water slot fits the assignment M10g brings. **And IM-6's stock section
+   and M10g's screen** (his design, 2026-10-19: the store as a box on `E`'s screen, a container aimed at as a
+   box beside it): IM-6 builds the panel's section, the screen calls the same moves (M10-LADDER-PLAN, "His
+   design for the screen's boxes").
 7. **Tier A seen from under it (Later) and LAKE-EDIT's wall breaking a sheet** both change how `WaterSurface`
    draws a lake. Do the look after LAKE-EDIT's decisions, or in the same pass.
 8. **Each player's own channels (multiplayer) and IM-6's formats.** IM-6 fixes the header's mode byte and the
