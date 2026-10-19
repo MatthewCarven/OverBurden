@@ -2579,6 +2579,24 @@ reach and the haulage limit (M4d's and 2026-09-03's recorded triggers). **Revisi
 survival mode, or a play that reads the total as meaningless** — the number on screen is what
 makes the second possible.
 
+**His note, 2026-10-19** (verbatim, after his two-box design below): *"Well initially i was going to allow you
+to construct a cloth backpack but still be unrealistic as to how much you can store to be generous like"*. It
+is the carried counterpart of the crate, and the bottom rung of a carried-storage ladder whose top is the
+quantum backpack, a window that holds nothing and reaches the store (IDEAL-MACHINES-PLAN decisions 7 and 21),
+as lead-acid → lithium-ion → the window is for energy. **It would be the pocket's first limit**, so it meets
+this decision's trigger and his trolley argument (WORKLOG, M4: a haulage limit *"taxes patience and calls it
+difficulty"*), which "generous" already answers. Open, his:
+1. **Which modes.** *Recommended:* survival only. Sandbox stays today's game exactly (IDEAL-MACHINES-PLAN
+   decision 51) and creative unbounded.
+2. **What a bite does that doesn't fit.** *Recommended:* the tool takes only what fits and the rest stays in
+   the rock, nothing deleted, as a short inventory places what it can. With the quantum backpack worn, the
+   overflow goes to the store (IDEAL-MACHINES-PLAN fork 13 already names that handover).
+3. **How generous**, as a volume: for scale, a brush cube is 1 m³, the tunneller's bite 8 m³, a chunk 512 m³,
+   and his played worlds carry over a million m³ of stone.
+4. **What the hands carry with no backpack at all.**
+5. **Cloth needs a fibre**, and nothing in the world grows one yet: the recipe waits on M10g's recipes and
+   M10h's plants, or a stand-in from grass.
+
 #### 6. The unit scales: litres under a cubic metre, cubic metres above, on the row and in the grid — *Matthew's; recommended*
 
 `L` under 1,000 L; `m³` from 1,000 L, one decimal under 100 m³ and whole above with separators
