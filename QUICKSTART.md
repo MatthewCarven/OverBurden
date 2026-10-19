@@ -10,8 +10,9 @@ There are no monsters. **It's an early alpha: far from complete, and things will
 2. **Dig** with the left mouse button. Your bare-hands pick takes dirt, grass and clay, but not stone.
 3. **Press P** to get a kit: pumps, outlets, solar panels, power cells, clay, glass, computers and
    battery packs, 100 of each. (P is a test key; the alpha's creative mode will replace it.)
-4. **Wear a pack.** Choose a **lithium ion pack** on the number keys (or press **V** until it's
-   selected), then **right-click**. Press **Alt+P** to charge it.
+4. **Wear a pack.** Press **V** until the **lithium ion pack** is in your hand (the kit's blocks and
+   machines fill your hotbar; the computer and packs are a V away), then **right-click**. Press
+   **Alt+P** to charge it.
 5. **Press T** to switch to the quantum miner and dig stone at range. **Hold Q** to keep digging.
    The tunneller (2 m) and the excavator (a whole 8 m chunk) are further along T.
 6. **Build** with the right mouse button, **B** to change the brush shape.
@@ -57,11 +58,16 @@ nothing.
 | Alt + right mouse | place a single small block |
 | B | next brush: cube, slab, ramp, sphere |
 | 1 – 9 | select a hotbar slot |
-| V | step through everything you carry, including what's past slot 9 |
+| V | step through everything you carry, including what's not on the hotbar |
+| V held + 1 – 9 | put what's in your hand in that slot (it stays there, saved with the world) |
 | Ctrl+Z | undo (the last three steps; a collapse clears it) |
 
 Building materials show how much you hold: litres under a cubic metre, cubic metres (m³) above. Machines and
 items show a count (× 100).
+
+The hotbar's nine slots keep what you put in them. Something new goes into the first empty slot (blocks and
+machines; the computer and packs only when you put them there), and a slot you've used up stays, dimmed, so
+the next of it lands back where it was. When the row is full, new things are still carried: V reaches them.
 
 ### Power and packs
 
@@ -133,4 +139,4 @@ goes wrong, the log is what helps. (Running from the source with `start.cmd` use
 
 ---
 
-*Coming next* ([docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md)): hotbar slots you arrange yourself.
+*Coming next* ([docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md)): the repository's own readme, and how to contribute.

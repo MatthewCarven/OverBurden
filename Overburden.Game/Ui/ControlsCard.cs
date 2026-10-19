@@ -57,7 +57,8 @@ public static class ControlsCard
         Row(text, "Alt + right mouse", "place a single small block");
         Row(text, "B", "next brush: cube, slab, ramp, sphere");
         Row(text, "1 – 9", "select a hotbar slot");
-        Row(text, "V", "step through everything you carry, past slot 9 too");
+        Row(text, "V", "step through everything you carry, on the hotbar or not");
+        Row(text, "V held + 1 – 9", "put what's in your hand in that slot (it stays, saved with the world)");
         Row(text, "Ctrl+Z", "undo (the last three steps; a collapse clears it)");
         text.Append("[/table]\n");
 

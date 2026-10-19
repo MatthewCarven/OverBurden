@@ -911,6 +911,17 @@ public partial class Main : Node3D
 
     private bool _seedKeyHeld;
 
+    // Alpha session C, decision C4: a V press opens a chord that lasts until V is let go. A digit
+    // inside it pins the hand; a V let go with no digit inside it cycles (UpdateHotbar).
+    private bool _vHeld;
+    private bool _vPinned;
+
+    /// <summary>The row's <see cref="HotbarSlots.Version"/> the log last printed, so every change prints one line.</summary>
+    private long _hotbarVersionLogged = -1;
+
+    /// <summary><c>--pin=&lt;slot&gt;=&lt;identifier&gt;</c>, repeatable: the pin's headless seam, applied after the restore and <c>--stock=</c>.</summary>
+    private readonly List<(int Slot, string Identifier)> _pins = [];
+
     // H holds the water (2026-09-21, Matthew's offer of "a freeze function to stop at a specific
     // state"): no tick begins while it is held, so a state can be looked at, screenshotted or
     // heap-snapshotted with nothing moving. Alt+H is the heap read.
@@ -1553,6 +1564,10 @@ public partial class Main : Node3D
         // a withdrawal, an undo's refund — because every one of them reaches Add.
         _inventory.RefuseMaterials(_materials.Fluids());
 
+        // Alpha session C, decision C3: the items (the computer, the packs) take a slot only by a
+        // pin, so P's kit fills an empty row with blocks and machines and leaves room for stone.
+        _inventory.KeepOffTheRow(_materials.Items());
+
         var viewers = new ViewerSet();
         _scheduler = new JobScheduler(viewers);
         _pipeline = new ChunkPipeline(
@@ -1649,6 +1664,7 @@ public partial class Main : Node3D
         // Whatever the world remembered the player carrying. Before the first swing, so that a
         // reopened world can place from what it was already holding.
         _inventory.Reset(_restoredInventory.Select(entry => (entry.MaterialId, entry.Voxels)));
+        RestoreHotbar();
         RestoreCarriedPacks();
 
         // Before any chunk can be written, which is what replaces a world-spanning transaction:
@@ -2740,6 +2756,25 @@ public partial class Main : Node3D
                     _startingMaterial = value;
                     break;
 
+                // Alpha session C, decision C12: --pin=<slot 1-9>=<identifier>, repeatable.
+                case "pin":
+                {
+                    int split = value.IndexOf('=');
+                    if (split > 0
+                        && int.TryParse(value[..split], out int pinSlot)
+                        && pinSlot >= 1 && pinSlot <= HotbarSlots.Count
+                        && split < value.Length - 1)
+                    {
+                        _pins.Add((pinSlot, value[(split + 1)..]));
+                    }
+                    else
+                    {
+                        GD.PushError($"--pin='{value}' wants <slot 1-9>=<material>, e.g. --pin=4=overburden:stone; ignored.");
+                    }
+
+                    break;
+                }
+
                 case "sprintfor" when double.TryParse(value, out double sprintFor) && sprintFor > 0.0:
                     _sprintForSeconds = sprintFor;
                     break;
@@ -3042,9 +3077,14 @@ public partial class Main : Node3D
             return;
         }
 
+        // Alpha session C, decision C4: V held with a digit pins what is in your hand, so a press
+        // only opens the chord, and a V let go with no digit inside it cycles (UpdateHotbar).
+        // Cycling on the press, as V did until then, would change the hand before the digit
+        // arrived and pin the material after the one you meant.
         if (key.Keycode == Key.V)
         {
-            CycleMaterial();
+            _vHeld = true;
+            _vPinned = false;
             return;
         }
 
@@ -3056,7 +3096,18 @@ public partial class Main : Node3D
 
         if (key.Keycode >= Key.Key1 && key.Keycode <= Key.Key9)
         {
-            SelectMaterialSlot((int)(key.Keycode - Key.Key1));
+            int slot = (int)(key.Keycode - Key.Key1);
+            if (_vHeld && Input.IsKeyPressed(Key.V))
+            {
+                _vPinned = true;
+                PinHand(slot);
+            }
+            else
+            {
+                // Shift, Ctrl and Alt with a digit still select: sneak, sprint and crawl are held.
+                SelectMaterialSlot(slot);
+            }
+
             return;
         }
 
@@ -3116,11 +3167,11 @@ public partial class Main : Node3D
     /// under the same label. See <see cref="MiningController.EntangledSwings"/>.
     /// </para>
     /// </remarks>
-    /// <summary>B cycles the brush, V cycles the material. Both print, because there is no HUD.</summary>
+    /// <summary>B cycles the brush; V, let go, cycles the material (held with a digit, it pins).</summary>
     /// <remarks>
-    /// <b>B and V rather than more number keys</b>, which are the tool tiers and stay the tool
-    /// tiers: the tier decides what a swing can take and the brush decides what a placement fills,
-    /// and putting both on one row would make them look like one selection.
+    /// <b>B and V rather than more number keys</b>, which were the tool tiers until M6d-3 and are
+    /// the hotbar now (T took the tiers): the brush decides what a placement fills, and putting it
+    /// on the row would make it look like a material.
     /// </remarks>
     private void CycleBrush()
     {
@@ -3528,6 +3579,7 @@ public partial class Main : Node3D
         if (_inventory.Take(materialId, 1) < 1)
         {
             GD.Print($"M10: no {Hud.DisplayName(Content.Materials, materialId)} in the inventory to equip ({how})");
+            Tell($"No {Hud.DisplayName(Content.Materials, materialId)} left to wear.");
             return;
         }
 
@@ -3733,14 +3785,17 @@ public partial class Main : Node3D
         if (_place is null) return;
 
         int before = _place.MaterialId;
-        int materialId = _place.SelectSlot(slot);
 
-        if (materialId < 0)
+        // An empty slot is still a miss, the hand keeping what it had (alpha session C, decision
+        // C5), and since C it is said on screen. A slot held at zero selects: the hand stays on it.
+        if (_inventory.MaterialInSlot(slot) < 0)
         {
-            GD.Print("M6d: carrying nothing — mine something first");
+            GD.Print($"M6d: slot {slot + 1} is empty");
+            Tell($"Slot {slot + 1} is empty. Hold V and press {slot + 1} to pin what's in your hand.");
             return;
         }
 
+        int materialId = _place.SelectSlot(slot);
         if (materialId == before) return;
 
         GD.Print(
@@ -3767,12 +3822,86 @@ public partial class Main : Node3D
         if (_place is null) return;
 
         int materialId = _place.NextMaterial();
+        if (materialId < 0)
+        {
+            GD.Print("M6c: carrying nothing — mine something first");
+            Tell("You're carrying nothing yet.");
+            return;
+        }
 
-        GD.Print(materialId < 0
-            ? "M6c: carrying nothing — mine something first"
-            : $"M6c: placing {Content.Materials.GetIdentifier(materialId)} "
-              + $"({_inventory.Litres(materialId):F0} L held)");
+        GD.Print($"M6c: placing {Content.Materials.GetIdentifier(materialId)} ({_inventory.Litres(materialId):F0} L held)");
+
+        // Alpha session C, decision C6: V's choice on screen, with the pin named when it is off the row.
+        string name = Capitalised(Hud.DisplayName(Content.Materials, materialId));
+        int slot = _inventory.Hotbar.SlotOf(materialId);
+        Tell(slot >= 0 ? $"{name} (slot {slot + 1})" : $"{name}: not on the row. Hold V and press 1–9 to pin it.");
     }
+
+    /// <summary>
+    /// V held with a digit (alpha session C, decision C4): what is in your hand goes in that slot.
+    /// On the row already, the two slots swap; from off it, the slot's old material takes the
+    /// first empty slot or leaves the row, still carried.
+    /// </summary>
+    private void PinHand(int slot)
+    {
+        if (_place is null) return;
+
+        int hand = _place.MaterialId;
+        PinOutcome outcome = _inventory.Hotbar.Pin(slot, hand);
+        string Named(int materialId) => Hud.DisplayName(Content.Materials, materialId);
+        string text = outcome.Kind switch
+        {
+            PinKind.NothingInHand => "Nothing in your hand to pin.",
+            PinKind.AlreadyThere => $"{Capitalised(Named(hand))} is already in slot {slot + 1}.",
+            PinKind.Placed or PinKind.Moved => $"{Capitalised(Named(hand))} pinned to {slot + 1}.",
+            PinKind.Swapped or PinKind.Displaced =>
+                $"{Capitalised(Named(hand))} pinned to {slot + 1}; {Named(outcome.Displaced)} moved to {outcome.DisplacedTo + 1}.",
+            _ => $"{Capitalised(Named(hand))} pinned to {slot + 1}; {Named(outcome.Displaced)} left the row (V still reaches it).",
+        };
+
+        GD.Print($"M6d: pin — {text}");
+        Tell(text);
+    }
+
+    /// <summary>
+    /// The hotbar's per-frame half (alpha session C): V let go with no digit cycles, the row's log
+    /// line on every change, and a material a full row turned away said once a session.
+    /// </summary>
+    private void UpdateHotbar()
+    {
+        if (_vHeld && !Input.IsKeyPressed(Key.V))
+        {
+            _vHeld = false;
+            if (!_vPinned)
+            {
+                CycleMaterial();
+            }
+        }
+
+        HotbarSlots row = _inventory.Hotbar;
+        if (row.Version != _hotbarVersionLogged)
+        {
+            _hotbarVersionLogged = row.Version;
+            GD.Print(HotbarLine());
+        }
+
+        // Only what is still off the row: a pin in the same frame (--pin= after --stock=) answers it.
+        int[] turnedAway = [.. row.DrainTurnedAway().Where(id => !row.Contains(id))];
+        if (turnedAway.Length > 0)
+        {
+            GD.Print(
+                "M6d: hotbar — the row is full, so "
+                + string.Join(", ", turnedAway.Select(id => Content.Materials.GetIdentifier(id)))
+                + " took no slot (still carried)");
+            string first = Capitalised(Hud.DisplayName(Content.Materials, turnedAway[0]));
+            Tell(turnedAway.Length == 1
+                ? $"{first} has no slot. V selects it; hold V and press 1–9 to pin it."
+                : $"{first} and {turnedAway.Length - 1} more have no slot. V selects them; hold V and press 1–9 to pin one.");
+        }
+    }
+
+    private static string Capitalised(string text) =>
+        text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
 
     /// <summary>Q, polled: held, the tier in hand runs — a swing at the crosshair every cooldown, no click.</summary>
     /// <remarks>
@@ -4010,6 +4139,7 @@ public partial class Main : Node3D
         UpdateQuantumKey();
         UpdateMining(delta);
         UpdatePlacement(delta);
+        UpdateHotbar();
         UpdatePanel(delta);
         UpdateSupport(delta);
 
@@ -5224,9 +5354,10 @@ public partial class Main : Node3D
 
         GD.Print(
             $"M10: P — {DebugSeed.Each} of each added to the inventory: relay pumps, relay outlets, solar panels and vacuum cells, "
-            + $"{DebugSeed.Each} m³ of clay and of glass, computers, lead-acid packs and lithium-ion packs; pick them on the number row "
-            + "(right-click with a pack in hand equips it). Alt+P fills every placed cell and the pack");
-        Tell($"{DebugSeed.Each} of each added: machines, clay, glass, computers and packs. Right-click with a pack in hand to wear it.");
+            + $"{DebugSeed.Each} m³ of clay and of glass, computers, lead-acid packs and lithium-ion packs; the blocks and machines "
+            + "take the row's empty slots and the computer and packs are a V away (right-click with a pack in hand equips it). "
+            + "Alt+P fills every placed cell and the pack");
+        Tell($"{DebugSeed.Each} of each added. The computer and packs are a V away; right-click with a pack in hand to wear it.");
     }
 
     /// <summary>Every placed storage row charged to its capacity, through the set's one debug door.</summary>
@@ -5651,9 +5782,25 @@ public partial class Main : Node3D
                 : $"M10: --material={_startingMaterial} is not a material the inventory holds; --place places the largest holding");
         }
 
+        // Alpha session C, decision C12: --pin= puts a material on a slot, as V held with a digit
+        // does for the hand, in the order the flags were given.
+        foreach ((int pinSlot, string pinned) in _pins)
+        {
+            if (!Identifier.TryParse(pinned, Identifier.BaseNamespace, out Identifier pinId, out _)
+                || !Content.Materials.TryGetNumericId(pinId, out int pinMaterial)
+                || pinMaterial == MaterialIds.AirNumericId)
+            {
+                GD.PushError($"--pin={pinSlot}={pinned}: no such material in this content; ignored");
+                continue;
+            }
+
+            PinOutcome pinOutcome = _inventory.Hotbar.Pin(pinSlot - 1, pinMaterial);
+            GD.Print($"M6d: --pin={pinSlot}={pinId}: {pinOutcome.Kind}");
+        }
+
         GD.Print(
             $"M6d: placing with the {_place.Brush.ToString().ToLowerInvariant()} brush — "
-            + "right mouse places, B cycles the brush, 1-9 pick a material (V cycles), "
+            + "right mouse places, B cycles the brush, 1-9 pick a material (V cycles, V held + 1-9 pins), "
             + "T cycles the tool tier, Alt for one voxel");
     }
 
@@ -10088,6 +10235,7 @@ public partial class Main : Node3D
             WorldHeader world = WorldHeaderBlob.Read(header);
             settings = world.Settings;
             _restoredInventory = world.Inventory;
+            _restoredHotbar = world.Hotbar;
             _restoredWatershedCellMetres = world.WatershedCellMetres;
             _savedPlayer = world.Player;
             _restoredPack = world.Pack;
@@ -10172,6 +10320,9 @@ public partial class Main : Node3D
     /// <summary>What the world file said was being carried. Applied once the registry is loaded.</summary>
     private IReadOnlyList<InventoryEntry> _restoredInventory = [];
 
+    /// <summary>The world file's hotbar (v8), or the row a v7 world showed. Applied with the inventory, by <see cref="RestoreHotbar"/>.</summary>
+    private IReadOnlyList<int> _restoredHotbar = HotbarSlots.EmptyRow;
+
     /// <summary>The lattice this world's stored basin volumes are keyed on.</summary>
     /// <remarks>
     /// Defaulted to the lattice this build uses, so a world with no header - a new one - matches
@@ -10200,7 +10351,44 @@ public partial class Main : Node3D
         Pack = _pack is null ? null : new PackSave(_pack.MaterialId, _pack.ChargeMillijoules, _pack.Channel),
         // And the charges the carried packs keep beside their count (v5), in the save form's order.
         CarriedPacks = _carriedPacks.Entries,
+        // Alpha session C: the row the player arranged (v8), slots at zero included.
+        Hotbar = _inventory.Hotbar.ToArray(),
     };
+
+    /// <summary>
+    /// Puts the world file's row back, emptying — and saying so — any slot naming a material no
+    /// installed mod defines, the carried packs' rule; then prints the row.
+    /// </summary>
+    private void RestoreHotbar()
+    {
+        _inventory.Hotbar.Restore(_restoredHotbar);
+        for (int slot = 0; slot < HotbarSlots.Count; slot++)
+        {
+            int materialId = _inventory.Hotbar.MaterialInSlot(slot);
+            if (materialId >= 0 && (materialId >= Content.Materials.Count || Content.Materials.IsPlaceholder(materialId)))
+            {
+                GD.Print($"M6d: hotbar — slot {slot + 1} named material {materialId}, which no installed mod defines; emptied");
+                _inventory.Hotbar.Clear(slot);
+            }
+        }
+
+        _hotbarVersionLogged = _inventory.Hotbar.Version;
+        GD.Print(HotbarLine() + " (at open)");
+    }
+
+    /// <summary>The row as the log prints it: <c>hotbar: 1 grass, 2 dirt, 3 —, …</c>, a slot held at zero marked <c>(0)</c>.</summary>
+    private string HotbarLine() =>
+        "hotbar: " + string.Join(", ", Enumerable.Range(0, HotbarSlots.Count).Select(slot =>
+        {
+            int materialId = _inventory.MaterialInSlot(slot);
+            if (materialId < 0)
+            {
+                return $"{slot + 1} —";
+            }
+
+            string zero = _inventory.Has(materialId) ? string.Empty : " (0)";
+            return $"{slot + 1} {Content.Materials.GetIdentifier(materialId).Path}{zero}";
+        }));
 
     /// <summary>
     /// Puts the world file's carried charges back beside the inventory's count, dropping — and

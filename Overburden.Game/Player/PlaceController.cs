@@ -527,8 +527,10 @@ public sealed class PlaceController(
 
         // Selected here rather than by the caller, so that mining a first bite and then reaching
         // for the other mouse button works without a key press in between. Only ever fills an
-        // empty selection; cycling is the player's.
-        if (MaterialId < 0 || !inventory.Has(MaterialId))
+        // empty hand: since alpha session C (decision C5) a hand whose material is spent stays on
+        // it, as its slot does, and a click says it is out — it no longer jumps to the largest
+        // holding and builds in something the player did not choose.
+        if (MaterialId < 0)
         {
             MaterialId = LargestHolding();
         }
@@ -929,9 +931,9 @@ public sealed class PlaceController(
     /// <see cref="MaterialId"/> being −1 rather than air: the failure has to be a no-op.
     /// </para>
     /// <para>
-    /// The ordering the slot indexes into is <c>VolumetricInventory.MaterialInSlot</c>'s, and it
-    /// is documented there together with the cost of it — acquiring a new material shifts the
-    /// slots above it.
+    /// The slot is <c>VolumetricInventory.Hotbar</c>'s since alpha session C: nine slots the player
+    /// arranges, saved with the world. <b>A slot held at zero selects</b> — the hand stays on a
+    /// spent material, as the slot does (decision C5) — and only an empty slot is a miss.
     /// </para>
     /// </remarks>
     /// <returns>The material now selected, or −1 if nothing is.</returns>

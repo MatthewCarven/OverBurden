@@ -898,6 +898,19 @@ inventory** until M10g's recipe exists. The orphan check, verbatim, on a scratch
 ```
 
 then reopen `--world=probe` and read `M10: drain — … 128 orphan voxel(s) cleared`; delete the world after.
+**Re-recorded at alpha session C (2026-10-19): one line, `1 reconciled … 64 orphan voxel(s) cleared`.** The 128
+was the hand's jump: once the pump's one body was placed the hand moved to the largest holding and `--place`
+went on placing whatever machine came next. The 128 was two bodies, from when `--stock=` seeded only the relay
+pair, and at 0.1.2 the same run read four lines of 64. Since C's decision C5 the hand stays on the spent pump
+and every later click is refused as unaffordable, so the check reads the one body it names. Both arms were run
+on the same build, C5's line reverted for the control.
+
+**Alpha session C adds `--pin=<slot>=<identifier>`** (repeatable, slots 1–9): puts a material on a hotbar slot
+after the restore and `--stock=`, in the order given, as V held with a digit does for the hand; a malformed
+value or an unknown material is refused by name. The log prints the row at open and on every change:
+`hotbar: 1 grass, 2 dirt, 3 —, … (at open)`, with a slot held at zero marked `(0)`. The round trip, on a scratch
+world: `--world=probe-c --stock=64 --pin=1=overburden:stone --pin=2=overburden:computer`, quit, reopen
+`--world=probe-c` and read the same row `(at open)`; delete the world after.
 
 **M10b-1 adds the computer and one flag.** `overburden:computer` is a material with `unit: count`
 and `placeable: false` — carried, counted and on the hotbar, never a block: `Place` refuses an item

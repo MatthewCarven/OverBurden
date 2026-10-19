@@ -606,14 +606,24 @@ public sealed partial class Hud : CanvasLayer
         {
             view.Swatch.Color = new Color(0f, 0f, 0f, 0.35f);
             view.Name.Text = "—";
+            view.Name.Modulate = Colors.White;
             view.Litres.Text = string.Empty;
             return;
         }
 
-        view.Swatch.Color = VoxelMaterial.ColourForLayer(materials.TextureLayer(materialId));
+        // Alpha session C, decision C2: a slot keeps its material at zero, dimmed, so the next bite
+        // lands back where the hand expects it. The amount reads 0 in the material's own unit.
+        bool held = inventory.Has(materialId);
+        Color swatch = VoxelMaterial.ColourForLayer(materials.TextureLayer(materialId));
+        view.Swatch.Color = held ? swatch : swatch with { A = SpentAlpha };
         view.Name.Text = DisplayName(definitions, materialId);
+        view.Name.Modulate = held ? Colors.White : new Color(1f, 1f, 1f, SpentAlpha);
         view.Litres.Text = Holding(inventory, materials, materialId);
+        view.Litres.Modulate = view.Name.Modulate;
     }
+
+    /// <summary>How far a slot whose material is spent fades: enough to read, plainly not in hand.</summary>
+    private const float SpentAlpha = 0.4f;
 
     /// <summary>
     /// A holding in the material's own unit: a volume, parts, or bodies — with the fraction shown
@@ -723,36 +733,36 @@ public sealed partial class Hud : CanvasLayer
             // says it holds; a swap keeps the worn one's charge beside the count (2026-09-18).
             string held = carriedPackMillijoules > 0 ? $"PACK  (in hand, {MachinePanel.Joules(carriedPackMillijoules)})" : "PACK  (in hand, empty)";
             return pack is null
-                ? $"{held}   ·   right-click to equip it   ·   {tier}  (T)   ·   1-9 material, V cycle"
-                : $"{held}   ·   right-click to swap — the worn one keeps its charge   ·   {tier}  (T)   ·   1-9 material, V cycle";
+                ? $"{held}   ·   right-click to equip it   ·   {tier}  (T)   ·   1-9 material, V cycle, V held + 1-9 pin"
+                : $"{held}   ·   right-click to swap — the worn one keeps its charge   ·   {tier}  (T)   ·   1-9 material, V cycle, V held + 1-9 pin";
         }
 
         if (place.SelectedIsItem && !place.SelectedIsProgrammer)
         {
             // IM-1: an item that is not a programmer has no verb yet, so the line says so rather
             // than calling it a computer. None ships today; water is the first (IM-4).
-            return $"ITEM  (in hand)   ·   nothing to place or open   ·   {tier}  (T)   ·   1-9 material, V cycle";
+            return $"ITEM  (in hand)   ·   nothing to place or open   ·   {tier}  (T)   ·   1-9 material, V cycle, V held + 1-9 pin";
         }
 
         if (place.SelectedIsItem)
         {
             return pack is null
-                ? $"COMPUTER  (in hand)   ·   right-click a machine to open it   ·   {tier}  (T)   ·   1-9 material, V cycle"
-                : $"COMPUTER  (in hand)   ·   right-click a machine to open it, or nothing for the pack   ·   {tier}  (T)   ·   1-9 material, V cycle";
+                ? $"COMPUTER  (in hand)   ·   right-click a machine to open it   ·   {tier}  (T)   ·   1-9 material, V cycle, V held + 1-9 pin"
+                : $"COMPUTER  (in hand)   ·   right-click a machine to open it, or nothing for the pack   ·   {tier}  (T)   ·   1-9 material, V cycle, V held + 1-9 pin";
         }
 
         // The gate with nothing to pay it (M10c-3): the tier in hand costs and no pack is
         // equipped, so a click swings and takes nothing — said before the click, not after.
         if (mining is { NeedsAPack: true })
         {
-            return $"{tier.ToUpperInvariant()} TAKES NOTHING — no pack   ·   P seeds one, then pick it on the number row and right-click to equip it";
+            return $"{tier.ToUpperInvariant()} TAKES NOTHING — no pack   ·   P seeds one, then pick it with V and right-click to equip it";
         }
 
         // A machine material places as one body whatever the brush, so the brush is not what the
         // next click does and the line says so (M10a-2).
         if (place.SelectedIsMachine)
         {
-            return $"MACHINE  (one {BrushCell.SizeMetres:F0} m body)   ·   {tier}  (T)   ·   1-9 material, V cycle";
+            return $"MACHINE  (one {BrushCell.SizeMetres:F0} m body)   ·   {tier}  (T)   ·   1-9 material, V cycle, V held + 1-9 pin";
         }
 
         // The modifier is reported as a state rather than as a hint while it is held, because
@@ -762,7 +772,7 @@ public sealed partial class Hud : CanvasLayer
         {
             return mining?.Running == true
                 ? $"RUNNING  (Q held)   ·   ONE VOXEL  (Alt)   ·   {tier}  (T)"
-                : $"ONE VOXEL  (Alt)   ·   {tier}  (T)   ·   1-9 material, V cycle";
+                : $"ONE VOXEL  (Alt)   ·   {tier}  (T)   ·   1-9 material, V cycle, V held + 1-9 pin";
         }
 
         // The hold (2026-09-19): the tier in hand is eating what the crosshair is on, no click —
@@ -804,6 +814,6 @@ public sealed partial class Hud : CanvasLayer
                 + $"dig cell / {brush} brush  (B) at range   ·   1-9 material   ·   Alt: one voxel   ·   hold Q: run";
         }
 
-        return $"{brush} brush  (B)   ·   {tier}  (T)   ·   1-9 material, V cycle   ·   Alt: one voxel   ·   hold Q: run";
+        return $"{brush} brush  (B)   ·   {tier}  (T)   ·   1-9 material, V cycle, V held + 1-9 pin   ·   Alt: one voxel   ·   hold Q: run";
     }
 }
