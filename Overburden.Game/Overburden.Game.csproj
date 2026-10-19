@@ -7,8 +7,9 @@
     <!-- ALPHA-PLAN decision 11: the version a player reports. The SDK appends the commit it was built
          from (InformationalVersion "0.1.0-alpha+<sha>"); Main prints it first and the HUD shows it. -->
     <!-- Bump for every zip that goes out, so a report names one build: 0.1.0-alpha went to Google Drive
-         without its notices; 0.1.1-alpha carries them. -->
-    <Version>0.1.1-alpha</Version>
+         without its notices; 0.1.1-alpha carries them; 0.1.2-alpha is session B (the Esc menu, F1,
+         the dev flag, the HUD's messages, the swap that asks). -->
+    <Version>0.1.2-alpha</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Overburden.Core\Overburden.Core.csproj" />
