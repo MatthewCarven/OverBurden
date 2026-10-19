@@ -606,3 +606,61 @@ them: the row stays nine slots, and "still carried" means in the backpack.
   the grid's, and C3 decides only what lands on an empty slot.
 - **TODO** (collision 5, the M10g line and the millilitre line), CLAUDE.md's hand-over, and
   `WorldHeader.cs:178-179`'s comment. QUICKSTART's *"Coming next"* loses the hotbar.
+
+## Session C — built (2026-10-19)
+
+Taken and built the same evening in the worktree `alpha-c`, merged (`ee49769` the Core half, `9e249ad` the wire),
+and zipped as **0.1.3-alpha** (`e786e07`). The version copies moved first (`e830544`): IM-6's mode byte is v9.
+
+- **C1, C2, the row** (`Inventory/HotbarSlots.cs`): nine IDs, −1 for empty, no ID twice, owned by
+  `VolumetricInventory`. Its `Add` offers each arrival the first empty slot, and its `Reset` offers nothing. A
+  slot keeps its material at zero. `MaterialInSlot` reads the row: an array read where the HUD sorted nine lists
+  a frame.
+- **C3**: `MaterialTable.Items()` (the computer, both packs, the quantum backpack, water) goes to
+  `KeepOffTheRow`, set beside the fluids' refusal. On the alpha's path P fills slots 3–8 and leaves 9 for the
+  first stone, tested against the shipped content.
+- **C4, the pin, and a finding of the build.** V cycled on its press, so the press that opened the chord moved
+  the hand before the digit arrived, and the pin took the material after the one meant. **A tap of V now cycles
+  when it is let go**, and V held with a digit pins the hand untouched. *Cost:* V's cycle answers on the release,
+  not the press. The swap, the displacement to the first empty slot, leaving the row and the two no-ops are
+  `PinKind`s.
+- **C5**: the hand's fill only fills an empty hand. A slot at zero selects; an empty slot is a miss, now said on
+  screen. A spent pack's right-click says there is none left to wear.
+- **C6**: the message line for V (the pin named when it is off the row), every pin's result, an empty slot
+  pressed, and once a session a material a full row turned away. That last skips a material a pin answered in
+  the same frame, found by the round trip (`--pin=` after `--stock=` named the stone it had just pinned).
+- **C7**: V's order is unchanged.
+- **C8**: header v8 appends nine int32s. `HotbarSlots.Problem` is the writer's and the reader's one rule, each
+  refusal naming the slot as the keys do (1–9). A v7 header reads as its first nine holdings in ID order, and the
+  opener empties a slot naming a removed mod's material and says so. **The writer now checks it wrote the length
+  it summed** (the pass's fact 13).
+- **C10**: the zip's readme says worlds move forward, not back. **C12**: `--pin=<slot>=<identifier>` and the
+  `hotbar:` line, in COMMANDS.md. QUICKSTART, the card, the readme, the HUD's status line and P's words name the
+  pin; DebugSeed's comment is true at last.
+
+**Checks.**
+- Suite **2,335**: thirty new (`HotbarSlotsTests`; the hotbar block of `InventoryTests` rewritten, its shift
+  test inverted; nine v8 header tests; two against the shipped content). Nineteen tail offsets in
+  `WorldHeaderTests` step over the new 36 bytes, and one more needed a bigger count: the carried count past the
+  bytes now read the hotbar as its second row and failed on something else.
+- **The migration against a real v7 blob**: `Fixtures/v7-header-before-the-hotbar.bin` (321 bytes), written by
+  the v7 writer before the bump with a one-file app (`#:project` on Core): LakeTest2's table shape, twelve
+  holdings, a pack worn and one carried.
+- **The battery: 24 of 24 red**, the recipes written before the run, and the one named in advance to survive
+  did: the writer's length check, a guard on a sum that is correct.
+- r6 to the digit (2601 / 325 / 3446 at 411) with no `ERROR`, twice; `--openmenu=controls --dev` opens.
+- **The round trip** on a scratch world: `--stock=64`, two pins, quit, reopen, the same row `(at open)`.
+- **A copy of LakeTest2** (v7, thirteen holdings) opened with the row its 0.1.2 showed (clay, computer, dirt,
+  glass, grass, lamp, lead-acid pack, relay outlet, relay pump), and **0.1.2 then refused the copy**: *"format
+  version 8, but this build reads versions 1 to 7"*. Deleted after.
+- **The orphan check read the hand's jump** (C5's named cost): with C5's line reverted on the same build it
+  drains four bodies of 64, the hand running on through every machine after the pump (the recorded 128 was the
+  relay pair, when `--stock=` had only those); with C5, one body, 64. Re-recorded in COMMANDS.md.
+- **A screenshot** on a copy of LakeTest2 with `--pin=6=overburden:rubble`: his row with slot 6 dimmed at
+  `0 L`, and the status line naming the pin.
+- **0.1.3-alpha**: `Overburden-0.1.3-alpha-win64.zip`, 74.1 MB, sha256 `41af625f…4966cdd`, and the version-free
+  copy. Unpacked to the scratchpad and run headless: the stamp, a pin, a reopen with the same row, no `ERROR`.
+  The probe was deleted; his alpha `default` is untouched.
+
+**Not checked**: his hands on any of it (the V chord's feel, a tap now answering on release; the message line; a
+dim slot in his own play), and no windowed run but the screenshot.

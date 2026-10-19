@@ -1,5 +1,30 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-19 — Alpha session C: the pass, his designs for M10g, the hotbar's slots built; 0.1.3-alpha
+
+- **The pass** (`ed74c57`): three read-only searches, eighteen facts, thirteen decisions. Fact 15 of the plan was
+  half right: past slot nine are the highest IDs, the newest only in a world made before a material was added.
+- **His designs the same evening, recorded for M10g** (M10-LADDER-PLAN's inventory section, verbatim): the store
+  as its own box on E's screen and a container aimed at beside pocket-and-store (`056cf7d`); a cloth backpack,
+  generous, the pocket's first limit (`c019273`); the player's slots, hands, armour, a backpack slot and charge
+  slots, where "weapons and shields" meets DESIGN's no-combat scope (`af4b9b1`); two charge slots, one on the
+  player and one in the quantum backpack whose quantum battery is the bank's window, and a computer that costs
+  charge (`c3bdaef`). His far-future crafting machinery is in TODO's Later (`38a1640`).
+- **Taken** (*"As recommended please Claude"*, to the parent session) and recorded with the v-number copies
+  (`e830544`), then **built in the worktree `alpha-c`**: Core first (`ee49769`), the battery, then the wire
+  (`9e249ad`). ALPHA-PLAN's "Session C — built" has the detail.
+- **A finding of the build**: C4's chord could not work as written, because V cycled on its press and so moved
+  the hand before the digit arrived. A tap of V cycles on release now.
+- **C5's named cost was real**: the orphan check had been reading the hand's jump. Run on both arms of one build,
+  it drains four bodies with the jump and one without; COMMANDS.md re-records it at 64.
+- **Checks**: suite 2,335; the battery 24 of 24 red (and the one guard named in advance survived); r6 to the
+  digit; the round trip; a LakeTest2 copy opens with its 0.1.2 row and 0.1.2 refuses it after; a screenshot.
+- **0.1.3-alpha** (`e786e07`), 74.1 MB, sha256 `41af625f…4966cdd`, ran clean unpacked. **The version-free zip
+  in `build/` is 0.1.3's now**, so his upload is 0.1.3, which carries B too.
+- **Logs kept aside before probing**: his 0.1.2 play on LakeTest2 that evening as
+  `logs/play-LakeTest2-2026-10-19-1854.log` (editor binary), and two export logs from 2026-10-12 as
+  `Overburden Alpha/logs/play-alpha-2026-10-12-0532.log` and `-1655.log`.
+
 ## 2026-10-19 — Alpha session B, found unfinished and finished; 0.1.2-alpha built
 
 His ask: *"I know i've still got stuff to test can we put that on my todo and keep going?"*

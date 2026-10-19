@@ -50,7 +50,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
 | [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. Today a block in a lake is a pier. |
 | [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) | **Walls that split a lake, the code-level pass (2026-10-01): all seven decisions taken as recommended; L-1, L-2 and E-1 built the same day; his play passed 2026-10-09, and all of it is on main since the pond branch merged.** His Tier B conversion can't separate (the hand-back rejoins the one lake); the pond branch's raise divides a lake but gives every litre to the old pit's side (fact 10). Recommended: share by the water over each cell (L-1, L-2 on the branch), and make the enclosure's answer independent of who asks first (E-1, main). |
-| [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md) | **The public alpha** (2026-10-12, his ask: a public zip, extract and run). Twenty-one facts from three read-only searches (there is no export; content is found relative to the working directory; no menu, no quit key, no help; the phonk can't ship; personal data if the repo goes public) and **twenty-three decisions, his**, split into four sessions: the export, the first ten minutes, the hotbar's slots, going public. **A and B built; B is 0.1.2-alpha (2026-10-19).** |
+| [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md) | **The public alpha** (2026-10-12, his ask: a public zip, extract and run). Twenty-one facts from three read-only searches (there is no export; content is found relative to the working directory; no menu, no quit key, no help; the phonk can't ship; personal data if the repo goes public) and **twenty-three decisions, his**, split into four sessions: the export, the first ten minutes, the hotbar's slots, going public. **A, B and C built; C is 0.1.3-alpha (2026-10-19).** |
 | [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30); IM-5a built (2026-10-10, after a re-read against the merged watershed), IM-5b built (2026-10-11: the pile, a cone at his word, its bench `--pile`), IM-6 next; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
@@ -204,30 +204,33 @@ version. A worktree has neither beside it, so give the script `-Godot <exe>` the
 
 ## Where things stand
 
-**2026-10-19 — alpha session B is built and on main, zipped as 0.1.2-alpha.** It was built on 2026-10-13 in
-the worktree `alpha-b` and never committed, while main's hand-over still said "next: B". This session found it,
-read it whole, fixed a missing space, closed a test hole its battery's recipes found (9 of 9 red), and merged it
-(`57ece15`). **0.1.2-alpha** (`0d52f6f`): `build/Overburden-0.1.2-alpha-win64.zip` and the version-free copy ran
-clean unpacked, the card showing at a new world's first open and not on its reopen. **His look, then his
-upload.** His untested 2026-10-12 builds and 0.1.2's check are at the top of his list, queued at his word.
-- **What B is** ([docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), "Session B — built"): Esc's menu, which doesn't
-  pause (`Ui/EscMenu.cs`); F1's card (`Ui/ControlsCard.cs`, kept in step with QUICKSTART by hand); `--dev` for
-  Ctrl+R, H and Alt+H (`start.cmd` passes it, the export doesn't); a message line (`Hud.ShowMessage`); the swap
-  that asks (`PackSwapGuard`). `--openmenu` and `--openmenu=controls` open them for `screenshot.gd`.
+**2026-10-19 — alpha session C is built and on main, zipped as 0.1.3-alpha.** The hotbar is nine slots that stay
+put, saved with the world in header v8 ([docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), "Session C — built"): a new
+block or machine takes the first empty slot, the computer and packs go on only by a pin, a slot keeps its
+material at zero (dimmed), **V held with a digit pins what's in your hand**, and the hand stays on a spent
+material. **A finding of the build: a tap of V cycles on release now**, because cycling on the press moved the
+hand before the chord's digit arrived. **0.1.3-alpha** (`e786e07`): `build/Overburden-0.1.3-alpha-win64.zip` and
+the version-free copy (0.1.3's bytes now, B's changes included) ran clean unpacked. **His look, then his
+upload**; a world opened in 0.1.3 won't open in 0.1.2 again, and the zip's readme says so.
+- **What C is**: `Inventory/HotbarSlots.cs`, owned by `VolumetricInventory` (`Add` offers a slot, `Reset`
+  doesn't); `MaterialTable.Items()` kept off an empty row; header v8 is nine int32s after the carried packs with
+  one rule for the writer and the reader (`HotbarSlots.Problem`), and a v7 world reads as its first nine holdings
+  in ID order, tested against a real v7 blob in `Fixtures/`. `--pin=<slot>=<identifier>` and the `hotbar:` log
+  line are the seams. COMMANDS.md's orphan check is re-recorded at 64: it had been reading the hand's old jump.
+- **His designs for M10g, the same evening** (M10-LADDER-PLAN's inventory section, verbatim): the store as a box
+  on E's screen and a container aimed at beside it; a generous cloth backpack; the player's slots (hands, armour,
+  a backpack slot) and two charge slots, the quantum battery the bank's window; a computer that costs charge.
 
-Suite **2,305**, r6 to the digit. Main is ahead of GitHub; he pushes.
+Suite **2,335**, r6 to the digit. Main is ahead of GitHub; he pushes.
 
 **Next session, in order:**
-1. **Alpha session C, the hotbar's slots: its code-level pass is written** (ALPHA-PLAN, "Session C — the
-   code-level pass", `ed74c57`): eighteen facts, **thirteen decisions C1–C13 waiting on his word** (C3 which
-   things take a slot, C4 the pin key, C5 the hand on a spent block are the ones that are really his). Once
-   taken, build it as C13 says (one session, worktree if he may play, ending in 0.1.3-alpha), and fix the copies
-   its "What this changes elsewhere" lists: C takes header v8, so IM-6's mode byte moves to v9.
-2. Then **D** (the repo's README rewrite, CONTRIBUTING with a contributor rights clause, the docs read, his
-   desktop's specs for the readme).
-3. **IM-6 waits behind the alpha.** Its code-level pass carries: the vault's panel (his warranty line, a lock
-   on the channel box, power auto-scaled), water in the hotbar through `VolumeText`, the pile's cyan glitch
-   (decision 16), and the windowed read of a real dump. Before it: the ten build warnings, ideally collapse f-1.
+1. **Alpha session D** (the repo's README rewrite, CONTRIBUTING with a contributor rights clause, the docs read,
+   his desktop's specs for the readme). Its code-level pass first.
+2. **IM-6 waits behind the alpha, at header v9 now.** Its code-level pass carries: the vault's panel (his
+   warranty line, a lock on the channel box, power auto-scaled), water in the hotbar through `VolumeText` (a slot
+   may name any material the table has, water included), the pile's cyan glitch (decision 16), and the windowed
+   read of a real dump; his E-screen design means the panel's stock section is built so the screen can reuse its
+   moves. Before it: the ten build warnings, ideally collapse f-1.
 
 The ideal machines plan: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to IM-3b,
 IM-4a (thirty-six mutations red), IM-4b, IM-4c (reduced at his word), **IM-5a, the dump's water** (2026-10-10,
@@ -354,6 +357,9 @@ https://github.com/MatthewCarven/OverBurden.git`; the folder and the memory key 
 - **A debug door into a conserved quantity is a term**, or the identity lies from then on.
 - **Check `git worktree list` at a session's start.** Alpha session B sat built and uncommitted in
   `.claude/worktrees/alpha-b` for six days while the hand-over said it was next (found 2026-10-19).
+- **A chord's modifier must not act on its own press** (2026-10-19, alpha C): V cycled on key-down, so V held
+  with a digit pinned the material after the one in hand. A tap of V cycles on release now; check what a key
+  does alone before making it a chord's modifier.
 - **Alt+G takes water back** as well as Alt+R, because NVIDIA's overlay owns Alt+R on his machine.
 - **The export** (2026-10-12): `pwsh tools/make-alpha.ps1` builds the alpha zip in `build/`. Godot's export
   wants a classic `.sln`, kept in `tools/godot-sln/` (one beside the game's `.csproj` breaks `start.cmd`). An

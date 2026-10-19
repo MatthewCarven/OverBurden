@@ -13,6 +13,34 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md at the 2026-10-19 close of alpha session C** (the hand-over that session found, from
+session B's close and the parent session's records of C's pass):
+
+**2026-10-19 — alpha session B is built and on main, zipped as 0.1.2-alpha.** It was built on 2026-10-13 in
+the worktree `alpha-b` and never committed, while main's hand-over still said "next: B". This session found it,
+read it whole, fixed a missing space, closed a test hole its battery's recipes found (9 of 9 red), and merged it
+(`57ece15`). **0.1.2-alpha** (`0d52f6f`): `build/Overburden-0.1.2-alpha-win64.zip` and the version-free copy ran
+clean unpacked, the card showing at a new world's first open and not on its reopen. **His look, then his
+upload.** His untested 2026-10-12 builds and 0.1.2's check are at the top of his list, queued at his word.
+- **What B is** ([docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), "Session B — built"): Esc's menu, which doesn't
+  pause (`Ui/EscMenu.cs`); F1's card (`Ui/ControlsCard.cs`, kept in step with QUICKSTART by hand); `--dev` for
+  Ctrl+R, H and Alt+H (`start.cmd` passes it, the export doesn't); a message line (`Hud.ShowMessage`); the swap
+  that asks (`PackSwapGuard`). `--openmenu` and `--openmenu=controls` open them for `screenshot.gd`.
+
+Suite **2,305**, r6 to the digit. Main is ahead of GitHub; he pushes.
+
+**Next session, in order:**
+1. **Alpha session C, the hotbar's slots: its code-level pass is written** (ALPHA-PLAN, "Session C — the
+   code-level pass", `ed74c57`): eighteen facts, **thirteen decisions C1–C13 waiting on his word** (C3 which
+   things take a slot, C4 the pin key, C5 the hand on a spent block are the ones that are really his). Once
+   taken, build it as C13 says (one session, worktree if he may play, ending in 0.1.3-alpha), and fix the copies
+   its "What this changes elsewhere" lists: C takes header v8, so IM-6's mode byte moves to v9.
+2. Then **D** (the repo's README rewrite, CONTRIBUTING with a contributor rights clause, the docs read, his
+   desktop's specs for the readme).
+3. **IM-6 waits behind the alpha.** Its code-level pass carries: the vault's panel (his warranty line, a lock
+   on the channel box, power auto-scaled), water in the hotbar through `VolumeText`, the pile's cyan glitch
+   (decision 16), and the windowed read of a real dump. Before it: the ten build warnings, ideally collapse f-1.
+
 **Moved from CLAUDE.md at the 2026-10-12 close** (the hand-over as it ran through that day, superseded by the
 close):
 

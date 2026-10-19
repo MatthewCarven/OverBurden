@@ -24,8 +24,8 @@ IM-6 waits behind it; C takes header v8, so IM-6's mode byte is v9. **A is built
 plan's "Session A — built"): `pwsh tools/make-alpha.ps1` makes the zip. His windowed run: it ran on his older
 desktop without errors; F11, the version corner and the music are queued on his list (2026-10-19). **B is built**
 (2026-10-13, committed 2026-10-19; the plan's "Session B — built") and zipped as 0.1.2-alpha; its play is on his
-list, the upload his. **C's thirteen decisions are taken** (2026-10-19, as recommended; the pass is `ed74c57`),
-and C is being built in the worktree `alpha-c`, ending in 0.1.3-alpha. Then D.
+list. **C is built** (2026-10-19, the plan's "Session C — built") and zipped as 0.1.3-alpha, which carries B
+too: his play, then his upload. Next D.
 
 **Do first, before the slice named:**
 1. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
@@ -61,10 +61,11 @@ IM-6's water slot uses).
    the rungs go in.
 4. **TNT's six decisions and IM-5.** A blast that destroys a vault makes a wreck, which dumps by IM-5's rules
    (the end of a dump, 5b's pile). TNT's pass reads IM-5 first.
-5. **Header versions.** The header is v7 until alpha C ships v8 (the hotbar's slots); IM-6 then takes v9 (the
+5. **Header versions.** The header is v8 since alpha C (the hotbar's slots, 2026-10-19); IM-6 takes v9 (the
    mode). M10g's line below said "v6; a v5 world" and M11's "v5 at M11"; both are corrected.
 6. **IM-6's water slot and M10g's nine-slot hotbar.** IM-6's pass reads the history's "An inventory screen,
-   and slots that stay put", so the water slot fits the assignment M10g brings. **And IM-6's stock section
+   and slots that stay put", so the water slot fits the assignment alpha C built (a slot may name any material the table has, water
+   included). **And IM-6's stock section
    and M10g's screen** (his design, 2026-10-19: the store as a box on `E`'s screen, a container aimed at as a
    box beside it): IM-6 builds the panel's section, the screen calls the same moves (M10-LADDER-PLAN, "His
    design for the screen's boxes").

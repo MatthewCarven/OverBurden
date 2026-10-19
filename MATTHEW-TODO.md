@@ -25,7 +25,17 @@ care about. I keep it current at the end of each session.
 **Still to test, queued at your word** (2026-10-19: *"I know i've still got stuff to test can we put that on
 my todo and keep going?"*). Nothing below blocks the next build; the oldest is from 2026-09-30.
 
-- [ ] **0.1.2-alpha, the first ten minutes** (built and on main 2026-10-19; `start.cmd` plays it):
+- [ ] **0.1.3-alpha, the hotbar's slots** (built and on main 2026-10-19; `start.cmd` plays it):
+      - **Your row stays as it is** in LakeTest2. Spend the last of something: its slot stays, dimmed, and the
+        next bite lands back in it.
+      - **Hold V and press a number**: what's in your hand goes in that slot. A tap of V still steps through
+        what you carry, but it moves when you let go now, not when you press.
+      - **A new world**: dig grass and dirt, press P. The machines, clay and glass fill the row and your first
+        stone lands in slot 9; the computer and packs are a V away.
+      - **Build until the stone runs out**: your hand stays on stone and a click says you're out, instead of
+        switching to whatever you have most of.
+      - *Does the V chord feel right?*
+- [ ] **0.1.2-alpha, the first ten minutes** (in 0.1.3 too):
       - **Esc** opens the menu (Resume, Controls, Quit); **F1** the controls card. Esc still closes a panel or
         the map first. Quit should say *Saving…* and close.
       - **A line above the hotbar** says what just happened: the hand pick on stone, an empty pack, Ctrl+Z's
@@ -132,9 +142,9 @@ Nothing is blocked on these; each is a small change once you have a view.
 ## Yours to run
 
 - [ ] **`git push`** whenever I say the tree is ahead.
-- [ ] **Upload 0.1.2-alpha, after your look at it**: `build\Overburden-alpha-win64.zip` over the file on Drive (the
+- [ ] **Upload 0.1.3-alpha, after your look at it**: `build\Overburden-alpha-win64.zip` over the file on Drive (the
       same name every time, so the README's link holds). It's the same bytes as
-      `build\Overburden-0.1.2-alpha-win64.zip`.
+      `build\Overburden-0.1.3-alpha-win64.zip`, and it carries 0.1.2's changes, so 0.1.2 needn't go up first.
 - [ ] **Delete the scratch worlds** if you want the space back (under
       `%APPDATA%\Godot\app_userdata\Overburden\worlds\`): `edge`, `m6d2dug`, `m7c-clock`,
       `m7c-shaft`, `m7c-shot`, `m7d-pond`, `m7d-water`, and `Regions1`–`Regions9`. **Keep** the
@@ -169,7 +179,8 @@ Nothing is blocked on these; each is a small change once you have a view.
 - **The hotbar's slots, thirteen decisions** (2026-10-19): *"As recommended please Claude"*. Nine slots that keep
   what's in them, even at zero (dimmed); a new block goes in the first empty slot (the computer and packs by a
   pin); hold V and press 1–9 to pin what's in your hand; your hand stays on a block that runs out. Your worlds
-  keep the row they show today. Being built now, as 0.1.3; a world opened in 0.1.3 won't open in 0.1.2 again.
+  keep the row they show today. Built the same night as 0.1.3 (its check is at the top of Now); a world opened in
+  0.1.3 won't open in 0.1.2 again.
   Your same-evening designs (the store as a box on E's screen, a cloth backpack, the player's slots, two charge
   slots) are in the ladder plan for M10g and change nothing in C.
 
@@ -374,9 +385,14 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-19**. **Main is ahead of GitHub (10-12's close and today's commits): a `git push` whenever
-suits.**
+Updated **2026-10-19**, late. **Main is ahead of GitHub (session C's build): a `git push` whenever suits.**
 
+- **0.1.3-alpha is built, session C** (2026-10-19): the hotbar's nine slots stay put and save with your world.
+  New blocks and machines take the first empty slot (the computer and packs only when you pin them), a slot
+  you've used up stays dimmed, **hold V and press a number to pin what's in your hand**, and your hand stays on
+  a block that runs out. Your LakeTest2 opens with exactly the row it shows today (checked on a copy). All
+  2,335 tests pass, I broke the new rules 24 deliberate ways (every one caught), and the zip ran clean from a
+  fresh folder. **Your look, then the upload; 0.1.3 carries 0.1.2's changes too.**
 - **0.1.2-alpha is built, session B** (2026-10-19): Esc's menu (Resume, Controls, Quit), the controls card on
   F1 (and once at a new world's first open, in the download only), Ctrl+R's million litres, H and Alt+H behind
   `--dev`, a message line above the hotbar, and the pack swap that asks before wearing an emptier pack. It was
@@ -388,7 +404,7 @@ suits.**
   credits and licence texts. It ran on your older desktop. **For each upload:** bump the version in
   `Overburden.Game\Overburden.Game.csproj`, run `pwsh tools/make-alpha.ps1` with the game closed (about 20
   seconds), and upload `build\Overburden-alpha-win64.zip`: its name never changes, so Drive's replace keeps
-  the link. Next is C (hotbar slots that stay put), then D (the repo's readme, CONTRIBUTING).
+  the link. Next is D (the repo's readme, CONTRIBUTING).
 - **The lithium-ion pack is in, and `P` gives a hundred of everything** (2026-10-12). The pack holds 14.4 MJ
   and charges at 2 kW. Everything else about it works like the lead-acid: you wear it, swap it, and it keeps
   its charge in your inventory. A volume on the hotbar now reads in cubic metres from one up. All 2,302 tests
