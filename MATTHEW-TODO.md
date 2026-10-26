@@ -1,5 +1,8 @@
 # Matthew's TODO
 
+> **This file is public**: the repo is, so anyone can read it, "Notes to myself" included. Write nothing here you
+> wouldn't post (ALPHA-PLAN D12, 2026-10-26).
+
 Your file. `TODO.md` is the project's open work and mine to maintain; this is the short list of
 things only you can do. Tick things off, scribble in the notes section, delete anything you don't
 care about. I keep it current at the end of each session.
@@ -150,9 +153,9 @@ Nothing is blocked on these; each is a small change once you have a view.
       three `retired-*` worlds and `Regions16-pondlook-demolished-2026-09-26` — those are my
       measurement worlds.
 - [ ] **Delete the pre-rename backup**: `%APPDATA%\Godot\app_userdata\MinerCraft\`.
-- [ ] **Rename stage 4**, no hurry. The GitHub repo is done (`OverBurden`, public). Left: the remote URL,
-      `git remote set-url origin https://github.com/MatthewCarven/OverBurden.git`, and the local folder
-      (tell me before you move it: my memory folder is keyed to its name, and I'll carry it across).
+- [ ] **Rename stage 4**, no hurry. The GitHub repo (`OverBurden`, public) and the remote URL are done. Left:
+      the local folder (tell me before you move it: my memory folder is keyed to its name, and I'll carry it
+      across).
 
 ---
 
@@ -372,7 +375,7 @@ Nothing is blocked on these; each is a small change once you have a view.
 - **The Tetris collapse, drawn** (2026-09-27): *"make it the default please"* — it is; the old
   one-sweep fall is `--collapsemode=sweep`. The cyan: *"like they turn cyan yeah like it"*. The
   black pieces stay: *"indicitave that you aint getting that back"*. The settler you saw was the
-  pile tumbling — 65% of what fell fell again. There is no sound in the game yet; that was the tablet.
+  pile tumbling — 65% of what fell fell again. There is no sound in the game yet; that was another device in the room.
 - **The collapse, part c's ten decisions** (2026-09-26): *"as recommended"*; c-1 is built.
 - **The Tetris collapse, played on your tower** (2026-09-26): *"yes slow to fast … buildings unless
   in earthquakes usually give signs before they collapse"* — the pace table stays as built.

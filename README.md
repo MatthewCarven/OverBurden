@@ -8,108 +8,85 @@ which needs more mining.
 
 No mobs, no combat. The mine is the antagonist.
 
-Alpha Edition 1.0.0
-https://drive.google.com/file/d/13kcW2xIEVM2Ur8eQSQurquE_8klUd-_H/view?usp=sharing
+## Download
 
-1.0.2
-https://drive.google.com/file/d/1oJgrgA22TJYgzaOf3IuclViGCbqv1AKw/view?usp=sharing
+**[The latest alpha](https://github.com/MatthewCarven/OverBurden/releases/latest)**, for 64-bit Windows: a zip.
+Extract it anywhere and run `Overburden.exe`. It's an early alpha: far from complete, and things will change.
 
-**Design and reasoning: [docs/DESIGN.md](docs/DESIGN.md). Progress:
-[TODO.md](TODO.md). History: [WORKLOG.md](WORKLOG.md).**
+Older builds, on Google Drive:
+- [0.1.1-alpha](https://drive.google.com/file/d/13kcW2xIEVM2Ur8eQSQurquE_8klUd-_H/view?usp=sharing) (the file is
+  named 0.1.0; 0.1.1 replaced it under the same name)
+- [0.1.2-alpha](https://drive.google.com/file/d/1oJgrgA22TJYgzaOf3IuclViGCbqv1AKw/view?usp=sharing)
 
-## Status
+## What it runs on
 
-**M0 through M5 done, and M6 under way** — 734 tests passing. Terrain streams around the
-camera without end: worldgen and greedy meshing run on worker threads over palette-compressed
-storage, drawn via `RenderingServer` with a texture array, with every material loaded from
-`mods/overburden/*.json` exactly the way a third-party mod would load its own. Chunks load
-and unload as you move, on a scheduler that reprioritises queued work and cancels what
-went stale before a thread was free to run it. A pick swing carves a sphere out of the world,
-gated by tool tier against material hardness. You walk it — an AABB against the voxel grid,
-gravity, jump, step-up — and you cannot outrun the streamer falling 250 m at terminal
-velocity. There is no sun: the voxel grid is the light, skylight and lamplight are separate
-channels, and a mine runs from lit rock to actual black. **And it saves** — dig a tunnel, fly
-away, quit, come back, and the tunnel is still there, along with what you were carrying and where
-you were standing. **You can build, too**: brushes place a cube, a slab, a four-step ramp or a
-sphere on a one-metre lattice, out of the volume you mined, and Alt makes either mouse button
-work one voxel at a time.
+It needs 64-bit Windows and a graphics card that supports Vulkan. Made and played on an Intel Core i9-11900H with an
+NVIDIA GeForce RTX 3070 Laptop GPU (8 GB) and 16 GB of RAM. An earlier alpha has also run without errors on an older
+desktop: an Intel Core i7-3770 with a GeForce GTX 1660 (6 GB) and 16 GB. Both run Windows 11, and they're all it has
+been tried on.
 
-Some numbers it is built on:
+## Playing
 
-- **8,208 bytes** for a 32,768-voxel chunk, and 196,608 naive faces reduced to **850
-  quads** — 7.2× better than culled meshing, 231× better than naive.
-- **0.47 ms** to generate a chunk, of which caves are a fifth. They were four fifths until
-  the noise moved onto a coarse lattice, which bought five times as much terrain on screen
-  while flying.
-- **~46 KiB per drawn chunk**, mesh-dominated against ~2 KB of voxel storage — which is why
-  view distance is a horizontal radius and a vertical one, not a single number.
-- **189 bytes** to store an edited chunk, and **35 µs** to read one back and rebuild it —
-  which turned out to make a dug-in world *faster* to enter than a fresh one, because loading
-  1,521 chunks beats generating them.
+The download's `README.txt` ([tools/alpha/README.txt](tools/alpha/README.txt)) gets you started, and
+[QUICKSTART.md](QUICKSTART.md) has every key; in the game, F1 shows them and Esc opens the menu.
 
-**M3 is mining, and you can do it.** Hold the left mouse button and a sphere of material
-comes out of the world, gated per voxel by hardness. Swing a `hand_pick` at a dirt bank with
-a stone seam through it and the dirt goes while the seam stands — no special case, no "you
-cannot mine this" message, just the shape of the hole telling you what your tool is for. Tool
-tiers are content, loading from `mods/overburden/tools/*.json` through the same loader
-materials use; the number keys switch between them.
+## Found a bug?
 
-It has been played, and it feels good — which was the actual bar, this being the first
-milestone whose output is a feeling rather than a number.
+Please [open an issue](https://github.com/MatthewCarven/OverBurden/issues): say what happened, attach the log
+(`%APPDATA%\Overburden Alpha\logs\godot.log`; paste the folder into File Explorer's address bar), and give the version
+shown in the game's top-left corner.
 
-The milestone's question was whether a pick swing fits inside a frame. Mining continuously
-while flying costs **a fifth of a percent of one core** and moves the pipeline's p99 from
-0.91 ms to 1.04 ms, against a 16.7 ms frame. It fits.
+## Building from source
 
-M6 is persistence, placement and volumetric inventory, planned in
-[docs/M6-PLAN.md](docs/M6-PLAN.md). Its structural point: every chunk until now was recoverable
-from nothing, so unloading one was free. M6 is the first milestone that creates state whose only
-copy is on disk — which makes the unload path a write, and a bug there destroys work that cannot
-be rebuilt. Save and load are done; brush placement and the inventory are next.
+Windows only for now. You need:
+- **Godot 4.7.1-stable, the .NET edition** ("mono"), unzipped into this folder so that
+  `Godot_v4.7.1-stable_mono_win64\` sits beside `start.cmd` (the folder is gitignored);
+- **a .NET 8 SDK or newer.**
 
-## Run it
+Once, so Godot imports the project:
 
 ```
-start.cmd
+Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless --import
 ```
 
-Needs Godot 4.7.1-stable **mono**, either vendored at `./Godot_v4.7.1-stable_mono_win64/`
-or shared from `../GAME/`. Bindings follow Minecraft where the idiom is borrowed: WASD to move,
-Space and Shift for up and down, Ctrl to sprint or fly faster, Esc to release the mouse.
-**F toggles walking and flying**; walking, Space jumps and **Shift sneaks, which will not let you
-walk off an edge**. Left mouse mines a sphere, right mouse places a brush, and **Alt+click is
-precision on either** — one voxel taken, one voxel placed. B cycles the brush, V cycles the
-material, and 1 and 2 pick a tool tier.
-
-Your world is written to `user://worlds/default/world.db` — on Windows,
-`%APPDATA%/Godot/app_userdata/Overburden/worlds/`. It saves as chunks unload, every thirty
-seconds, and on quit.
+Then the tests, and the game:
 
 ```
 dotnet test Overburden.slnx
+start.cmd
 ```
 
-Worldgen has a benchmark. Run it in Release — Debug is about three times slower and the
-number looks just as real:
+**`start.cmd` is Matthew's own launcher.** It builds the game first, then opens his test world, `LakeTest2`
+(created the first time), with the developer keys on (`--dev`, the last table in QUICKSTART.md).
+`start.cmd "--world=<name>"` opens or creates another world instead, since a later flag wins. A build from source
+plays no music (`media/` isn't in the repository) and saves under `%APPDATA%\Godot\app_userdata\Overburden\`.
 
-```
-dotnet run --project Overburden.Bench -c Release
-```
+## How it's made
 
-## The shape of it
+Godot 4.7 and C# on .NET 8. The simulation is `Overburden.Core`, which never references Godot; `Overburden.Game` draws
+it and takes your input.
+- **0.25 m voxels** in 32³ chunks, streamed around you on worker threads. Mining carves material out of the world,
+  and the inventory is volumetric: litres of stone, not block counts.
+- **Water in three tiers**: lakes and rain as basins, each with one level; a volume-conserving cellular automaton
+  for water on the move; and seepage through the rock. Every litre is accounted for.
+- **The roof**: rock carries a support field, water weakens it, and an over-dug roof comes down after a 10–20 s
+  fuse, in pieces.
+- **Machines and power**: relay pumps and outlets on channels, vacuum cells, solar panels, battery packs you wear,
+  and quantum tools that spend their charge.
+- **Moddable**: every material, tool and machine loads from `mods/` as JSON, and the base game is itself a mod,
+  loaded the same way a third party's would be.
 
-- **Godot 4 + C#**, .NET 8. Headless simulation core split from the Godot front end.
-- **0.25 m voxels**, 4 per metre, in 32³ chunks. Mining carves material with a pick
-  rather than deleting metre cubes; placement uses brushes, and inventory is
-  volumetric — litres of stone, not block counts.
-- **Three-tier fluid**: analytic watershed basins for rain and standing water,
-  volume-conserving cellular automata for water that's moving, and a coarse
-  groundwater saturation field for seepage.
-- **Structural integrity** with per-material support distances, where saturation
-  degrades support — so water doesn't merely flood the mine, it causes the cave-in.
-- **Moddable from the first commit.** Namespaced string IDs and a content registry
-  from M1, with the base game registered through the same public path a mod would
-  use. Lua scripting via MoonSharp later.
+The record of how it got here:
+- [docs/DESIGN.md](docs/DESIGN.md): the design, its locked decisions, and the alternatives rejected and why.
+- [docs/](docs/): a plan for each milestone and system, written before it was built.
+- [WORKLOG.md](WORKLOG.md): what happened and why, newest first.
+- [TODO.md](TODO.md): the open work.
+- [CLAUDE.md](CLAUDE.md): the AI assistant's orientation file, which it reads at the start of every session.
+
+## Contributing
+
+Welcome. [CONTRIBUTING.md](CONTRIBUTING.md) has Matthew's rule, the four checks a change passes, and the contributor
+agreement ([CLA.md](CLA.md)) you agree to with a tick in the pull request.
 
 ## Licence
 
@@ -126,5 +103,5 @@ at any time.
 
 ## Built with
 
-Designed and built by Matthew Carven with [Claude Code](https://claude.com/claude-code)
-(Claude Opus 5) as co-author. See [CONTRIBUTORS.md](CONTRIBUTORS.md).
+Designed and built by Matthew Carven with [Claude Code](https://claude.com/claude-code) as co-author: the commits'
+trailers name Claude Opus 5, Claude Opus 5.5 and Claude Fable 5.1. See [CONTRIBUTORS.md](CONTRIBUTORS.md).

@@ -232,9 +232,8 @@ IM-6's water slot uses).
 - [ ] **Dust when a roof comes down** (M9c-2), optional, only if falls read as too quiet.
 - [ ] **Precision mining's key: Ctrl or Alt.** Ctrl descends in fly mode (~1.8 m sunk between
       chips); Alt means *crawl* there, so it pairs. One line in `MiningController`.
-- [ ] **Rename stage 4**, his: the GitHub repo, the local folder, the remote URL, the docs naming
-      `github.com/MatthewCarven/MinerCraft`, and the assistant's memory directory keyed on the old
-      folder path.
+- [ ] **Rename stage 4**, his: the local folder, and the assistant's memory directory keyed on the old
+      folder path. The GitHub repo (`OverBurden`, 2026-10-12) and the remote URL (seen 2026-10-26) are done.
 
 ## Owed checks
 

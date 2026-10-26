@@ -15,7 +15,8 @@ PLAYING
 2. Double-click Overburden.exe.
    Windows may say "Windows protected your PC", because the game isn't signed. Click "More info", then
    "Run anyway".
-3. You need Windows 10 or 11 (64-bit) and a graphics card that supports Vulkan.
+3. You need Windows 10 or 11 (64-bit) and a graphics card that supports Vulkan. It has been tried on
+   Windows 11 only.
 
 Every key is on F1 in the game, and in QUICKSTART.md beside this file. The short version:
 
@@ -27,7 +28,8 @@ Every key is on F1 in the game, and in QUICKSTART.md beside this file. The short
   P                   a kit of everything      Alt+P     charge your pack and power cells
   F10                 see further              F11       fullscreen
   F12                 the map                  Ctrl+Z    undo
-  Esc                 menu: resume, quit       F1        every key
+  F1                  every key
+  Esc                 the menu: resume, controls, quit
   Quitting saves the world, from the menu or by closing the window.
 
 Your bare hands dig dirt, not stone. Press P, wear a battery pack (V until it's in hand, right-click), press

@@ -1,0 +1,3 @@
+# Store text with LF line endings in the repository, whatever a contributor's editor writes; git converts
+# on checkout (ALPHA-PLAN D5). Every text file was already LF in the index when this was added (2026-10-26).
+* text=auto

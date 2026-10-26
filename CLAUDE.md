@@ -195,14 +195,19 @@ version. A worktree has neither beside it, so give the script `-Godot <exe>` the
 - Commit with a message that explains *why*, and end with the `Co-Authored-By:` line the harness
   gives this session — never copy one from an older commit.
 - Matthew runs `git init` and `git push` himself — flag when either is needed. Remote is
-  `github.com/MatthewCarven/OverBurden` (renamed from `MinerCraft`, which GitHub redirects; the local remote URL
-  still names the old one), **public** since 2026-10-12, default branch `main`. Run `git fetch`
+  `github.com/MatthewCarven/OverBurden` (renamed from `MinerCraft`, which GitHub redirects; `origin` names the new
+  one), **public** since 2026-10-12, default branch `main`. Run `git fetch`
   before calling anything unpushed; the remote-tracking ref only moves on a fetch or a push. **He edits README.md
   on GitHub's site** (2026-10-12, 2026-10-20): compare `main` and `origin/main` both ways before touching it.
 - `reference/` is gitignored and holds third-party sources we **read but never build
   against** (currently godot_voxel). Nothing in it belongs in a `.csproj`.
 - Working copies are CRLF (`core.autocrlf`). Edit through a Python script that reads bytes and
-  writes back the endings it found; `sed -i` in Git Bash writes LF.
+  writes back the endings it found; `sed -i` in Git Bash writes LF. The repository stores LF, and
+  `.gitattributes` (`* text=auto`, 2026-10-26) keeps a contributor's commits the same.
+- **The repo is public, so everything tracked is published** at his next push. **WORKLOG headings carry the date
+  only**, never a time of day (ALPHA-PLAN D9, 2026-10-26: together the old tags map his hours; those stay, and new
+  ones aren't added). A play log is still found by its time, in the text where it's needed. Show him anything new
+  about him or anyone else before it's committed; secrets never go in.
 
 ## Where things stand
 
@@ -346,9 +351,9 @@ lake 33 m from his spawn; his glass rain pool at about x −12, z −63). His de
 **The rename.** The game is Overburden; stages 1–3 (solution, namespaces, content namespace, mod
 folder, `user://` folder) are done. **Stage 4 is Matthew's**: the GitHub repo, the local folder,
 the remote URL, and the assistant's memory directory, which is still keyed `MinerCraft`. **The GitHub repo is
-done: renamed `MatthewCarven/OverBurden` and public** (seen 2026-10-12; GitHub redirects the old name). The
-local remote still names `MinerCraft` until he runs `git remote set-url origin
-https://github.com/MatthewCarven/OverBurden.git`; the folder and the memory key are still to go.
+done: renamed `MatthewCarven/OverBurden` and public** (seen 2026-10-12; GitHub redirects the old name), **and so
+is the remote URL**: `origin` is `https://github.com/MatthewCarven/OverBurden.git` (seen 2026-10-26). The local
+folder and the memory key are still to go, his, whenever suits.
 
 **Things not to rediscover** (the standing ones; each session's own are in STATUS-HISTORY):
 

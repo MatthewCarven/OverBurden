@@ -176,7 +176,10 @@ comes first.
       - [ ] Not covered by any licence: the **name**. If "Overburden" survives the name
             check, the protection against someone shipping a clone is trademark and the
             content, not copyright on the engine.
-- [ ] **Decide whether commit authorship stays `matthewcarven@gmail.com`** — now the only
+- [x] **Dropped: authorship stays as it is, no rewrite** (his word, 2026-10-12: *"i dont care if they get my
+      email like they only get filtered"*; ALPHA-PLAN decision 3. Ticked 2026-10-26, session D's D11.)
+      The item as it stood:
+      **Decide whether commit authorship stays `matthewcarven@gmail.com`** — now the only
       item here with a closing window. All 6 commits carry it. While the repo is private
       and has no other collaborators, rewriting it is genuinely cheap: `git filter-repo
       --mail-map`, then one force-push, and nothing downstream breaks because nothing

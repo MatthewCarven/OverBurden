@@ -7,7 +7,8 @@
 # Overburden.Game/export_presets.cfg), lays out what a player needs beside the exe, and zips it as
 # build/Overburden-<version>-win64.zip with one folder inside, so "Extract All" gives a folder and not
 # a spill of files, plus a copy named build/Overburden-alpha-win64.zip to upload over the last one.
-# Prints the zip's size, SHA-256 and commit.
+# Prints the zip's size, SHA-256 and commit. Refuses a zip missing its papers, or whose notices name another
+# .NET runtime than the export carries.
 #
 # Needs the Godot 4.7.1 mono editor (vendored beside the repo or in ../GAME, found as start.cmd finds
 # it) and its export templates (in the editor: Editor > Manage Export Templates > Download and
@@ -51,6 +52,20 @@ $env:DOTNET_CLI_USE_MSBUILD_SERVER = '0'
 & $godot --path (Join-Path $repo 'Overburden.Game') --headless --export-release 'Windows Desktop' (Join-Path $stage 'Overburden.exe') *> $log
 if ($LASTEXITCODE -ne 0) { throw "The export failed ($LASTEXITCODE); see $log" }
 if (Select-String -Path $log -Pattern '^ERROR' -CaseSensitive -Quiet) { throw "The export logged errors; see $log" }
+
+# The notices name the .NET runtime the zip carries (ALPHA-PLAN D14). The export bundles whatever runtime the SDK
+# brings, and an SDK update moved it from 8.0.31 to 8.0.32 between 0.1.1 and 0.1.3 with nothing saying so: read it
+# from the export, and refuse a zip whose notices name another.
+$runtimeConfig = Join-Path $stage 'data_Overburden.Game_windows_x86_64\Overburden.Game.runtimeconfig.json'
+if (-not (Test-Path $runtimeConfig)) { throw "The export wrote no runtimeconfig.json ($runtimeConfig), so its .NET runtime can't be checked." }
+$bundled = @((Get-Content $runtimeConfig -Raw | ConvertFrom-Json).runtimeOptions.includedFrameworks |
+    Where-Object { $_.name -eq 'Microsoft.NETCore.App' } | ForEach-Object { $_.version })
+if ($bundled.Count -ne 1) { throw "$runtimeConfig names no single Microsoft.NETCore.App version." }
+$named = [regex]::Match((Get-Content (Join-Path $repo 'THIRD-PARTY-NOTICES.md') -Raw), '\*\*\.NET runtime\*\* (\S+)')
+if (-not $named.Success) { throw 'THIRD-PARTY-NOTICES.md names no .NET runtime version (its "**.NET runtime** <version>" row).' }
+if ($named.Groups[1].Value -ne $bundled[0]) {
+    throw "THIRD-PARTY-NOTICES.md names .NET runtime $($named.Groups[1].Value), but the export carries $($bundled[0]). Update the notices, and check the two runtime texts in tools\alpha\licenses against the new runtime's package."
+}
 
 # Beside the exe, where an exported build looks (ALPHA-PLAN decisions 7 and 8).
 Copy-Item -Recurse (Join-Path $repo 'Overburden.Game\mods') (Join-Path $stage 'mods')

@@ -1807,7 +1807,7 @@ have played a few times"*; arm 2 of two (*"2 please"*).
   - the plug under `--collapsemode=sweep` reads 4 falls, 20 voxels, `at risk 0`, as recorded.
 - COMMANDS' two M9 oracles now carry `--collapsemode=sweep`.
 - **He asked about a sound effect:** the game has no audio at all (no `Audio` anywhere in
-  `Overburden.Game`), so it was his mum's tablet.
+  `Overburden.Game`), so it was another device in the room.
 
 ## 2026-09-27 — His first play of the drawn collapse; the tower restored
 
