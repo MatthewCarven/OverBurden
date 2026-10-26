@@ -940,3 +940,74 @@ The history keeps the old text whatever he chooses (above).
 - **The planning pass's fact 8**: the zip is Vulkan only (fact 14). **TODO**: a mod author's page (D5), and D's
   status. **MATTHEW-TODO**: the release in "Yours to run" (D2), the CLA's jurisdiction (D6), and the 0.1.3 upload's
   line (its README link). **QUICKSTART**, the card and README.txt as D14 says, kept in step by hand.
+
+## Session D — built (2026-10-26)
+
+Built the same day, after his `git pull` and push (main level with GitHub at `4be4426`), as D15 says: one session,
+files only, the game never launched. **`d4acd59`**, then the records. No `<Version>` bump, and the main folder's
+`build/` is untouched (0.1.3's zip still hashes `41af625f…4966cdd`), so 0.1.3 goes up as built.
+
+- **D1–D4, `README.md`**, in D1's order: his pitch (unchanged); the download, `…/OverBurden/releases/latest`, with
+  his two Drive links under "older builds" relabelled 0.1.1 (noting its file is named 0.1.0) and 0.1.2, the URLs as
+  his commit `5386e1d` left them; what it runs on, D3's sentence verbatim after "64-bit Windows and a graphics card
+  that supports Vulkan"; playing, a line to README.txt and QUICKSTART; a bug, as the player's readme says; building
+  from source (the Godot folder, a .NET 8 SDK or newer, one `--headless --import`, the suite, `start.cmd` named as his
+  launcher: LakeTest2, `--dev`, `start.cmd "--world=<name>"`, no music, where it saves); how it's made, five lines on
+  what is built today and the record (DESIGN, the plans, WORKLOG, TODO, CLAUDE.md as the assistant's orientation
+  file); contributing; his licence paragraph, his aside as he wrote it; built with, naming the three models the
+  trailers name. The M3–M6 status and the early numbers are gone (STATUS-HISTORY and WORKLOG keep them).
+- **D5, `CONTRIBUTING.md`**: his rule first, in his words; the four checks, the fourth naming the identities by
+  formula and file with the tests that hold them (`FluidJobTests.MutationsLandingUnderARunningWorkerLeaveEveryIdentityExact`,
+  `MachineTickTests.ThePoolIdentityHoldsOverAThousandBoundariesWithEverythingRunning`, which asserts both the pool
+  and `pumped == emitted` each boundary, and the vault tests); the practical rules (IDs, `minercraft:` forever, the
+  other non-negotiables by link and content, an issue before Core or a save format, benches Release only, line
+  endings, the mod author's pointer); the agreement, why it's needed (fact 9), "How you agree" and "Work that isn't
+  all yours", the two sections CLA.md's instruction blanks point at. **`.gitattributes`**, `* text=auto`: `git status`
+  showed no file renormalised, and a real `git add --renormalize .` staged only the two files edited by hand, so it
+  was unstaged and nothing else changed.
+- **D6, `CLA.md`**: from the Harmony Combined Contributor Agreement Template, version 1.0, read at its source
+  (harmonyagreements.org/docs/ha-combined-v1). The choices: individual; licence, not assignment; outbound Option
+  Five; the entity and assignment text out, and with them the two project-to-contributor clauses ("and by Us to You"
+  in §4, "or Us" in §5), which the site's guide puts with the assignment version; the optional Media licences out,
+  since Option Five already allows any licence. The blanks: **"Overburden, a project of Matthew Carven ("We" or
+  "Us")"**, so the defined party is him and not the project; both instruction blanks point at CONTRIBUTING's
+  sections; §6.1 **New South Wales, Australia**. The signature blocks give way to the tick (the guide allows
+  digital signatures or conditional licences; Harmony's Effective Date also counts a first contribution). **A word
+  diff against the template's source shows every difference is one of those choices.** The template is CC BY 3.0
+  (its last line, and the site's footer), so the file ends with the attribution: the template's title and version,
+  Project Harmony, its URL, the licence's URI, and the changes. A preamble says once that it is a template, not
+  legal advice, with a plain summary that defers to the agreement's words.
+- **D7, `.github/pull_request_template.md`**: the four checks as boxes and the agreement's box in D7's words, with
+  absolute links (a pull request's description doesn't resolve relative ones), and a comment asking for anything
+  not the author's own. **D8, `CONTRIBUTORS.md`**: `:9, :14` name Opus 5, Opus 5.5 and Fable 5.1, `:31-39` point at
+  CONTRIBUTING and CLA.md with fact 9's reason, and the DCO promise is gone; the rest is his, unchanged.
+- **The docs read.** D9: the convention is in CLAUDE.md's Conventions (dates only in worklog headings; nothing
+  stripped). D10: `WORKLOG.md`'s line (now :1810) reads *"so it was another device in the room"*, and MATTHEW-TODO's
+  tablet line says the same; `git grep` finds no other family word. D11: TODO-HISTORY's email box ticked as dropped,
+  his words of 2026-10-12 quoted. D12: MATTHEW-TODO's first lines say it is public. D13: nothing rewritten.
+- **D14.** The notices name .NET 8.0.32, list `SQLitePCLRaw.lib.e_sqlite3` with the other three packages (2.1.12, as
+  the export's `.deps.json` reads), and SQLite 3.53.3 (the version string inside `e_sqlite3.dll`, which has no
+  version resource). **`make-alpha.ps1`** reads `Microsoft.NETCore.App`'s version from the export's
+  `runtimeconfig.json` right after the export and refuses the zip, naming both versions, when the notices'
+  `**.NET runtime** <version>` row differs or is missing. The player's text: README.txt gives Esc its own line with
+  the menu's three items and says *"It has been tried on Windows 11 only"* (D3), QUICKSTART gains P's row in the
+  card's words and loses its "coming next" line. **`ControlsCard.cs` needed nothing** (it had P, and its Esc row is
+  right), so no C# changed.
+- **Also**: CLAUDE.md said the local remote still named `MinerCraft`; `origin` is `OverBurden.git`, so it, TODO and
+  MATTHEW-TODO now leave only the folder and the memory key of the rename.
+
+**Checks.**
+- **The script's check, red then green**, in a worktree `alpha-d-check` at `d4acd59` (under `.claude/worktrees/`,
+  excluded), `-Godot` the `../GAME` console exe. *Red*: the notices set to 8.0.31 by a byte script; the export ran
+  (26 s) and the script refused: *"names .NET runtime 8.0.31, but the export carries 8.0.32"*, no zip written.
+  *Green*: the notices restored from the commit; exit 0 in 15 s, `Overburden-0.1.3-alpha-win64.zip` 73.5 MB, sha256
+  `0f17a0ae…5c15042` (no music: `media/` is gitignored), its notices naming 8.0.32 and its README.txt the new line.
+  The worktree and its branch were removed after `dotnet build-server shutdown`.
+- **Two findings of the runs**: a fresh tree's export rewrites `Overburden.Game/icon.svg.import` with LF endings and
+  no content change, so the script's "uncommitted changes" warning fires in a new worktree for that alone; and the
+  two exports didn't rotate his `godot.log` (copied aside first, byte-identical after, the copies removed).
+- Suite and r6 not rerun: no code changed.
+
+**Not checked**: how GitHub renders the README, CONTRIBUTING, CLA.md and the template (after his push); the
+`releases/latest` link, which shows an empty Releases page until his release; and a lawyer's read of the agreement
+(TODO, "The public repo").

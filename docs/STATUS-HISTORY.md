@@ -13,6 +13,44 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md at the 2026-10-26 close of alpha session D** (the hand-over from session C's close,
+with the 2026-10-26 pass's changes to it):
+
+**2026-10-19 — alpha session C is built and on main, zipped as 0.1.3-alpha.** The hotbar is nine slots that stay
+put, saved with the world in header v8 ([docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), "Session C — built"): a new
+block or machine takes the first empty slot, the computer and packs go on only by a pin, a slot keeps its
+material at zero (dimmed), **V held with a digit pins what's in your hand**, and the hand stays on a spent
+material. **A finding of the build: a tap of V cycles on release now**, because cycling on the press moved the
+hand before the chord's digit arrived. **0.1.3-alpha** (`e786e07`): `build/Overburden-0.1.3-alpha-win64.zip` and
+the version-free copy (0.1.3's bytes now, B's changes included) ran clean unpacked. **His look, then his
+upload**; a world opened in 0.1.3 won't open in 0.1.2 again, and the zip's readme says so.
+- **What C is**: `Inventory/HotbarSlots.cs`, owned by `VolumetricInventory` (`Add` offers a slot, `Reset`
+  doesn't); `MaterialTable.Items()` kept off an empty row; header v8 is nine int32s after the carried packs with
+  one rule for the writer and the reader (`HotbarSlots.Problem`), and a v7 world reads as its first nine holdings
+  in ID order, tested against a real v7 blob in `Fixtures/`. `--pin=<slot>=<identifier>` and the `hotbar:` log
+  line are the seams. COMMANDS.md's orphan check is re-recorded at 64: it had been reading the hand's old jump.
+- **His designs for M10g, the same evening** (M10-LADDER-PLAN's inventory section, verbatim): the store as a box
+  on E's screen and a container aimed at beside it; a generous cloth backpack; the player's slots (hands, armour,
+  a backpack slot) and two charge slots, the quantum battery the bank's window; a computer that costs charge.
+
+Suite **2,335**, r6 to the digit. **Main and GitHub have diverged** (seen 2026-10-26): main is six commits ahead,
+and GitHub holds his README edit `5386e1d` (his Drive links, labelled "1.0.0" and "1.0.2"). Nothing on main touches
+README.md and `pull.rebase` is false, so his `git pull` merges it clean; then he pushes.
+
+**Next session, in order:**
+1. **Alpha session D, going public: its code-level pass is written and taken** (2026-10-26, ALPHA-PLAN "Session
+   D — the code-level pass"; all fifteen as recommended, with *"i ain't so worried about people learning what I put
+   in the public spotlight"*). Build it as D15 says: one session of files only (the README, CONTRIBUTING, CLA.md
+   from Harmony's template with Option Five, the PR template, `.gitattributes`, CONTRIBUTORS, the notices and
+   `make-alpha.ps1`'s check proved in a worktree, the docs-read edits). **His `git pull` first.** The CLA's
+   governing law is New South Wales, Australia, his word (*"NSW"*). **An outside PR would today arrive under PolyForm only** (GitHub's
+   terms, D.6), so the CLA matters before the first one, and none exists yet.
+2. **IM-6 waits behind the alpha, at header v9 now.** Its code-level pass carries: the vault's panel (his
+   warranty line, a lock on the channel box, power auto-scaled), water in the hotbar through `VolumeText` (a slot
+   may name any material the table has, water included), the pile's cyan glitch (decision 16), and the windowed
+   read of a real dump; his E-screen design means the panel's stock section is built so the screen can reuse its
+   moves. Before it: the ten build warnings, ideally collapse f-1.
+
 **Moved from CLAUDE.md at the 2026-10-19 close of alpha session C** (the hand-over that session found, from
 session B's close and the parent session's records of C's pass):
 

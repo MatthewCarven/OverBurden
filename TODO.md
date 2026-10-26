@@ -18,16 +18,13 @@ His ask, the day IM-5's decisions were taken: which open items **should be done 
 playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1 alongside; then the ladder
 (M10e–j). Each line names the slice it must come before.
 
-**The public alpha comes first now** (2026-10-12, his ask): [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), twenty-three
-decisions his, then four sessions (A the export, B the first ten minutes, C the hotbar's slots, D going public).
-IM-6 waits behind it; C takes header v8, so IM-6's mode byte is v9. **A is built** (2026-10-12; the
-plan's "Session A — built"): `pwsh tools/make-alpha.ps1` makes the zip. His windowed run: it ran on his older
-desktop without errors; F11, the version corner and the music are queued on his list (2026-10-19). **B is built**
-(2026-10-13, committed 2026-10-19; the plan's "Session B — built") and zipped as 0.1.2-alpha; its play is on his
-list. **C is built** (2026-10-19, the plan's "Session C — built") and zipped as 0.1.3-alpha, which carries B
-too: his play, then his upload. **D's code-level pass is written and taken** (2026-10-26, all fifteen as
-recommended; the plan's "Session D — the code-level pass"). Before D's build: his `git pull` (GitHub holds his
-README commit `5386e1d`, which main lacks). The CLA's governing law is New South Wales, Australia, his word.
+**The public alpha came first** (2026-10-12, his ask): [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), twenty-three
+decisions his, then four sessions, **all four built**. A, the export (2026-10-12): `pwsh tools/make-alpha.ps1`
+makes the zip. B, the first ten minutes (committed 2026-10-19), zipped as 0.1.2-alpha. C, the hotbar's slots
+(2026-10-19, header v8, so IM-6's mode byte is v9), zipped as 0.1.3-alpha, which carries B too. **D, going public**
+(2026-10-26, the plan's "Session D — built"): the README, CONTRIBUTING, CLA.md, the PR template, `.gitattributes`,
+and the notices' check in `make-alpha.ps1`; files only, riding the next zip. **What's left of it is his**
+(MATTHEW-TODO): the push, the 0.1.3 release on GitHub, and his play of 0.1.2 and 0.1.3. **IM-6 is next.**
 
 **Do first, before the slice named:**
 1. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
@@ -400,15 +397,23 @@ Not scheduled; *"It will get a full planning pass too"* (2026-09-29). What it st
 - [ ] Biomes
 - [ ] Gas pockets, darkness as a hazard
 
-## Before the repo goes public
+## The public repo
 
 Public since 2026-10-12 as `github.com/MatthewCarven/OverBurden` (renamed from `MinerCraft`), default branch `main`.
+Going public's files are built (ALPHA-PLAN, "Session D — built"); contributions come under `CLA.md`, agreed by the
+tick box in `.github/pull_request_template.md`.
 
 - **Commit authorship: no rewrite**, his word 2026-10-12 (*"i dont care if they get my email"*); ALPHA-PLAN
-  decision 3. The rename and the docs read stay (ALPHA-PLAN, session D).
-- [ ] **The licence** (PolyForm Noncommercial 1.0.0) — revisit before merging the first outside PR
-      (DCO or CLA then); at the first real art or audio assets (split code and content licences);
-      and if distro packaging or a contributor community is ever wanted (MIT or Apache-2.0).
+  decision 3, and D13: no history rewrite at all.
+- [ ] **A page for mod authors** (ALPHA-PLAN fact 6, D5): how `mods/` is scanned, the strict files and the nearest
+      key, `mod.json`'s `format`, `extras.json`, and a worked example beyond the base mod. Until it exists,
+      CONTRIBUTING.md points at DESIGN's "Mod support" and `Overburden.Game/mods/overburden/`.
+- [ ] **A lawyer's read of CLA.md** before the first outside merge, if the game is ever to earn (D6's revisit), and
+      a contributor worth having who won't sign reopens D6. **CLA Assistant** (a GitHub app, his to install) if
+      outside PRs pass a handful (D7's revisit).
+- [ ] **The licence** (PolyForm Noncommercial 1.0.0) — revisit at the first real art or audio assets (split code
+      and content licences), and if distro packaging or a contributor community is ever wanted (MIT or
+      Apache-2.0). The CLA's Option Five keeps every such move open after outside PRs, too.
 - Godot's MIT attribution: **done for the download** (0.1.1-alpha, 2026-10-12): `THIRD-PARTY-NOTICES.md` and
   `tools/alpha/licenses/`, written from `Engine.GetLicenseText()` / `GetCopyrightInfo()` / `GetLicenseInfo()`
   by `tools/alpha/godot_licenses.gd`. The in-game credits line is the controls card's last lines (0.1.2-alpha).

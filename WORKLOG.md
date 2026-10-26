@@ -1,5 +1,31 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-26 — Alpha session D built: going public
+
+Built as D15 says, after his pull and push: files only, the game never launched, `d4acd59` (docs/ALPHA-PLAN.md,
+"Session D — built"). The README for a visitor, CONTRIBUTING.md, CLA.md, the pull request template,
+`.gitattributes`, CONTRIBUTORS, the docs-read edits, the notices and the script's check.
+- **The CLA is Harmony's text with the choices made, nothing reworded.** Read at the source, the combined template
+  is one document with every variant in brackets; I took the individual licence version with Option Five, dropped
+  the entity, assignment and Media text, and filled the blanks (him as "Us", CONTRIBUTING's sections for the two
+  instruction blanks, New South Wales). A word diff of CLA.md against the template's own HTML lists only those
+  choices. The template is CC BY 3.0, so the attribution stays at the foot. One wording was mine to choose: the
+  template's "[PROJECT_NAME] ("We" or "Us")" would make the project the party, so it reads "Overburden, a project
+  of Matthew Carven ("We" or "Us")".
+- **`.gitattributes` changed nothing**, as fact 8 said: no file showed as modified, and a real renormalise staged
+  only the two files edited by hand.
+- **The script's check, red then green, in a worktree**: with the notices at 8.0.31 the export ran (26 s) and the
+  zip was refused, naming both versions; restored, the zip was made (15 s, 73.5 MB). Main's `build/` is untouched,
+  0.1.3's zip hashing `41af625f…` as recorded. Two side findings: a fresh tree's export rewrites `icon.svg.import`
+  with LF endings, so the script warns of uncommitted changes in any new worktree; and the exports left his
+  `godot.log` rotation alone.
+- **No C# changed**: the controls card already had P and a right Esc line, so only QUICKSTART and README.txt moved.
+- **Records**: CLAUDE.md's hand-over (the old one to STATUS-HISTORY), TODO's "The public repo" (the mod author's
+  page, a lawyer's read, CLA Assistant), MATTHEW-TODO's push, release and description. The remote URL was already
+  `OverBurden.git`; CLAUDE.md had said otherwise.
+- **His**: `git push`, the 0.1.3 release (`gh release create v0.1.3-alpha build/Overburden-0.1.3-alpha-win64.zip
+  --prerelease`), the description's "It's". Next is IM-6's pass, behind the build warnings.
+
 ## 2026-10-26 — Alpha session D: the code-level pass (going public)
 
 - **The pass** (docs/ALPHA-PLAN.md, "Session D — the code-level pass"): three read-only searches against `0753193`

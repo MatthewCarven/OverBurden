@@ -140,13 +140,18 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Yours to run
 
-- [ ] **`git pull`, then `git push`, this time** (2026-10-26): GitHub has your README edit from 10-20 (the 1.0.2
-      link), which main lacks, so a push alone is refused. The pull merges it cleanly (nothing here touched the
-      README); then push. The README rewrite waits on it.
-- [ ] **Upload 0.1.3-alpha, after your look at it**: `build\Overburden-0.1.3-alpha-win64.zip` (the version-free
-      `build\Overburden-alpha-win64.zip` is the same bytes). It carries 0.1.2's changes. Where it goes is D2 above:
-      GitHub's Releases page is recommended; on Drive, your 0.1.2 went up as a new file with a new link, so the
-      README needs that link added either way.
+- [ ] **`git push`** (2026-10-26): going public's files are on main and not on GitHub yet. Once pushed, the repo's
+      front page is the new README, and a pull request shows the agreement's tick box.
+- [ ] **Release 0.1.3-alpha on GitHub, after your look at it**, and ideally together with the push: the README's
+      download link (`…/OverBurden/releases/latest`) shows an empty Releases page until the first release exists.
+      From this folder:
+      `gh release create v0.1.3-alpha build/Overburden-0.1.3-alpha-win64.zip --prerelease`
+      or the repo's Releases page, "Draft a new release": tag `v0.1.3-alpha`, attach that zip, tick "Set as a
+      pre-release". Worth pasting its SHA-256 in the notes: `41af625f6a0aa7fa6fb694f98f60336643ea059d1ab04c07359e010fb4966cdd`.
+      It's public the moment it's made. Drive isn't needed any more: your two links stay in the README as the older
+      builds, labelled 0.1.1 and 0.1.2.
+- [ ] **The repo's description** on GitHub (the gear beside "About"): it reads *"Its voxel world based mining
+      game…"*, which wants an apostrophe: "It's".
 - [ ] **Delete the scratch worlds** if you want the space back (under
       `%APPDATA%\Godot\app_userdata\Overburden\worlds\`): `edge`, `m6d2dug`, `m7c-clock`,
       `m7c-shaft`, `m7c-shot`, `m7d-pond`, `m7d-water`, and `Regions1`–`Regions9`. **Keep** the
@@ -185,7 +190,7 @@ Nothing is blocked on these; each is a small change once you have a view.
   work later (not legal advice); your hours, email and files left as they are, and only the worklog's one mention of
   your family reworded. 0.1.3 goes up as built. **The agreement's law is New South Wales'** (*"Australian"*, then
   *"NSW"*): US law could be named, but a US court can refuse it with no link to a US state, and it buys you nothing
-  there. Next is the build, after your `git pull` ("Yours to run").
+  there. **Built the same day** (status, below); the push and the release are yours ("Yours to run").
 
 - **The hotbar's slots, thirteen decisions** (2026-10-19): *"As recommended please Claude"*. Nine slots that keep
   what's in them, even at zero (dimmed); a new block goes in the first empty slot (the computer and packs by a
@@ -396,12 +401,23 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-26**. **Main and GitHub have diverged: `git pull`, then `git push`** (Yours to run).
+Updated **2026-10-26**. **Main is ahead of GitHub: `git push`, then the 0.1.3 release** (Yours to run).
 
-- **Going public, the plan** (2026-10-26): the README rewrite, CONTRIBUTING, a contributor agreement and the read for
-  anything personal are planned, and you took all fifteen decisions as recommended. Nothing is built yet and nothing
-  you play changes. No one else has opened a pull request or forked the repo yet, so the licence can still change
-  either way.
+- **Going public is built** (2026-10-26, the last of the four alpha sessions):
+  - **The README** is written for a visitor: your pitch, the download (GitHub's Releases, your Drive links as the
+    older builds), both machines, how to build it, how it's made, your licence paragraph.
+  - **CONTRIBUTING.md** opens with your rule in your words, then four checks, and a pull request has a template
+    with those checks and the agreement's tick box.
+  - **CLA.md** is Harmony's contributor agreement, filled in under New South Wales law: a contributor keeps their
+    copyright and lets you license their work any way you like, commercially too, so long as it also stays under
+    the licence it came in under. A template, not legal advice.
+  - **Your files**: the worklog's one family line is reworded, this file says at the top that it's public, and from
+    now on worklog headings carry the date only. Nothing else about you changed, and the history is untouched.
+  - **The zip script** now refuses a zip whose notices name a different .NET than the one it ships, which is how
+    0.1.3's came to say 8.0.31 when it ships 8.0.32 (the licence texts are identical). I broke it on purpose once
+    to see it refuse, in a copy, so your 0.1.3 zip is untouched: **upload it as it is**. The fixed notices, P in
+    the quick start and the menu's three items ride the next zip.
+  - Nothing you play changes. No one else has opened a pull request or forked the repo yet.
 
 - **0.1.3-alpha is built, session C** (2026-10-19): the hotbar's nine slots stay put and save with your world.
   New blocks and machines take the first empty slot (the computer and packs only when you pin them), a slot
@@ -417,10 +433,10 @@ Updated **2026-10-26**. **Main and GitHub have diverged: `git pull`, then `git p
   the quick check reads exactly as recorded, and the zip ran clean from a fresh folder. **Your look first, then
   the upload** (both on your list).
 - **The alpha is public**: the repo is `OverBurden`, public, and 0.1.1 is on your Drive with its readme,
-  credits and licence texts. It ran on your older desktop. **For each upload:** bump the version in
-  `Overburden.Game\Overburden.Game.csproj`, run `pwsh tools/make-alpha.ps1` with the game closed (about 20
-  seconds), and upload `build\Overburden-alpha-win64.zip`: its name never changes, so Drive's replace keeps
-  the link. Next is D (the repo's readme, CONTRIBUTING).
+  credits and licence texts. It ran on your older desktop. **For each release from 0.1.3 on:** bump the version
+  in `Overburden.Game\Overburden.Game.csproj`, run `pwsh tools/make-alpha.ps1` with the game closed (about 20
+  seconds), and make a GitHub release of `build\Overburden-<version>-win64.zip` (tag `v<version>`, pre-release),
+  as in "Yours to run". The README's link always points at the newest.
 - **The lithium-ion pack is in, and `P` gives a hundred of everything** (2026-10-12). The pack holds 14.4 MJ
   and charges at 2 kW. Everything else about it works like the lead-acid: you wear it, swap it, and it keeps
   its charge in your inventory. A volume on the hotbar now reads in cubic metres from one up. All 2,302 tests

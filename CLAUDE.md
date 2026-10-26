@@ -50,7 +50,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
 | [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. Today a block in a lake is a pier. |
 | [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) | **Walls that split a lake, the code-level pass (2026-10-01): all seven decisions taken as recommended; L-1, L-2 and E-1 built the same day; his play passed 2026-10-09, and all of it is on main since the pond branch merged.** His Tier B conversion can't separate (the hand-back rejoins the one lake); the pond branch's raise divides a lake but gives every litre to the old pit's side (fact 10). Recommended: share by the water over each cell (L-1, L-2 on the branch), and make the enclosure's answer independent of who asks first (E-1, main). |
-| [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md) | **The public alpha** (2026-10-12, his ask: a public zip, extract and run). Twenty-one facts from three read-only searches (there is no export; content is found relative to the working directory; no menu, no quit key, no help; the phonk can't ship; personal data if the repo goes public) and **twenty-three decisions, his**, split into four sessions: the export, the first ten minutes, the hotbar's slots, going public. **A, B and C built; C is 0.1.3-alpha (2026-10-19). D's pass written and taken (2026-10-26); its build next.** |
+| [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md) | **The public alpha** (2026-10-12, his ask: a public zip, extract and run). Twenty-one facts from three read-only searches (there is no export; content is found relative to the working directory; no menu, no quit key, no help; the phonk can't ship; personal data if the repo goes public) and **twenty-three decisions, his**, split into four sessions: the export, the first ten minutes, the hotbar's slots, going public. **All four built: C is 0.1.3-alpha (2026-10-19); D, going public's files (CONTRIBUTING, CLA.md, the README), 2026-10-26.** |
 | [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30); IM-5a built (2026-10-10, after a re-read against the merged watershed), IM-5b built (2026-10-11: the pile, a cone at his word, its bench `--pile`), IM-6 next; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
@@ -108,9 +108,11 @@ quarry the fix made the water tick 5.5× faster (see the worklog). Check a DLL w
 `DebuggableAttribute`: 2 is optimised, 263 is not.
 
 The alpha zip (needs the 4.7.1 mono export templates; close the game first). It prints the zip's size,
-SHA-256 and commit, refuses a zip missing its readme, quick start, licence or notices, and writes a version-free
-copy, `build/Overburden-alpha-win64.zip`, for the upload. **Bump `<Version>` in `Overburden.Game.csproj` before
-every zip that goes out**:
+SHA-256 and commit, refuses a zip missing its readme, quick start, licence or notices, or whose notices name
+another .NET runtime than the export's `runtimeconfig.json` (ALPHA-PLAN D14), and writes a version-free copy,
+`build/Overburden-alpha-win64.zip`. From 0.1.3 a zip goes out as a GitHub release, his to make (D2). **Bump
+`<Version>` in `Overburden.Game.csproj` before every zip that goes out**, and run it in a worktree with `-Godot
+<exe>` when the main folder's `build/` holds a zip waiting for his upload:
 
 ```bash
 pwsh tools/make-alpha.ps1
@@ -211,40 +213,33 @@ version. A worktree has neither beside it, so give the script `-Godot <exe>` the
 
 ## Where things stand
 
-**2026-10-19 — alpha session C is built and on main, zipped as 0.1.3-alpha.** The hotbar is nine slots that stay
-put, saved with the world in header v8 ([docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), "Session C — built"): a new
-block or machine takes the first empty slot, the computer and packs go on only by a pin, a slot keeps its
-material at zero (dimmed), **V held with a digit pins what's in your hand**, and the hand stays on a spent
-material. **A finding of the build: a tap of V cycles on release now**, because cycling on the press moved the
-hand before the chord's digit arrived. **0.1.3-alpha** (`e786e07`): `build/Overburden-0.1.3-alpha-win64.zip` and
-the version-free copy (0.1.3's bytes now, B's changes included) ran clean unpacked. **His look, then his
-upload**; a world opened in 0.1.3 won't open in 0.1.2 again, and the zip's readme says so.
-- **What C is**: `Inventory/HotbarSlots.cs`, owned by `VolumetricInventory` (`Add` offers a slot, `Reset`
-  doesn't); `MaterialTable.Items()` kept off an empty row; header v8 is nine int32s after the carried packs with
-  one rule for the writer and the reader (`HotbarSlots.Problem`), and a v7 world reads as its first nine holdings
-  in ID order, tested against a real v7 blob in `Fixtures/`. `--pin=<slot>=<identifier>` and the `hotbar:` log
-  line are the seams. COMMANDS.md's orphan check is re-recorded at 64: it had been reading the hand's old jump.
-- **His designs for M10g, the same evening** (M10-LADDER-PLAN's inventory section, verbatim): the store as a box
-  on E's screen and a container aimed at beside it; a generous cloth backpack; the player's slots (hands, armour,
-  a backpack slot) and two charge slots, the quantum battery the bank's window; a computer that costs charge.
+**2026-10-26 — alpha session D is built and on main: going public's files** (`d4acd59`;
+[docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), "Session D — built"). **All four alpha sessions are built.** The README is
+written for a visitor (his pitch, the download at `releases/latest` with his Drive links kept as 0.1.1 and 0.1.2,
+both machines by part, building from source with `start.cmd` named as his launcher). `CONTRIBUTING.md` opens with
+his rule in his words, then four checks naming the identities and the tests that hold them. `CLA.md` is Harmony's
+individual CLA, outbound Option Five, New South Wales law, word-diffed against the template's source, CC BY 3.0
+attribution kept; agreeing is the tick box in `.github/pull_request_template.md`. `.gitattributes` is `* text=auto`
+(a real renormalise staged nothing). The notices name .NET 8.0.32 and SQLite 3.53.3, and **`make-alpha.ps1` refuses
+a zip whose notices name another runtime than the export's `runtimeconfig.json`**, proved red then green in a
+worktree; main's `build/` is untouched, so 0.1.3 goes up as built and D's player text rides the next zip.
+- **His, now** (MATTHEW-TODO, "Yours to run"): `git push`; the 0.1.3 release on GitHub (`gh release create
+  v0.1.3-alpha build/Overburden-0.1.3-alpha-win64.zip --prerelease`), which the README's link waits on; the repo
+  description's "It's"; his looks at 0.1.2 and 0.1.3; the folder rename whenever suits.
+- **Kept from the build**: a fresh tree's export rewrites `Overburden.Game/icon.svg.import` with LF endings (no
+  content change), so `make-alpha.ps1` warns of uncommitted changes in a new worktree; and two worktree exports
+  left his `godot.log` rotation alone.
 
-Suite **2,335**, r6 to the digit. **Main and GitHub have diverged** (seen 2026-10-26): main is six commits ahead,
-and GitHub holds his README edit `5386e1d` (his Drive links, labelled "1.0.0" and "1.0.2"). Nothing on main touches
-README.md and `pull.rebase` is false, so his `git pull` merges it clean; then he pushes.
+Suite **2,335** (no code changed in D; `ControlsCard.cs` already had P), r6 as recorded at C.
 
 **Next session, in order:**
-1. **Alpha session D, going public: its code-level pass is written and taken** (2026-10-26, ALPHA-PLAN "Session
-   D — the code-level pass"; all fifteen as recommended, with *"i ain't so worried about people learning what I put
-   in the public spotlight"*). Build it as D15 says: one session of files only (the README, CONTRIBUTING, CLA.md
-   from Harmony's template with Option Five, the PR template, `.gitattributes`, CONTRIBUTORS, the notices and
-   `make-alpha.ps1`'s check proved in a worktree, the docs-read edits). **His `git pull` first.** The CLA's
-   governing law is New South Wales, Australia, his word (*"NSW"*). **An outside PR would today arrive under PolyForm only** (GitHub's
-   terms, D.6), so the CLA matters before the first one, and none exists yet.
-2. **IM-6 waits behind the alpha, at header v9 now.** Its code-level pass carries: the vault's panel (his
-   warranty line, a lock on the channel box, power auto-scaled), water in the hotbar through `VolumeText` (a slot
-   may name any material the table has, water included), the pile's cyan glitch (decision 16), and the windowed
-   read of a real dump; his E-screen design means the panel's stock section is built so the screen can reuse its
-   moves. Before it: the ten build warnings, ideally collapse f-1.
+1. **IM-6's code-level pass, at header v9**, behind the ten build warnings (TODO's "Order and collisions", 1) and
+   ideally collapse f-1 (2). Its pass carries: the vault's panel (his warranty line, a lock on the channel box,
+   power auto-scaled), water in the hotbar through `VolumeText` (a slot may name any material the table has, water
+   included), the pile's cyan glitch (decision 16), and the windowed read of a real dump; his E-screen design means
+   the panel's stock section is built so the screen can reuse its moves. The v9 bump starts with a v8 capture.
+2. **From D, later** (TODO's "The public repo"): a page for mod authors; a lawyer's read of CLA.md before the
+   first outside merge, if the game is ever to earn; CLA Assistant past a handful of outside PRs.
 
 The ideal machines plan: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to IM-3b,
 IM-4a (thirty-six mutations red), IM-4b, IM-4c (reduced at his word), **IM-5a, the dump's water** (2026-10-10,
