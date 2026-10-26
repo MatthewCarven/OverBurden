@@ -1,5 +1,33 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-26 — Alpha session D: the code-level pass (going public)
+
+- **The pass** (docs/ALPHA-PLAN.md, "Session D — the code-level pass"): three read-only searches against `0753193`
+  (personal data in the history files, in the other tracked text, and the README/CONTRIBUTING/notices inputs),
+  twenty-four facts, fifteen decisions, all his. Nothing built, nothing launched.
+- **GitHub holds a commit main lacks**: `5386e1d`, his README edit on the site (2026-10-20), labelling the Drive
+  links "1.0.0" and "1.0.2". The files behind them are `Overburden-0.1.0-alpha-win64.zip` (0.1.1's bytes) and
+  `Overburden-0.1.2-alpha-win64.zip` (a new file, a new link). No local commit since `c3bdaef` touches README.md
+  and `pull.rebase` is false, so his `git pull` merges it clean; until then his push is refused.
+- **Contributions**: by GitHub's terms (D.6) an outside PR arrives under the repo's licence, and PolyForm can't be
+  sublicensed (`LICENSE.md:51`), so without an agreement a contribution is his to use noncommercially only.
+  CONTRIBUTORS.md:38-39 promised a DCO sign-off "so the option stays open", but a DCO certifies origin and grants
+  nothing. Recommended: Harmony's individual CLA with outbound Option Five, agreed by a tick in a PR template; not
+  legal advice. No outside PR exists yet (both of the repo's two are his), so the licence can still be tightened.
+- **The machines**: both read with `Get-CimInstance` and `nvidia-smi` (the desktop over SSH), and **the figures
+  kept out of the repo**, since it is public and whether they go public is D3; they went to him in the report. Only
+  0.1.0 has run on the desktop. A first draft of the pass wrote them into the plan, this entry and his list, and so
+  did my inferences from his hours and wording; both came out before the commit. What to keep: in a public repo, a
+  pass about what to publish mustn't publish it.
+- **The docs read**: no secrets, no hostname, no CPU or GPU model in any tracked file. What a stranger learns most is
+  his hours: 59 headings tagged with a time of day and 25 clock times, plus the clock offset on every commit. One
+  family mention (`WORKLOG.md:1777`); his email in two lines of text; his user folder in seven lines of the
+  ideal-machines panel's papers. Each is listed with its line in the plan.
+- **The notices name .NET 8.0.31; 0.1.3 ships 8.0.32** (the SDK moved between zips). The licence texts are
+  byte-identical, so only the number is wrong; recommended, a check in `make-alpha.ps1` so it can't drift again.
+- Drift fixed in this commit: CLAUDE.md's remote line (it still said `MinerCraft`, private), and the planning
+  pass's fact 8 (the zip is Vulkan only, `export_d3d12=0`).
+
 ## 2026-10-19 — Alpha session C: the pass, his designs for M10g, the hotbar's slots built; 0.1.3-alpha
 
 - **The pass** (`ed74c57`): three read-only searches, eighteen facts, thirteen decisions. Fact 15 of the plan was

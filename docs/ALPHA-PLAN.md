@@ -61,7 +61,7 @@ another f key that is available please"*):
    plays"* (TODO, Later, with the reasons the r6 control and the recipes need the old arms).
 7. **No version string anywhere**: no assembly version, no window title, nothing on screen or in the log.
 8. **Forward+ only.** It needs a Vulkan- or D3D12-capable GPU; no Compatibility fallback is configured, and
-   the shaders were written for Forward+.
+   the shaders were written for Forward+. *(The zip is Vulkan only: session D's fact 14.)*
 9. **New worlds get a random seed** (`Main.cs:9764-9766`, `RandomWorldSeed`); only a profile, or `--seed=`,
    uses a fixed one.
 
@@ -664,3 +664,269 @@ and zipped as **0.1.3-alpha** (`e786e07`). The version copies moved first (`e830
 
 **Not checked**: his hands on any of it (the V chord's feel, a tap now answering on release; the message line; a
 dim slot in his own play), and no windowed run but the screenshot.
+
+## Session D — the code-level pass (2026-10-26)
+
+Three read-only searches in parallel against `0753193`: personal data in the three history files, personal data in
+the other tracked text, and what the README, CONTRIBUTING and the notices stand on. By hand: the git state against
+GitHub, the repo's settings there, both machines' parts, the contributor-agreement templates at their sources, and
+the load-bearing facts (1, 2, 8, 9, 10, 13, 14, 15, 17, 19, 22). **Four findings shape it**: GitHub holds a README
+commit main lacks, so D starts from his `git pull` (fact 1); an outside PR today would arrive under PolyForm
+Noncommercial, which can't be sublicensed, and CONTRIBUTORS.md promises a DCO that keeps nothing open (facts 9, 10);
+the most revealing personal data is no single line but the times of day, which together map his hours (fact 15);
+and the notices name .NET 8.0.31 where 0.1.3 ships 8.0.32 (fact 22).
+
+**The repo has been public with its whole history since 2026-10-12.** An edit changes the files from here on; every
+earlier version of a file stays readable in the history, and any clone or cache keeps it. Only a rewrite (`git
+filter-repo`, then a force-push) takes text out of the history, and a clone made before it keeps it anyway. Decision
+3 kept the history; the email rewrite was dropped at his word, the GitHub rename is done, and the remote URL and the
+folder rename are his.
+
+### Facts
+
+**Every line number is as at `0753193`.** This pass's own commit moves some: WORKLOG.md's by 28 (its new entry on
+top), MATTHEW-TODO.md's by about 20, and a few in CLAUDE.md and TODO.md. `git show 0753193:<file>` reads them as
+cited.
+
+**Where things are**
+1. **GitHub holds a commit main lacks.** `5386e1d` (2026-10-20, his edit on GitHub's site) labels the first Drive
+   link "Alpha Edition 1.0.0" and adds a second, "1.0.2". Main is five commits ahead (`e830544` to `0753193`), and
+   nothing on main since the fork point `c3bdaef` touches README.md, so they merge clean. `pull.rebase` is false
+   here, so his `git pull` merges and leaves alone the five SHAs the docs cite. Until he pulls, his push is refused.
+2. **The two Drive links** are the files `Overburden-0.1.0-alpha-win64.zip` and `Overburden-0.1.2-alpha-win64.zip`
+   (each page's title, read 2026-10-26). The first holds 0.1.1 (uploaded over 0.1.0 by Drive's replace, above); the
+   second is a new file with its own link, so 0.1.2 didn't go up under the version-free name MATTHEW-TODO:145-147
+   expects. His "1.0.x" labels are the 0.1.x builds; DESIGN.md:449 keeps v1.0 for M11. **0.1.3 isn't up yet.**
+3. **The README is stale throughout** (main's line numbers; his commit adds three above :13): *"M0 through M5 done,
+   and M6 under way — 734 tests"* (:19; the suite is 2,335); *"Esc to release the mouse"* (:75; Esc opens the menu);
+   *"V cycles the material, and 1 and 2 pick a tool tier"* (:78-79; T cycles the tools, 1–9 are slots, V held with a
+   digit pins, `ControlsCard.cs:50, 59-61`); `worlds/default/` (:81; `start.cmd:49` opens `LakeTest2`, and an export
+   saves under `%APPDATA%\Overburden Alpha\`); *"Lua scripting via MoonSharp later"* (:109; M12, DESIGN.md:34);
+   *"Claude Opus 5"* (:127). It never mentions the water, the collapse, the machines, power or the packs, all built.
+4. **On GitHub** (`gh`, 2026-10-26): public; Issues on, Wiki and Discussions off; no releases, forks or stars; the
+   licence detected as "Other" (GitHub's detector doesn't know PolyForm); the description reads *"Its voxel world
+   based mining game with approximated water and machines"*. **Two pull requests, both his** (#1 2026-09-26, #2
+   2026-09-30): no outside contribution is merged, so the licence can still be tightened. No `.github/` folder: no
+   templates, no CI.
+5. **A build from source assumes his layout**: Godot 4.7.1 mono at `./Godot_v4.7.1-stable_mono_win64/` (gitignored)
+   or `../GAME/` (`start.cmd:6-7`); a .NET SDK for `net8.0` (no `global.json`; his machine has 10.0.402 only); and
+   `start.cmd:49` passes `--dev "--world=LakeTest2"`, the debug keys and his test world (a later flag wins, so
+   `start.cmd "--world=default"` picks another). `media/` is gitignored, so a source build is silent. A Godot that has
+   never opened the project wants one `--headless --import`.
+6. **No page for a mod author.** DESIGN.md:372-383 describes the loader (`mods/` scanned, strict files that name the
+   nearest key, `mod.json`'s `format`); the base mod is the only example.
+7. **The non-negotiables are numbered two ways**: CLAUDE.md:61-75 and DESIGN.md:77-94 list different fives in
+   different orders. Decision 5's "1 and 5" are CLAUDE.md's.
+8. **"Exact" is named identities in code**: water's `held == rained + injected + received − spilled − drawn`
+   (`WaterSystem.cs:157, 169`); the energy pool, in millijoules as longs (`EquippedPack.cs:17-20`); the machines'
+   `pumped == emitted + vaulted` (`MachineTick.cs:83`); the vault store's (`MachineSet.Vaults.cs:27`). Tests hold
+   them under load (`ThePoolIdentityHoldsOverAThousandBoundariesWithEverythingRunning`, `MachineTickTests.cs:1143`;
+   `FluidJobTests.cs:599`). One test project; the bench is Release only. **Every text file is LF in the index**
+   (`git ls-files --eol`: 498 LF, 3 binary), CRLF only in his working copy by `core.autocrlf`, and there is no
+   `.gitattributes`, so a contributor on Windows without autocrlf would commit CRLF.
+
+**Contributions and rights**
+9. **An outside PR today arrives under PolyForm Noncommercial.** GitHub's Terms of Service (D.6, "Contributions Under
+   Repository License") license what a contributor adds under the repository's own licence, unless a separate
+   agreement such as a CLA says otherwise. PolyForm grants no right to sublicense (`LICENSE.md:51`). So without an
+   agreement he could use a contributor's code only as anyone may, noncommercially, and a commercial edition or a
+   relicence would need every contributor's consent.
+10. **CONTRIBUTORS.md promises the wrong tool**: contributions *"accepted under those same terms"* (:32-33), and PR
+    authors *"should expect to be asked for a DCO sign-off (`git commit -s`) so the option stays open"* (:38-39). The
+    DCO (1.1, developercertificate.org) certifies where a contribution came from and that its author may submit it,
+    and grants nothing, so it keeps no option open. `:9, :14` name "Claude Opus 5"; the trailers name Opus 5 (278
+    commits), Opus 5.5 (232) and Fable 5.1 (59).
+11. **The templates**, read at their sources 2026-10-26:
+    - **Harmony** (harmonyagreements.org, version 1.0, 2011; written as templates for exactly this): individual or
+      entity, licence or assignment. The project fills its name, how to submit, a governing law (§6.1,
+      `[JURISDICTION]`) and one of five outbound options. **Option Five lets the project license a contribution
+      under any licence, provided it also stays available under the licences in use when it was submitted**: a
+      commercial edition allowed, the PolyForm copy kept. §2.2 adds a patent licence from the contributor. It binds
+      on signing, or on a first contribution made before signing.
+    - **Apache's ICLA** (apache.org/licenses/contributor-agreements.html): the usual base for companies' CLAs; a
+      broad copyright and patent licence with the right to sublicense. Its text names the Apache Software
+      Foundation, so using it means editing a legal text by hand; the page doesn't say others may adapt it.
+    - **The DCO**: origin only (fact 10). Projects that want rights too pair it with a grant of their own writing.
+    - Agreeing can be a tick in a pull-request template, or CLA Assistant, a GitHub app that asks each new
+      contributor once and keeps the record (an install and a permission, his to grant).
+12. **The licence's notice** is `LICENSE.md:1`, `Required Notice: Copyright 2026 Matthew Carven`; nothing in the
+    licence speaks of contributions.
+
+**The machines** (read 2026-10-26 with `Get-CimInstance` and `nvidia-smi`, the desktop's over SSH; read-only)
+13. **Both machines' parts are read**: the CPU, the GPU and its memory, the RAM and the Windows edition of the dev
+    machine (where the alpha is made and played) and of his older desktop. **The figures aren't written here**: this
+    file is public once pushed, and whether they go public is D3. They are in the session's report to him.
+14. **Only 0.1.0 has run on the desktop** (session A, *"without errors"*), and nothing read its frame rate. **Neither
+    machine runs Windows 10**, which the player's readme names (`tools/alpha/README.txt:18`). The export ships Vulkan
+    only (`export_presets.cfg:43`, `export_d3d12=0`), so that readme's "supports Vulkan" is right and the planning
+    pass's fact 8 ("or D3D12") isn't, for the zip.
+
+**The docs read** (decision 3; every tracked text file. No hostname, CPU or GPU model, or other drive anywhere)
+15. **His hours, in aggregate.** No line says when he is at the machine; together they do. Headings tagged with a
+    time of day ("just past midnight", "small hours", "late night", "morning"…), WORKLOG.md 57, 73, 95, 193, 236,
+    282, 382, 410, 438, 472, 864, 899, 918, 947, 971, 988, 1018, 1025, 1055, 1063, 1102, 1125, 1144, 1157, 1189,
+    2018, 2032, 2051, 2061, 2087, 2119, 2140, 2235, 2250, 2282, 2291, 2310, 2908, 2936, 2968, 2992, 3024, 3066, 3201,
+    3236, 3294, 3344, 3369, 3401, 3440, 3480, 3514, 3554, 3602, 3648, 3696, 3739, 3825, 3904 (59). Clock times from
+    his logs: WORKLOG.md 229, 239, 279, 339, 509, 577, 578, 1020, 1050, 1058, 1106, 1140, 3432, 3484, 3548, 3607,
+    3798, 3908, 4607, 6614, 7189; STATUS-HISTORY.md 1165; TODO-HISTORY.md 5801, 6088; MATTHEW-TODO.md 455 (25). And
+    the clock offset every commit carries, which says the same and **can't change without a rewrite**; the text can.
+16. **Where he lives, by hint only**: nothing names a country or a city. His wording hints, most of all his quoted
+    *"for OH&S reasons"* line on 13 lines (MATTHEW-TODO:358, IDEAL-MACHINES-BRIEF.md:111, IDEAL-MACHINES-PLAN.md:43,
+    340, 549, 554, 658, the panel's `briefs/DESIGNER-COMMON.md:83`, `briefs/JUDGE-COMMON.md:17`,
+    `designs/2-gameplay.md:561, 655`, `designs/4-physics.md:400`). What the hints add up to is in the session's
+    report, not here.
+17. **His life beside the game**: the one family mention, `WORKLOG.md:1777`, with MATTHEW-TODO:367 (the same
+    evening's tablet); `WORKLOG.md:1480` *"going onto battery power"*; `:6063` *"my machine has 16 threads"*; his
+    storm recordings (`WORKLOG.md:889`, `TODO.md:318`); *"next time I get bored"* (MATTHEW-TODO:163);
+    FL Studio (ALPHA-PLAN:22-23, `Main.cs:1013`, MATTHEW-TODO:164, COLLAPSE-PLAN.md:1023); *"(Please I am trying
+    to)"* after "Don't sell it." (README.md:115); NVIDIA's overlay on his machine (CLAUDE.md:363, `Main.cs:8848`,
+    COMMANDS.md:636, STATUS-HISTORY.md:284, 493, the panel's `readers/D-creative.md:316-319, 545`); a .NET update he
+    ran mid-session (`WORKLOG.md:4599-4601`); his older desktop (ALPHA-PLAN:260, MATTHEW-TODO:59, 200-202, 404,
+    TODO.md:25, CLAUDE.md:228, WORKLOG.md:92, STATUS-HISTORY.md:39, 49, 68). Work, health, money, other family:
+    nothing.
+18. **His email in the text**: ALPHA-PLAN:102 (the planning pass's fact 20) and `TODO-HISTORY.md:179-186`, an item
+    still open (`[ ]`) though decision 3 dropped it on his word (ALPHA-PLAN:18-19; TODO.md:406). It is the author of
+    573 commits regardless; the five made on GitHub's site carry his GitHub noreply address.
+19. **Paths and tooling**: his user folder (`C:\Users\Admin\…`, Windows' stock account name) on seven lines, all in
+    the ideal-machines panel's papers, `briefs/DESIGNER-COMMON.md:4, 26`, `briefs/JUDGE-COMMON.md:4, 10`,
+    `briefs/READER-COMMON.md:4` (two with a session's scratchpad and its id) and `im0/batch.py:5` (a script with the
+    repo's path written in); and the assistant's memory folder, `TODO-HISTORY.md:153`. None in the game's code, the
+    scripts it runs, or anything a player reads. His other work: the Python-Lookuptables and CSharp-Lookuptables
+    repos (`WORKLOG.md:2202, 2453`, `FloodIndex.cs:13, 40`, M10-LADDER-PLAN:3076), PySynthRack (`TODO.md:317, 320`,
+    `WORKLOG.md:889`), his chess tables (`WORKLOG.md:599`), `../GAME/` in eight files.
+20. **No secrets**: no keys, tokens or passwords; `export_credentials.cfg` is gitignored (`.gitignore:11-12`) and
+    signing is off; no tracked logs. The only link off GitHub is his Drive (README.md:12), public by intent.
+21. **Personal by nature**: MATTHEW-TODO.md (his list: play times, his worlds, the tablet, his music and uploads,
+    "Notes to myself"); CLAUDE.md (the assistant's orientation, whose `:197-198` still called the remote
+    `MinerCraft`, private: fixed in this pass's commit); `docs/panel/**` (the assistant's prompts to its agents,
+    verbatim); WORKLOG.md (1.17 MB).
+
+**Decisions 22 and 23 for 0.1.3**
+22. **The notices name .NET 8.0.31; 0.1.3 ships 8.0.32** (`THIRD-PARTY-NOTICES.md:12`, against the zip's
+    `Overburden.Game.runtimeconfig.json`: the SDK moved between 0.1.1 and 0.1.3). The two runtime files in
+    `tools/alpha/licenses/` are byte-identical to 8.0.32's (`cmp` against the NuGet package), so only the number is
+    wrong. Godot 4.7.1, Microsoft.Data.Sqlite 10.0.11 and SQLitePCLRaw 2.1.12 hold. The table doesn't name
+    `SQLitePCLRaw.lib.e_sqlite3`, the package `e_sqlite3.dll` comes from, or SQLite's version (3.53.3, the DLL's).
+23. **The zip's papers hold**: `make-alpha.ps1:67-74` refuses a zip without `LICENSE.md`, `QUICKSTART.md`,
+    `THIRD-PARTY-NOTICES.md`, the readme or `licenses/godot-engine.txt`, and 0.1.3's carries all of them, its
+    README.txt byte-identical to the repo's. **Decision 23's credits line is on the card** (`ControlsCard.cs:107-109`).
+    The zip carries neither the repo's README nor CONTRIBUTING, rightly. `make-alpha.ps1` writes only to `build/`, so
+    any run overwrites the 0.1.3 zip waiting for his upload.
+24. **Small drift in what a player reads**: README.txt:30 lists the menu as "resume, quit" (it has Controls too);
+    QUICKSTART's key tables lack P, which the card has (`ControlsCard.cs:68`; QUICKSTART:11 only); QUICKSTART:142
+    names the repo's readme and how to contribute as coming next.
+
+### Decisions
+
+Each with a recommendation; "as recommended" takes them all. D builds files only: nothing in it changes the game,
+so it needs no version of its own (D14 says when the player's text goes out).
+
+**The README**
+- **D1. The README is rewritten for a visitor, and says only what is true now.** In order: his pitch (README.md:3-9,
+  his words, kept); the download (D2); what it runs on (D3); playing, one line pointing at the player's readme
+  (`tools/alpha/README.txt`) and QUICKSTART.md rather than repeating them; a bug, as the player's readme says (Issues,
+  `godot.log`, the version in the corner); building from source (D4); how it's made (DESIGN.md, the plans, WORKLOG,
+  TODO, and CLAUDE.md, said to be the assistant's orientation file); contributing (a line to CONTRIBUTING.md); the
+  licence (his paragraph, his aside included, fact 17); built with (Claude Code and the models the trailers name).
+  The M3–M6 status and the early numbers (the 850 quads, the 0.47 ms chunk) leave: STATUS-HISTORY and WORKLOG keep
+  them. *Cost:* the numbers some visitors enjoy go. *Other arm:* a short "numbers it is built on" list, each figure
+  re-measured first, since several date from M1–M3.
+- **D2. His links stay, labelled with the game's versions, and from 0.1.3 the zips go on GitHub Releases**, decision
+  2's home, which Drive took over in practice. The README's link becomes `…/OverBurden/releases/latest`, which never
+  changes; each release is a tag (`v0.1.3-alpha`), marked pre-release, carrying the zip (74 MB, under GitHub's 2 GiB
+  a file) and the SHA-256 `make-alpha.ps1` prints. His Drive links stay under "older builds", relabelled 0.1.1 and
+  0.1.2 (fact 2). The upload is his: `gh release create v0.1.3-alpha build/Overburden-0.1.3-alpha-win64.zip
+  --prerelease`, or the Releases page. *Cost:* a new habit, and a release is public the moment it's made. *Other
+  arm:* Drive only, as a new file and a new README line each time (his 0.1.2) or Drive's replace under one name and
+  one link (his 0.1.1); the labels move to 0.1.x either way.
+- **D3. Both machines, by part, nothing that names them** (facts 13, 14): one sentence each, CPU, GPU with its
+  memory, and RAM, the dev machine as "made and played on" and the desktop as "an earlier alpha has also run without
+  errors on", then *"Both run Windows 11, and they're all it has been tried on."* No hostname, maker or driver. The
+  exact sentence, with the figures, is in the session's report: **his to approve before it goes public.** The
+  player's readme keeps "Windows 10 or 11 (64-bit) and a graphics card that supports Vulkan", adding "tried on
+  Windows 11 only". *Cost:* his hardware is public, a little more than the NVIDIA overlay and the 16 threads already
+  say. *Other arm:* the desktop only, as the floor, or no parts. *Revisit:* the first report from a card below the
+  desktop's, the real floor. If he runs 0.1.3 on the desktop once (copy, unzip, dig, quit), "an earlier alpha"
+  becomes "it".
+- **D4. Building from source, as it is**: Windows; Godot 4.7.1-stable, the .NET ("mono") edition, unzipped into the
+  repo's folder as `Godot_v4.7.1-stable_mono_win64/`; a .NET 8 SDK or newer; one `--headless --import`; `dotnet test
+  Overburden.slnx`; `start.cmd`. **`start.cmd` stays his** (his world and `--dev`, fact 5), and the README says so:
+  it opens a world named LakeTest2 with the debug keys on, `start.cmd "--world=<name>"` opens another, and a source
+  build has no music. *Cost:* a builder's first world is named after his. *Other arm:* his two flags move to an
+  untracked script of his own (as `start2`–`start5` are), and the tracked `start.cmd` opens `default`.
+
+**CONTRIBUTING**
+- **D5. CONTRIBUTING.md: his rule first, in his words** (ALPHA-PLAN:6, *"if you have to modify core do it in a way
+  that everyone else can take advantage of it too"*), then as four checks: content arrives as a mod, through the
+  loader the base game uses; Core never references Godot, and a Core change is a feature any mod can use, never a
+  special case; every change comes with tests and the suite passes; water and energy stay exact (fact 8's identities
+  by name, each with the test that holds it). Then the practical rules: namespaced IDs, never renumbered, and
+  `minercraft:` an alias forever; the other non-negotiables by link, named by content rather than number (fact 7);
+  benches Release only; an issue before a PR that touches Core or a save format; the rights clause (D6). **And a
+  `.gitattributes` of `* text=auto`**, safe because every blob is already LF (fact 8), so a contributor's line
+  endings come out as his do. The mod author's page (fact 6) is later work, in TODO; CONTRIBUTING points at DESIGN's
+  loader section and the base mod meanwhile. *Cost:* a long-ish file for a project with no contributors yet. *Other
+  arm:* the rule and the clause only, everything else by link.
+- **D6. The rights clause: Harmony's individual contributor licence agreement, outbound Option Five, as `CLA.md`**,
+  filled from the template with Matthew Carven as "Us", Overburden as the project, the pull request as the way to
+  submit (D7), and **the governing law his to name** (§6.1: it says where he lives, which facts 15 and 16 only
+  hint at). A contributor keeps their copyright and gives him a licence to use,
+  change and relicense the work under any terms, commercial included, while it stays available under PolyForm; and
+  a patent licence. An entity version only when a company wants to contribute. *Why this one:* a template written for
+  this, whose Option Five says in its own words what decision 5 asks, where Apache's would need its legal text
+  edited. **I'm not a lawyer, and this isn't legal advice**: a template beats a clause I'd write, and a lawyer's read
+  before the first outside merge beats both, if the game is ever to earn. *Cost:* some people won't sign a CLA, and a
+  typo fix becomes paperwork. *Other arms:* Apache's ICLA, adapted; the DCO with a grant paragraph in CONTRIBUTING
+  (lightest, but a legal clause of my own writing, which decision 5 ruled out); or nothing, and contributions stay
+  PolyForm-only (fact 9), fine if it will never be sold. *Revisit:* a lawyer's view, or a contributor worth having
+  who won't sign.
+- **D7. Agreeing is a tick box in a pull-request template**, `.github/pull_request_template.md`: *"I have read CLA.md
+  and agree to it for this contribution"*, with his rule's four checks as boxes beside it, and he merges nothing
+  unticked. The record is the PR itself; no service, no grant. *Cost:* a tick is a thinner record than a signature
+  (Harmony also counts a first contribution as agreement). *Other arm:* CLA Assistant (fact 11), his to install.
+  *Revisit:* more than a handful of outside PRs.
+- **D8. CONTRIBUTORS.md says what's true**: `:31-39` point at CONTRIBUTING and CLA.md, with fact 9's reason in a line,
+  and the DCO promise goes (fact 10); `:9, :14` name the models the trailers name. The rest (his ownership, how the
+  collaboration works) is his and stays.
+
+**The docs read** (decision 3). Each is his; the recommendation is the least that takes a thing out of today's files.
+The history keeps the old text whatever he chooses (above).
+- **D9. His hours stay** (fact 15): 84 lines, all but one in 26,000 lines of history, the commit clocks say as much and can't change,
+  and the times are working data (a play log is named and found by its time). **From now on a worklog heading carries
+  the date only.** *Other arm:* strip the 59 tags and 25 times now (a script; the history keeps them).
+- **D10. One line changes, the family one**: `WORKLOG.md:1777` becomes *"so it was another device in the room"*, and
+  MATTHEW-TODO:367's tablet goes with it. The rest of fact 17 stays: it is his voice about the game
+  and his tools, and *"(Please I am trying to)"* is the reason D6 exists. *Other arm:* all of fact 17 kept, or more
+  of it cut, line by line.
+- **D11. The email stays, and its open item closes**: ALPHA-PLAN:102 is the record of the decision about it, and
+  TODO-HISTORY:179's box is ticked as dropped, with his words and the date, so it stops reading as an open question.
+  *Other arm:* the address out of both lines (the commits keep it).
+- **D12. The panel's papers and the personal files stay tracked, as they are** (facts 19, 21): "Admin" is Windows'
+  stock name, a scratchpad id opens nothing, and the papers are verbatim on purpose. MATTHEW-TODO.md, CLAUDE.md and
+  WORKLOG are how the project is made, and a worktree or another session reads them from the tree. **MATTHEW-TODO
+  gets a line at its top saying it is public**, so "Notes to myself" never holds what he wouldn't post. *Other arm:*
+  `<repo>` and `<scratchpad>` for the seven paths; or MATTHEW-TODO.md untracked, private from then on and unseen by
+  worktrees, its history still public.
+- **D13. No history rewrite.** Nothing found is a secret, and decision 3 kept the history. If he wants a line out of
+  it after all, it is `git filter-repo` and a force-push, his to run, and today is the cheapest day: no forks, no
+  stars, no outside PRs (fact 4).
+
+**22 and 23**
+- **D14. The notices to 8.0.32, and the drift stopped at its source**: `THIRD-PARTY-NOTICES.md:12`'s runtime to
+  8.0.32, `SQLitePCLRaw.lib.e_sqlite3` named beside the bundle, SQLite 3.53.3; and **`make-alpha.ps1` reads the
+  runtime's version from the export's `runtimeconfig.json` and refuses a zip whose notices name another**, so an SDK
+  update can't move it silently again. The player's text too (fact 24): the menu's three items, P in QUICKSTART's
+  tables, QUICKSTART:142's "coming next" gone. **These ride the next zip; 0.1.3 goes up as built**, since each zip
+  that goes out has its own version and none of this is the game. *Cost:* 0.1.3's notices name the wrong patch
+  release of .NET (its texts are identical). *Other arm:* rebuild as 0.1.4 with D's text before his upload.
+- **D15. The order.** His first: `git pull` (it merges `5386e1d`, README only, clean), then `git push`. Then one
+  session, files only, nothing launched: the README, CONTRIBUTING.md, CLA.md, the PR template, `.gitattributes`,
+  CONTRIBUTORS.md, the notices and the script's check, and the docs-read edits he takes. The check is proved in a
+  worktree (`-Godot <exe>`), whose `build/` is its own, so 0.1.3's zip in the main folder stays the one he uploads
+  (fact 23). Then his: the release (D2), the description's "It's" (fact 4), and whenever suits, the remote URL and
+  the folder rename. *Other arm:* I merge `5386e1d` into main at that session's start, and he only pushes.
+
+### What this changes elsewhere, once taken
+- **The planning pass's fact 8**: the zip is Vulkan only (fact 14). **TODO**: a mod author's page (D5), and D's
+  status. **MATTHEW-TODO**: the release in "Yours to run" (D2), the CLA's jurisdiction (D6), and the 0.1.3 upload's
+  line (its README link). **QUICKSTART**, the card and README.txt as D14 says, kept in step by hand.
