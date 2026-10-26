@@ -753,9 +753,11 @@ cited.
     licence speaks of contributions.
 
 **The machines** (read 2026-10-26 with `Get-CimInstance` and `nvidia-smi`, the desktop's over SSH; read-only)
-13. **Both machines' parts are read**: the CPU, the GPU and its memory, the RAM and the Windows edition of the dev
-    machine (where the alpha is made and played) and of his older desktop. **The figures aren't written here**: this
-    file is public once pushed, and whether they go public is D3. They are in the session's report to him.
+13. **Both machines' parts are read.** The dev machine, where the alpha is made and played: a laptop, Intel Core
+    i9-11900H (8 cores, 16 threads), NVIDIA GeForce RTX 3070 Laptop GPU (8 GB), 16 GB RAM, Windows 11 Home 64-bit.
+    His older desktop: Intel Core i7-3770 (4 cores, 8 threads, 2012), NVIDIA GeForce GTX 1660 (6 GB), 16 GB RAM,
+    Windows 11 Home 64-bit. *(Kept out of the first commit of this pass until he had said; written in once D3 was
+    taken.)*
 14. **Only 0.1.0 has run on the desktop** (session A, *"without errors"*), and nothing read its frame rate. **Neither
     machine runs Windows 10**, which the player's readme names (`tools/alpha/README.txt:18`). The export ships Vulkan
     only (`export_presets.cfg:43`, `export_d3d12=0`), so that readme's "supports Vulkan" is right and the planning
@@ -821,6 +823,12 @@ cited.
 Each with a recommendation; "as recommended" takes them all. D builds files only: nothing in it changes the game,
 so it needs no version of its own (D14 says when the player's text goes out).
 
+**Taken 2026-10-26, all as recommended**, his words straight after the pass: *"Oh i ain't so worried about people
+learning what I put in the public spotlight like"*, then *"and as recommended please Claude"*. So D3's figures go
+public, and are written into fact 13 and D3 now. D10's one line still changes, as recommended: his note is about
+his own details, and that line is about someone else. **Two things wait before the build** (D15): his `git pull`,
+and the governing law for CLA.md (D6), his to name.
+
 **The README**
 - **D1. The README is rewritten for a visitor, and says only what is true now.** In order: his pitch (README.md:3-9,
   his words, kept); the download (D2); what it runs on (D3); playing, one line pointing at the player's readme
@@ -839,11 +847,10 @@ so it needs no version of its own (D14 says when the player's text goes out).
   --prerelease`, or the Releases page. *Cost:* a new habit, and a release is public the moment it's made. *Other
   arm:* Drive only, as a new file and a new README line each time (his 0.1.2) or Drive's replace under one name and
   one link (his 0.1.1); the labels move to 0.1.x either way.
-- **D3. Both machines, by part, nothing that names them** (facts 13, 14): one sentence each, CPU, GPU with its
-  memory, and RAM, the dev machine as "made and played on" and the desktop as "an earlier alpha has also run without
-  errors on", then *"Both run Windows 11, and they're all it has been tried on."* No hostname, maker or driver. The
-  exact sentence, with the figures, is in the session's report: **his to approve before it goes public.** The
-  player's readme keeps "Windows 10 or 11 (64-bit) and a graphics card that supports Vulkan", adding "tried on
+- **D3. Both machines, by part, nothing that names them** (facts 13, 14): *"Made and played on an Intel Core
+  i9-11900H with an NVIDIA GeForce RTX 3070 Laptop GPU (8 GB) and 16 GB of RAM. An earlier alpha has also run without
+  errors on an older desktop: an Intel Core i7-3770 with a GeForce GTX 1660 (6 GB) and 16 GB. Both run Windows 11,
+  and they're all it has been tried on."* No hostname, maker or driver. The player's readme keeps "Windows 10 or 11 (64-bit) and a graphics card that supports Vulkan", adding "tried on
   Windows 11 only". *Cost:* his hardware is public, a little more than the NVIDIA overlay and the 16 threads already
   say. *Other arm:* the desktop only, as the floor, or no parts. *Revisit:* the first report from a card below the
   desktop's, the real floor. If he runs 0.1.3 on the desktop once (copy, unzip, dig, quit), "an earlier alpha"

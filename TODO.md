@@ -25,9 +25,9 @@ plan's "Session A — built"): `pwsh tools/make-alpha.ps1` makes the zip. His wi
 desktop without errors; F11, the version corner and the music are queued on his list (2026-10-19). **B is built**
 (2026-10-13, committed 2026-10-19; the plan's "Session B — built") and zipped as 0.1.2-alpha; its play is on his
 list. **C is built** (2026-10-19, the plan's "Session C — built") and zipped as 0.1.3-alpha, which carries B
-too: his play, then his upload. **D's code-level pass is written** (2026-10-26, the plan's "Session D — the
-code-level pass"): fifteen decisions, his. Before D's build, his `git pull`: GitHub holds his README commit
-`5386e1d`, which main lacks.
+too: his play, then his upload. **D's code-level pass is written and taken** (2026-10-26, all fifteen as
+recommended; the plan's "Session D — the code-level pass"). Before D's build: his `git pull` (GitHub holds his
+README commit `5386e1d`, which main lacks) and the CLA's governing law (D6), his to name.
 
 **Do first, before the slice named:**
 1. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.

@@ -27,6 +27,10 @@
   byte-identical, so only the number is wrong; recommended, a check in `make-alpha.ps1` so it can't drift again.
 - Drift fixed in this commit: CLAUDE.md's remote line (it still said `MinerCraft`, private), and the planning
   pass's fact 8 (the zip is Vulkan only, `export_d3d12=0`).
+- **Taken the same day, all fifteen as recommended** (*"Oh i ain't so worried about people learning what I put in
+  the public spotlight like"*, then *"and as recommended please Claude"*). D3's figures are in the plan now. D10's
+  family line still changes: his note covers his own details, not someone else's. The build waits on his `git pull`
+  and the CLA's governing law, his to name.
 
 ## 2026-10-19 — Alpha session C: the pass, his designs for M10g, the hotbar's slots built; 0.1.3-alpha
 

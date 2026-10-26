@@ -125,27 +125,6 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
-- [ ] **Going public (alpha session D), fifteen decisions** ([docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), "Session D —
-      the code-level pass"). "As recommended" takes them all; these are the ones that are really yours:
-      - **Releases (D2):** each zip on GitHub's Releases page from 0.1.3 on, so the README has one link that never
-        changes. Your Drive links stay as older builds, relabelled 0.1.1 and 0.1.2 (your "1.0.0" and "1.0.2").
-      - **Your machines in the README (D3):** I read both myself; the figures and the sentence I'd use are in my
-        report to you, not here, because this file is public once pushed. Recommended: both, by part, no names.
-        *OK to publish them?* Only 0.1.0 has run on the desktop; two minutes of 0.1.3 there would make the line
-        current.
-      - **The contributor agreement (D6, D7):** today a stranger's pull request would come in under your
-        noncommercial licence only, so you couldn't sell their part later. Recommended: Harmony's standard
-        individual agreement, with the option that lets you relicense (commercial included) while their work stays
-        free under PolyForm; contributors tick a box on the pull request. It needs a governing law, so **where you
-        live** goes in it. I'm not a lawyer: if it's ever to earn, a lawyer's read before the first outside
-        merge is best.
-      - **The personal read (D9–D12):** nothing secret. What a stranger learns most is your hours (the worklog's
-        "small hours" headings and play times): recommended, leave them, and dates only from now. The one line I'd
-        change is the worklog's single mention of your family (line 1805). Your email stays (your word). This file stays public, with a
-        line at its top saying so.
-      - **0.1.3 goes up as built (D14):** its credits name .NET 8.0.31 where it ships 8.0.32 (the same licence
-        text); the fix rides the next zip.
-
 - [ ] **The collapse: pieces that jump — I gave you the wrong size.** You said "leave it" when I
       said "at most a metre". On a copy of your tower, one piece jumped 4.5 m (about 20 pieces in
       800 jumped at all). Watch for it when you play: if you see a piece hop up, say "fix it" —
@@ -160,7 +139,9 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 - [ ] **`git pull`, then `git push`, this time** (2026-10-26): GitHub has your README edit from 10-20 (the 1.0.2
       link), which main lacks, so a push alone is refused. The pull merges it cleanly (nothing here touched the
-      README); then push.
+      README); then push. The README rewrite waits on it.
+- [ ] **The contributor agreement's governing law** (D6): the state and country whose law it names. Usually where you
+      live. One line back is enough.
 - [ ] **Upload 0.1.3-alpha, after your look at it**: `build\Overburden-0.1.3-alpha-win64.zip` (the version-free
       `build\Overburden-alpha-win64.zip` is the same bytes). It carries 0.1.2's changes. Where it goes is D2 above:
       GitHub's Releases page is recommended; on Drive, your 0.1.2 went up as a new file with a new link, so the
@@ -195,6 +176,13 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **Going public, fifteen decisions** (2026-10-26): *"Oh i ain't so worried about people learning what I put in the
+  public spotlight like"*, then *"and as recommended please Claude"*. So: a README rewritten for visitors, with both
+  your machines by part (no names); zips on GitHub's Releases page from 0.1.3, your Drive links kept as 0.1.1 and
+  0.1.2; CONTRIBUTING with your rule; Harmony's standard contributor agreement, so you can relicense a stranger's
+  work later (not legal advice); your hours, email and files left as they are, and only the worklog's one mention of
+  your family reworded. 0.1.3 goes up as built. Next is the build, after the two things in "Yours to run".
 
 - **The hotbar's slots, thirteen decisions** (2026-10-19): *"As recommended please Claude"*. Nine slots that keep
   what's in them, even at zero (dimmed); a new block goes in the first empty slot (the computer and packs by a
@@ -408,9 +396,9 @@ Nothing is blocked on these; each is a small change once you have a view.
 Updated **2026-10-26**. **Main and GitHub have diverged: `git pull`, then `git push`** (Yours to run).
 
 - **Going public, the plan** (2026-10-26): the README rewrite, CONTRIBUTING, a contributor agreement and the read for
-  anything personal are planned, fifteen decisions waiting on you (top of "Waiting on your word"). Nothing is built
-  and nothing you play changes. No one else has opened a pull request or forked the repo yet, so the licence can
-  still change either way.
+  anything personal are planned, and you took all fifteen decisions as recommended. Nothing is built yet and nothing
+  you play changes. No one else has opened a pull request or forked the repo yet, so the licence can still change
+  either way.
 
 - **0.1.3-alpha is built, session C** (2026-10-19): the hotbar's nine slots stay put and save with your world.
   New blocks and machines take the first empty slot (the computer and packs only when you pin them), a slot
