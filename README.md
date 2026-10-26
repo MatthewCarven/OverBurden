@@ -10,8 +10,9 @@ No mobs, no combat. The mine is the antagonist.
 
 ## Download
 
-**[The latest alpha](https://github.com/MatthewCarven/OverBurden/releases/latest)**, for 64-bit Windows: a zip.
-Extract it anywhere and run `Overburden.exe`. It's an early alpha: far from complete, and things will change.
+**[The alpha's releases](https://github.com/MatthewCarven/OverBurden/releases)**, newest at the top, for 64-bit
+Windows: download the zip under the newest one's "Assets", extract it anywhere and run `Overburden.exe`. It's an
+early alpha: far from complete, and things will change.
 
 Older builds, on Google Drive:
 - [0.1.1-alpha](https://drive.google.com/file/d/13kcW2xIEVM2Ur8eQSQurquE_8klUd-_H/view?usp=sharing) (the file is

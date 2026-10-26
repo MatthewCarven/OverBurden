@@ -140,18 +140,14 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Yours to run
 
-- [ ] **`git push`** (2026-10-26): going public's files are on main and not on GitHub yet. Once pushed, the repo's
-      front page is the new README, and a pull request shows the agreement's tick box.
-- [ ] **Release 0.1.3-alpha on GitHub, after your look at it**, and ideally together with the push: the README's
-      download link (`…/OverBurden/releases/latest`) shows an empty Releases page until the first release exists.
-      From this folder:
-      `gh release create v0.1.3-alpha build/Overburden-0.1.3-alpha-win64.zip --prerelease`
-      or the repo's Releases page, "Draft a new release": tag `v0.1.3-alpha`, attach that zip, tick "Set as a
-      pre-release". Worth pasting its SHA-256 in the notes: `41af625f6a0aa7fa6fb694f98f60336643ea059d1ab04c07359e010fb4966cdd`.
-      It's public the moment it's made. Drive isn't needed any more: your two links stay in the README as the older
-      builds, labelled 0.1.1 and 0.1.2.
+- [ ] **`git push`, one more time** (2026-10-26): one README fix. Its download link was `…/releases/latest`, and
+      GitHub never counts a pre-release as "latest", so it opened the plain Releases page instead of 0.1.3. It now
+      links to the Releases page on purpose (newest at the top). Nothing else is waiting.
 - [ ] **The repo's description** on GitHub (the gear beside "About"): it reads *"Its voxel world based mining
       game…"*, which wants an apostrophe: "It's".
+- [ ] **0.1.3's release notes, if you like**: GitHub wrote them itself, listing your two September pull requests
+      and "@MatthewCarven made their first contribution". "Edit" on the release replaces them, e.g. with a line on
+      what's new (the hotbar's slots, the Esc menu, F1's card). The zip's SHA-256 already shows beside it.
 - [ ] **Delete the scratch worlds** if you want the space back (under
       `%APPDATA%\Godot\app_userdata\Overburden\worlds\`): `edge`, `m6d2dug`, `m7c-clock`,
       `m7c-shaft`, `m7c-shot`, `m7d-pond`, `m7d-water`, and `Regions1`–`Regions9`. **Keep** the
@@ -182,6 +178,10 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **Pushed and released** (2026-10-26): *"release generated and pushed"*. GitHub's main is the same commit as
+  here, all ten of going public's files match, GitHub recognises CONTRIBUTING and the pull request template, and
+  the `v0.1.3-alpha` pre-release carries the zip with the SHA-256 it was built with (`41af625f…4966cdd`).
 
 - **Going public, fifteen decisions** (2026-10-26): *"Oh i ain't so worried about people learning what I put in the
   public spotlight like"*, then *"and as recommended please Claude"*. So: a README rewritten for visitors, with both
@@ -401,7 +401,9 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-26**. **Main is ahead of GitHub: `git push`, then the 0.1.3 release** (Yours to run).
+Updated **2026-10-26**. **0.1.3-alpha is released on GitHub** (a pre-release, the zip byte-identical to the one
+built) **and going public's files are pushed**; checked from here, everything on GitHub matches. One README fix to
+push (Yours to run).
 
 - **Going public is built** (2026-10-26, the last of the four alpha sessions):
   - **The README** is written for a visitor: your pitch, the download (GitHub's Releases, your Drive links as the
@@ -415,8 +417,8 @@ Updated **2026-10-26**. **Main is ahead of GitHub: `git push`, then the 0.1.3 re
     now on worklog headings carry the date only. Nothing else about you changed, and the history is untouched.
   - **The zip script** now refuses a zip whose notices name a different .NET than the one it ships, which is how
     0.1.3's came to say 8.0.31 when it ships 8.0.32 (the licence texts are identical). I broke it on purpose once
-    to see it refuse, in a copy, so your 0.1.3 zip is untouched: **upload it as it is**. The fixed notices, P in
-    the quick start and the menu's three items ride the next zip.
+    to see it refuse, in a copy, so the 0.1.3 you released is the zip as built. The fixed notices, P in the quick
+    start and the menu's three items ride the next zip.
   - Nothing you play changes. No one else has opened a pull request or forked the repo yet.
 
 - **0.1.3-alpha is built, session C** (2026-10-19): the hotbar's nine slots stay put and save with your world.
@@ -435,8 +437,9 @@ Updated **2026-10-26**. **Main is ahead of GitHub: `git push`, then the 0.1.3 re
 - **The alpha is public**: the repo is `OverBurden`, public, and 0.1.1 is on your Drive with its readme,
   credits and licence texts. It ran on your older desktop. **For each release from 0.1.3 on:** bump the version
   in `Overburden.Game\Overburden.Game.csproj`, run `pwsh tools/make-alpha.ps1` with the game closed (about 20
-  seconds), and make a GitHub release of `build\Overburden-<version>-win64.zip` (tag `v<version>`, pre-release),
-  as in "Yours to run". The README's link always points at the newest.
+  seconds), and make a GitHub release of it as you did 0.1.3:
+  `gh release create v<version> build/Overburden-<version>-win64.zip --prerelease`. The README links to the
+  Releases page, where the newest is at the top.
 - **The lithium-ion pack is in, and `P` gives a hundred of everything** (2026-10-12). The pack holds 14.4 MJ
   and charges at 2 kW. Everything else about it works like the lead-acid: you wear it, swap it, and it keeps
   its charge in your inventory. A volume on the hotbar now reads in cubic metres from one up. All 2,302 tests

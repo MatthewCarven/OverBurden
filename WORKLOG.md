@@ -25,6 +25,10 @@ Built as D15 says, after his pull and push: files only, the game never launched,
   `OverBurden.git`; CLAUDE.md had said otherwise.
 - **His**: `git push`, the 0.1.3 release (`gh release create v0.1.3-alpha build/Overburden-0.1.3-alpha-win64.zip
   --prerelease`), the description's "It's". Next is IM-6's pass, behind the build warnings.
+- **Pushed and released the same day**, and checked at his ask (*"just double check everyting i pushed"*): GitHub's
+  main is `5720f42` like ours, all ten of D's files the same blob, and `v0.1.3-alpha`'s zip has the build's SHA-256.
+  **One fault, mine: `releases/latest` never resolves to a pre-release**, so the README's link opened the plain
+  Releases page. It links to `/releases` now (one commit for him to push).
 
 ## 2026-10-26 — Alpha session D: the code-level pass (going public)
 

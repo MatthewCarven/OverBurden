@@ -215,7 +215,7 @@ version. A worktree has neither beside it, so give the script `-Godot <exe>` the
 
 **2026-10-26 — alpha session D is built and on main: going public's files** (`d4acd59`;
 [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), "Session D — built"). **All four alpha sessions are built.** The README is
-written for a visitor (his pitch, the download at `releases/latest` with his Drive links kept as 0.1.1 and 0.1.2,
+written for a visitor (his pitch, the download on the Releases page with his Drive links kept as 0.1.1 and 0.1.2,
 both machines by part, building from source with `start.cmd` named as his launcher). `CONTRIBUTING.md` opens with
 his rule in his words, then four checks naming the identities and the tests that hold them. `CLA.md` is Harmony's
 individual CLA, outbound Option Five, New South Wales law, word-diffed against the template's source, CC BY 3.0
@@ -223,9 +223,13 @@ attribution kept; agreeing is the tick box in `.github/pull_request_template.md`
 (a real renormalise staged nothing). The notices name .NET 8.0.32 and SQLite 3.53.3, and **`make-alpha.ps1` refuses
 a zip whose notices name another runtime than the export's `runtimeconfig.json`**, proved red then green in a
 worktree; main's `build/` is untouched, so 0.1.3 goes up as built and D's player text rides the next zip.
-- **His, now** (MATTHEW-TODO, "Yours to run"): `git push`; the 0.1.3 release on GitHub (`gh release create
-  v0.1.3-alpha build/Overburden-0.1.3-alpha-win64.zip --prerelease`), which the README's link waits on; the repo
-  description's "It's"; his looks at 0.1.2 and 0.1.3; the folder rename whenever suits.
+- **Pushed and released, the same day**: he pushed `5720f42` and made `v0.1.3-alpha`, a pre-release whose zip is
+  byte-identical to the build (sha256 `41af625f…4966cdd`); its tag sits at `4be4426`, which holds the zip's stamp
+  `e786e07`. Checked: GitHub's main and every one of D's files match, and GitHub recognises CONTRIBUTING and the
+  template. **`releases/latest` never resolves to a pre-release** (GitHub's "latest" skips them), so the README
+  links to `/releases` now: one commit for him to push.
+- **His, now** (MATTHEW-TODO, "Yours to run"): that push; the repo description's "It's"; the release notes GitHub
+  generated, his to replace if he likes; his looks at 0.1.2 and 0.1.3; the folder rename whenever suits.
 - **Kept from the build**: a fresh tree's export rewrites `Overburden.Game/icon.svg.import` with LF endings (no
   content change), so `make-alpha.ps1` warns of uncommitted changes in a new worktree; and two worktree exports
   left his `godot.log` rotation alone.

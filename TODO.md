@@ -23,8 +23,8 @@ decisions his, then four sessions, **all four built**. A, the export (2026-10-12
 makes the zip. B, the first ten minutes (committed 2026-10-19), zipped as 0.1.2-alpha. C, the hotbar's slots
 (2026-10-19, header v8, so IM-6's mode byte is v9), zipped as 0.1.3-alpha, which carries B too. **D, going public**
 (2026-10-26, the plan's "Session D — built"): the README, CONTRIBUTING, CLA.md, the PR template, `.gitattributes`,
-and the notices' check in `make-alpha.ps1`; files only, riding the next zip. **What's left of it is his**
-(MATTHEW-TODO): the push, the 0.1.3 release on GitHub, and his play of 0.1.2 and 0.1.3. **IM-6 is next.**
+and the notices' check in `make-alpha.ps1`; files only, riding the next zip. **Pushed, and 0.1.3 released on GitHub
+the same day.** What's left of it is his (MATTHEW-TODO): his play of 0.1.2 and 0.1.3. **IM-6 is next.**
 
 **Do first, before the slice named:**
 1. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.

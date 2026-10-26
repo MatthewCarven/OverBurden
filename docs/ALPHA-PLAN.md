@@ -1011,3 +1011,13 @@ files only, the game never launched. **`d4acd59`**, then the records. No `<Versi
 **Not checked**: how GitHub renders the README, CONTRIBUTING, CLA.md and the template (after his push); the
 `releases/latest` link, which shows an empty Releases page until his release; and a lawyer's read of the agreement
 (TODO, "The public repo").
+
+**Pushed and released, the same day** (his word: *"release generated and pushed"*). Checked from here: GitHub's
+`main` is `5720f42`, the same as local, every one of D's files the same blob; GitHub's community profile finds
+CONTRIBUTING and the pull request template. **`v0.1.3-alpha`** is a pre-release whose one asset,
+`Overburden-0.1.3-alpha-win64.zip`, has the build's SHA-256 (`41af625f…4966cdd`, GitHub's own digest). Its tag sits
+at `4be4426` (main when he made it), which holds the zip's stamp `e786e07`. Its notes are the ones GitHub generates
+(his two September PRs), his to replace. **A finding: D2's link was wrong for D2's own release.** GitHub's
+`releases/latest` skips pre-releases, so it redirected to the plain Releases page rather than to 0.1.3. The README
+now links to `…/OverBurden/releases` on purpose: as unchanging as D2 wanted, and the newest is at the top. *Other
+arm:* releases not marked pre-release, which `latest` would find.
