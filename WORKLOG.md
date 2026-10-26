@@ -29,8 +29,9 @@
   pass's fact 8 (the zip is Vulkan only, `export_d3d12=0`).
 - **Taken the same day, all fifteen as recommended** (*"Oh i ain't so worried about people learning what I put in
   the public spotlight like"*, then *"and as recommended please Claude"*). D3's figures are in the plan now. D10's
-  family line still changes: his note covers his own details, not someone else's. The build waits on his `git pull`
-  and the CLA's governing law, his to name.
+  family line still changes: his note covers his own details, not someone else's. **The CLA's governing law is
+  New South Wales, Australia** (*"Australian"*, then *"NSW"*), after he asked whether US law could govern it: it can be named, but a US court can
+  refuse a choice with no link to the state, and it buys no US remedies. The build waits on his `git pull`.
 
 ## 2026-10-19 — Alpha session C: the pass, his designs for M10g, the hotbar's slots built; 0.1.3-alpha
 

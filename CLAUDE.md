@@ -232,8 +232,8 @@ README.md and `pull.rebase` is false, so his `git pull` merges it clean; then he
    D — the code-level pass"; all fifteen as recommended, with *"i ain't so worried about people learning what I put
    in the public spotlight"*). Build it as D15 says: one session of files only (the README, CONTRIBUTING, CLA.md
    from Harmony's template with Option Five, the PR template, `.gitattributes`, CONTRIBUTORS, the notices and
-   `make-alpha.ps1`'s check proved in a worktree, the docs-read edits). **Two things first:** his `git pull`, and
-   the CLA's governing law (D6), his to name. **An outside PR would today arrive under PolyForm only** (GitHub's
+   `make-alpha.ps1`'s check proved in a worktree, the docs-read edits). **His `git pull` first.** The CLA's
+   governing law is New South Wales, Australia, his word (*"NSW"*). **An outside PR would today arrive under PolyForm only** (GitHub's
    terms, D.6), so the CLA matters before the first one, and none exists yet.
 2. **IM-6 waits behind the alpha, at header v9 now.** Its code-level pass carries: the vault's panel (his
    warranty line, a lock on the channel box, power auto-scaled), water in the hotbar through `VolumeText` (a slot

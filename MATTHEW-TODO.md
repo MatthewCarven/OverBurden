@@ -140,8 +140,6 @@ Nothing is blocked on these; each is a small change once you have a view.
 - [ ] **`git pull`, then `git push`, this time** (2026-10-26): GitHub has your README edit from 10-20 (the 1.0.2
       link), which main lacks, so a push alone is refused. The pull merges it cleanly (nothing here touched the
       README); then push. The README rewrite waits on it.
-- [ ] **The contributor agreement's governing law** (D6): the state and country whose law it names. Usually where you
-      live. One line back is enough.
 - [ ] **Upload 0.1.3-alpha, after your look at it**: `build\Overburden-0.1.3-alpha-win64.zip` (the version-free
       `build\Overburden-alpha-win64.zip` is the same bytes). It carries 0.1.2's changes. Where it goes is D2 above:
       GitHub's Releases page is recommended; on Drive, your 0.1.2 went up as a new file with a new link, so the
@@ -182,7 +180,9 @@ Nothing is blocked on these; each is a small change once you have a view.
   your machines by part (no names); zips on GitHub's Releases page from 0.1.3, your Drive links kept as 0.1.1 and
   0.1.2; CONTRIBUTING with your rule; Harmony's standard contributor agreement, so you can relicense a stranger's
   work later (not legal advice); your hours, email and files left as they are, and only the worklog's one mention of
-  your family reworded. 0.1.3 goes up as built. Next is the build, after the two things in "Yours to run".
+  your family reworded. 0.1.3 goes up as built. **The agreement's law is New South Wales'** (*"Australian"*, then
+  *"NSW"*): US law could be named, but a US court can refuse it with no link to a US state, and it buys you nothing
+  there. Next is the build, after your `git pull` ("Yours to run").
 
 - **The hotbar's slots, thirteen decisions** (2026-10-19): *"As recommended please Claude"*. Nine slots that keep
   what's in them, even at zero (dimmed); a new block goes in the first empty slot (the computer and packs by a

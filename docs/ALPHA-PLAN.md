@@ -826,8 +826,11 @@ so it needs no version of its own (D14 says when the player's text goes out).
 **Taken 2026-10-26, all as recommended**, his words straight after the pass: *"Oh i ain't so worried about people
 learning what I put in the public spotlight like"*, then *"and as recommended please Claude"*. So D3's figures go
 public, and are written into fact 13 and D3 now. D10's one line still changes, as recommended: his note is about
-his own details, and that line is about someone else. **Two things wait before the build** (D15): his `git pull`,
-and the governing law for CLA.md (D6), his to name.
+his own details, and that line is about someone else. **The governing law is New South Wales, Australia** (D6), his
+answers the same day: *"Australian"*, then *"NSW"*. He had asked whether US law could govern it instead. It can be
+named, but US contract law is a state's, a US court can refuse a choice with no link to that state, and it buys no
+US remedies; his own state's law was recommended, and it is what he named. **One thing waits before the build**
+(D15): his `git pull`.
 
 **The README**
 - **D1. The README is rewritten for a visitor, and says only what is true now.** In order: his pitch (README.md:3-9,
