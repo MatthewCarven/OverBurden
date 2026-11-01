@@ -18,6 +18,8 @@ Older builds, on Google Drive:
   named 0.1.0; 0.1.1 replaced it under the same name)
 - [0.1.2-alpha](https://drive.google.com/file/d/1oJgrgA22TJYgzaOf3IuclViGCbqv1AKw/view?usp=sharing)
 
+https://www.youtube.com/watch?v=6pQEYF9X3AU
+
 ## What it runs on
 
 It needs 64-bit Windows and a graphics card that supports Vulkan. Made and played on an Intel Core i9-11900H with an
