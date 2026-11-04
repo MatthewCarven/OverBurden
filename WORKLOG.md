@@ -1,5 +1,20 @@
 ﻿# Overburden — Worklog
 
+## 2026-11-04 — Ctrl+P puts the pack in your hand
+
+His first press, the same day: *"Ok but the pack does not show up in the hotbar um how do i select it?"*. Packs stay
+off the row until pinned (alpha C3), so the pack was there and "a V away" didn't say how to find it, among however
+many things he carries. Offered the hand; *"Yes, put it in hand"*.
+- **One line in the wire**: `GiveOnePack` calls `PlaceController.Select`, the `--material=` seam, once the pack is
+  given. Only on a give: a refused press leaves the hand alone. The Core rule is unchanged, so no battery, and the
+  hand moves off whatever you were building with; a digit brings it back.
+- **The message** is now *"One lithium ion pack in your hand, empty. Right-click to wear it."* P's line stays "a V
+  away": it hands out a hundred things and can't hold them all.
+- **Checked**: suite 2,345 (one test renamed, its "a V away" gone stale), r6 `2601 / 325 / 3446 at 411`, no `ERROR`
+  line. **The path after the key, headless**: the recorded swap recipe (`--place --material=overburden:lithium_ion_pack
+  --stock=64 --pack --charge=1000`) selects through the same `Select`, off the row, and its right-click read `lithium
+  ion pack equipped in place of lead acid pack`. The press itself is still his to try.
+
 ## 2026-11-04 — Ctrl+P, one lithium-ion pack
 
 His ask: *"ctrl+p should give one lithium pack unless you are already wearing one"*. Built in a worktree, rule in

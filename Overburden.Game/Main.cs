@@ -5370,8 +5370,10 @@ public partial class Main : Node3D
     }
 
     /// <summary>
-    /// <c>Ctrl+P</c>: one lithium-ion pack in the inventory, or a line saying why not. The rule is
-    /// <see cref="DebugSeed.PressOnePack"/>'s, in Core so it is tested against the shipped content.
+    /// <c>Ctrl+P</c>: one lithium-ion pack in the inventory and in your hand, or a line saying why not.
+    /// The rule is <see cref="DebugSeed.PressOnePack"/>'s, in Core so it is tested against the shipped
+    /// content. The hand is here (2026-11-04, his ask): a pack is off the row, so without it the pack
+    /// was a search through V.
     /// </summary>
     private void GiveOnePack()
     {
@@ -5392,8 +5394,9 @@ public partial class Main : Node3D
             return;
         }
 
-        GD.Print($"M10: Ctrl+P — one {label} added to the inventory, empty on channel 0, a V away; {_inventory.Voxels(materialId):N0} carried");
-        Tell($"One {label} added, empty. It's a V away; right-click with it in hand to wear it.");
+        _place?.Select(materialId);
+        GD.Print($"M10: Ctrl+P — one {label} added to the inventory and in hand, empty on channel 0; {_inventory.Voxels(materialId):N0} carried");
+        Tell($"One {label} in your hand, empty. Right-click to wear it.");
     }
 
     /// <summary>Every placed storage row charged to its capacity, through the set's one debug door.</summary>

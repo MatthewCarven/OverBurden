@@ -26,7 +26,7 @@ Every key is on F1 in the game, and in QUICKSTART.md beside this file. The short
   1-9, V              choose what to build     Hold Q    keep digging
   V held + 1-9        put what's in hand on that hotbar slot
   P                   a kit of everything      Alt+P     charge your pack and power cells
-  Ctrl+P              one lithium-ion pack, unless you're already wearing one
+  Ctrl+P              one lithium-ion pack in your hand, unless you're already wearing one
   F10                 see further              F11       fullscreen
   F12                 the map                  Ctrl+Z    undo
   F1                  every key

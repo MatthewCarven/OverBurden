@@ -75,7 +75,7 @@ the next of it lands back where it was. When the row is full, new things are sti
 |---|---|
 | Right mouse, a pack in hand | wear it (the one you were wearing goes back in your pocket, with its charge) |
 | P | a kit: 100 of every machine, material and pack (a test key) |
-| Ctrl+P | one empty lithium-ion pack, unless you're already wearing one (a test key) |
+| Ctrl+P | one empty lithium-ion pack, in your hand, unless you're already wearing one (a test key) |
 | Alt+P | fill every placed power cell, and the pack you're wearing, to full (a test key) |
 
 The **lead-acid pack** holds 3.6 MJ, the **lithium-ion pack** 14.4 MJ. A worn pack recharges slowly

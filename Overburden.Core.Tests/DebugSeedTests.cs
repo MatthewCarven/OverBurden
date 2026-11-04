@@ -218,7 +218,7 @@ public class DebugSeedTests
     }
 
     [Fact]
-    public void AGivenPackIsAVAwayRatherThanOnTheRow()
+    public void AGivenPackStaysOffTheRow()
     {
         Registry<MaterialDefinition> materials = Shipped();
         var inventory = new VolumetricInventory();

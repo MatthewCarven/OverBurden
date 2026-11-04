@@ -235,7 +235,7 @@ worktree; main's `build/` is untouched, so 0.1.3 goes up as built and D's player
   content change), so `make-alpha.ps1` warns of uncommitted changes in a new worktree; and two worktree exports
   left his `godot.log` rotation alone.
 
-**2026-11-04 — `Ctrl+P` gives one lithium-ion pack**, unless the worn pack already is one (his ask;
+**2026-11-04 — `Ctrl+P` puts one lithium-ion pack in your hand**, unless the worn pack already is one (his ask;
 `DebugSeed.PressOnePack`, the worklog says why it needs no term). P while sprinting is now that too, because Ctrl is
 sprint. It rides the next zip, and his one check is in MATTHEW-TODO.
 

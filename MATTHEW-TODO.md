@@ -28,8 +28,9 @@ care about. I keep it current at the end of each session.
 **Still to test, queued at your word** (2026-10-19: *"I know i've still got stuff to test can we put that on
 my todo and keep going?"*). Nothing below blocks the next build; the oldest is from 2026-09-30.
 
-- [ ] **Ctrl+P** (built 2026-11-04): with no lithium-ion pack on your back it says one was added, and once you're
-      wearing it (V to it, right-click), Ctrl+P says so and adds nothing. I tested the rule, not the keypress.
+- [ ] **Ctrl+P** (built 2026-11-04): with no lithium-ion pack on your back, the pack lands in your hand and a
+      right-click wears it; press it again and it says you're wearing one and adds nothing. I tested the rule and
+      the right-click, not the keypress.
 - [ ] **0.1.3-alpha, the hotbar's slots** (built and on main 2026-10-19; `start.cmd` plays it):
       - **Your row stays as it is** in LakeTest2. Spend the last of something: its slot stays, dimmed, and the
         next bite lands back in it.

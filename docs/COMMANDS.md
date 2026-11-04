@@ -1101,7 +1101,8 @@ the swings before `--pump` places its cell meet an empty bank (`the bank on chan
 
 **2026-11-04: `Ctrl+P`, one lithium-ion pack** (his ask). `DebugSeed.PressOnePack` adds one to the count, empty
 on channel 0, on every press, unless the *worn* pack is a lithium-ion pack (told, and nothing added). Lead-acid,
-the quantum backpack, nothing worn or any number carried all still give one. A content without the pack, or with
+the quantum backpack, nothing worn or any number carried all still give one, and a pack given lands in your hand
+(`PlaceController.Select`), since a pack is off the row. A content without the pack, or with
 only a removed mod's placeholder for it, refuses with a message. Not behind `--dev`, like `P`, and not a term: the
 pool's identity sees the worn pack alone, and the pocket has no identity of its own. A key can't be pressed
 headless, so `DebugSeedTests` holds the rule; the play log's line starts `M10: Ctrl+P`. `P` read only Alt until
