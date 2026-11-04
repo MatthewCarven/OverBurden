@@ -75,6 +75,7 @@ the next of it lands back where it was. When the row is full, new things are sti
 |---|---|
 | Right mouse, a pack in hand | wear it (the one you were wearing goes back in your pocket, with its charge) |
 | P | a kit: 100 of every machine, material and pack (a test key) |
+| Ctrl+P | one empty lithium-ion pack, unless you're already wearing one (a test key) |
 | Alt+P | fill every placed power cell, and the pack you're wearing, to full (a test key) |
 
 The **lead-acid pack** holds 3.6 MJ, the **lithium-ion pack** 14.4 MJ. A worn pack recharges slowly
@@ -129,7 +130,8 @@ Only when the game is started with `--dev` (`start.cmd` passes it; the alpha dow
 - **Water goes where it can.** A hole under a lake fills. Pumps and outlets move it; glass and clay hold
   it back.
 - **Alt changes what a key does:** Alt+R takes water back, Alt+P fills your power, and Alt with either
-  mouse button works one small block.
+  mouse button works one small block. **So does Ctrl on P:** Ctrl+P gives one pack, not the kit, even if
+  you were only holding Ctrl to sprint.
 
 ## Saves and logs
 

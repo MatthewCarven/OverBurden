@@ -196,7 +196,8 @@ version. A worktree has neither beside it, so give the script `-Godot <exe>` the
   worklog and its plan, so TODO stays the open work.
 - Commit with a message that explains *why*, and end with the `Co-Authored-By:` line the harness
   gives this session — never copy one from an older commit.
-- Matthew runs `git init` and `git push` himself — flag when either is needed. Remote is
+- Matthew runs `git init` himself — flag when it's needed. **Commits are pushed as they land** (2026-11-03, his
+  word: *"Push commits as and when you like"*); force-pushing and rewriting pushed history stay his. Remote is
   `github.com/MatthewCarven/OverBurden` (renamed from `MinerCraft`, which GitHub redirects; `origin` names the new
   one), **public** since 2026-10-12, default branch `main`. Run `git fetch`
   before calling anything unpushed; the remote-tracking ref only moves on a fetch or a push. **He edits README.md
@@ -206,7 +207,7 @@ version. A worktree has neither beside it, so give the script `-Godot <exe>` the
 - Working copies are CRLF (`core.autocrlf`). Edit through a Python script that reads bytes and
   writes back the endings it found; `sed -i` in Git Bash writes LF. The repository stores LF, and
   `.gitattributes` (`* text=auto`, 2026-10-26) keeps a contributor's commits the same.
-- **The repo is public, so everything tracked is published** at his next push. **WORKLOG headings carry the date
+- **The repo is public, so everything tracked is published** at the next push. **WORKLOG headings carry the date
   only**, never a time of day (ALPHA-PLAN D9, 2026-10-26: together the old tags map his hours; those stay, and new
   ones aren't added). A play log is still found by its time, in the text where it's needed. Show him anything new
   about him or anyone else before it's committed; secrets never go in.
@@ -227,14 +228,18 @@ worktree; main's `build/` is untouched, so 0.1.3 goes up as built and D's player
   byte-identical to the build (sha256 `41af625f…4966cdd`); its tag sits at `4be4426`, which holds the zip's stamp
   `e786e07`. Checked: GitHub's main and every one of D's files match, and GitHub recognises CONTRIBUTING and the
   template. **`releases/latest` never resolves to a pre-release** (GitHub's "latest" skips them), so the README
-  links to `/releases` now: one commit for him to push.
-- **His, now** (MATTHEW-TODO, "Yours to run"): that push; the repo description's "It's"; the release notes GitHub
-  generated, his to replace if he likes; his looks at 0.1.2 and 0.1.3; the folder rename whenever suits.
+  links to `/releases` now, pushed 2026-11-04 with his YouTube link merged (`651a188`).
+- **His, now** (MATTHEW-TODO, "Yours to run"): the repo description's "It's"; the release notes GitHub generated,
+  his to replace if he likes; his looks at 0.1.2 and 0.1.3; the folder rename whenever suits.
 - **Kept from the build**: a fresh tree's export rewrites `Overburden.Game/icon.svg.import` with LF endings (no
   content change), so `make-alpha.ps1` warns of uncommitted changes in a new worktree; and two worktree exports
   left his `godot.log` rotation alone.
 
-Suite **2,335** (no code changed in D; `ControlsCard.cs` already had P), r6 as recorded at C.
+**2026-11-04 — `Ctrl+P` gives one lithium-ion pack**, unless the worn pack already is one (his ask;
+`DebugSeed.PressOnePack`, the worklog says why it needs no term). P while sprinting is now that too, because Ctrl is
+sprint. It rides the next zip, and his one check is in MATTHEW-TODO.
+
+Suite **2,345** (2,335 at D, plus Ctrl+P's ten), r6 `2601 / 325 / 3446 at 411` on Ctrl+P's build.
 
 **Next session, in order:**
 1. **IM-6's code-level pass, at header v9**, behind the ten build warnings (TODO's "Order and collisions", 1) and

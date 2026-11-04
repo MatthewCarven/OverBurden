@@ -6,7 +6,7 @@ namespace Overburden.Core.Tests;
 
 /// <summary>
 /// <c>P</c> (2026-10-12, his ask): a hundred of each item on every press, in the unit the hotbar counts
-/// it in, the lithium-ion pack beside the lead-acid, and all or nothing.
+/// it in, the lithium-ion pack beside the lead-acid, and all or nothing. And <c>Ctrl+P</c>'s one pack.
 /// </summary>
 public class DebugSeedTests
 {
@@ -151,6 +151,139 @@ public class DebugSeedTests
             Assert.Equal(100, inventory.Voxels(Id(materials, item)));
             Assert.False(inventory.Hotbar.Contains(Id(materials, item)), $"{item} took a slot by itself");
         }
+    }
+
+    /// <summary>
+    /// <c>Ctrl+P</c> (2026-11-04, his ask): <i>"ctrl+p should give one lithium pack unless you are
+    /// already wearing one"</i>. One of it, and nothing else.
+    /// </summary>
+    [Fact]
+    public void CtrlPGivesExactlyOneLithiumPackAndNothingElse()
+    {
+        Registry<MaterialDefinition> materials = Shipped();
+        var inventory = new VolumetricInventory();
+
+        Assert.Equal(OnePackOutcome.Given, DebugSeed.PressOnePack(materials, inventory, wornMaterialId: null));
+
+        Assert.Equal(1L, inventory.Voxels(Id(materials, "lithium_ion_pack")));
+        Assert.Equal(1L, inventory.TotalVoxels);
+        Assert.Equal(1, inventory.MaterialCount);
+    }
+
+    [Fact]
+    public void CtrlPGivesNothingWhileALithiumPackIsWorn()
+    {
+        Registry<MaterialDefinition> materials = Shipped();
+        var inventory = new VolumetricInventory();
+        int lithium = Id(materials, "lithium_ion_pack");
+
+        Assert.Equal(OnePackOutcome.AlreadyWearing, DebugSeed.PressOnePack(materials, inventory, lithium));
+        Assert.Equal(0, inventory.MaterialCount);
+
+        // A repeat press refuses again, and refusing leaves what's carried alone.
+        inventory.Add(lithium, 2);
+        Assert.Equal(OnePackOutcome.AlreadyWearing, DebugSeed.PressOnePack(materials, inventory, lithium));
+        Assert.Equal(OnePackOutcome.AlreadyWearing, DebugSeed.PressOnePack(materials, inventory, lithium));
+        Assert.Equal(2L, inventory.Voxels(lithium));
+    }
+
+    [Theory]
+    [InlineData("lead_acid_pack")]
+    [InlineData("quantum_backpack")]
+    public void CtrlPGivesOneWhileAnotherKindIsWorn(string worn)
+    {
+        Registry<MaterialDefinition> materials = Shipped();
+        var inventory = new VolumetricInventory();
+
+        Assert.Equal(OnePackOutcome.Given, DebugSeed.PressOnePack(materials, inventory, Id(materials, worn)));
+
+        Assert.Equal(1L, inventory.Voxels(Id(materials, "lithium_ion_pack")));
+        Assert.Equal(0L, inventory.Voxels(Id(materials, worn)));
+    }
+
+    [Fact]
+    public void ACarriedLithiumPackIsNotAWornOneSoEveryPressAddsAnother()
+    {
+        // Only the back counts: P's hundred in the pocket doesn't stop Ctrl+P, nor does the last press.
+        Registry<MaterialDefinition> materials = Shipped();
+        var inventory = new VolumetricInventory();
+        int lithium = Id(materials, "lithium_ion_pack");
+
+        Assert.True(DebugSeed.Press(materials, inventory, out _));
+        for (int press = 1; press <= 3; press++)
+        {
+            Assert.Equal(OnePackOutcome.Given, DebugSeed.PressOnePack(materials, inventory, wornMaterialId: null));
+            Assert.Equal(100L + press, inventory.Voxels(lithium));
+        }
+    }
+
+    [Fact]
+    public void AGivenPackIsAVAwayRatherThanOnTheRow()
+    {
+        Registry<MaterialDefinition> materials = Shipped();
+        var inventory = new VolumetricInventory();
+        inventory.KeepOffTheRow(MaterialTable.From(materials).Items());
+
+        Assert.Equal(OnePackOutcome.Given, DebugSeed.PressOnePack(materials, inventory, wornMaterialId: null));
+
+        Assert.False(inventory.Hotbar.Contains(Id(materials, "lithium_ion_pack")));
+    }
+
+    [Fact]
+    public void ACarriedPackHoldsItsChargeThroughAGivenOne()
+    {
+        // The given pack is a bare count: the equip still takes the charged one, and the given one is
+        // what's left, empty on channel 0.
+        Registry<MaterialDefinition> materials = Shipped();
+        var inventory = new VolumetricInventory();
+        var carried = new CarriedPacks();
+        int lithium = Id(materials, "lithium_ion_pack");
+        inventory.Add(lithium, 1);
+        Assert.True(carried.Stow(new Persistence.PackSave(lithium, 5_000, 3)));
+
+        Assert.Equal(OnePackOutcome.Given, DebugSeed.PressOnePack(materials, inventory, wornMaterialId: null));
+
+        Assert.Equal(2L, inventory.Voxels(lithium));
+        Assert.Equal(5_000L, carried.TakeFullest(lithium)?.ChargeMillijoules);
+        Assert.Null(carried.TakeFullest(lithium));
+    }
+
+    [Fact]
+    public void AContentWithoutTheLithiumPackGivesNothing()
+    {
+        var registry = new Registry<MaterialDefinition>("materials", MaterialDefinition.Unknown);
+        registry.Register(MaterialIds.Air, new MaterialDefinition { Id = MaterialIds.Air, IsOpaque = false, IsReplaceable = true });
+        foreach (Identifier identifier in DebugSeed.Materials.Where(i => i != DebugSeed.OnePack))
+        {
+            registry.Register(identifier, new MaterialDefinition { Id = identifier });
+        }
+
+        registry.Freeze();
+        var inventory = new VolumetricInventory();
+
+        Assert.Equal(OnePackOutcome.NotInContent, DebugSeed.PressOnePack(registry, inventory, wornMaterialId: null));
+        Assert.Equal(0, inventory.MaterialCount);
+    }
+
+    [Fact]
+    public void AHoleWhereTheLithiumPackWasGivesNothing()
+    {
+        // The world's table keeps a removed mod's numeric ID, and Freeze puts a placeholder behind it.
+        var registry = new Registry<MaterialDefinition>("materials", MaterialDefinition.Unknown);
+        registry.Register(MaterialIds.Air, new MaterialDefinition { Id = MaterialIds.Air, IsOpaque = false, IsReplaceable = true });
+        registry.ReserveId(DebugSeed.OnePack);
+        registry.Freeze();
+        var inventory = new VolumetricInventory();
+
+        Assert.Equal(OnePackOutcome.NotInContent, DebugSeed.PressOnePack(registry, inventory, wornMaterialId: null));
+        Assert.Equal(0, inventory.MaterialCount);
+    }
+
+    [Fact]
+    public void TheKitStillHoldsThePackCtrlPGives()
+    {
+        Assert.Contains(DebugSeed.OnePack, DebugSeed.Materials);
+        Assert.Equal(Identifier.Parse("overburden:lithium_ion_pack"), DebugSeed.OnePack);
     }
 
     /// <summary>What keeps off the row by itself in the shipped content: the five materials nothing places.</summary>

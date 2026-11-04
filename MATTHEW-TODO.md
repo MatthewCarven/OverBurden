@@ -28,6 +28,8 @@ care about. I keep it current at the end of each session.
 **Still to test, queued at your word** (2026-10-19: *"I know i've still got stuff to test can we put that on
 my todo and keep going?"*). Nothing below blocks the next build; the oldest is from 2026-09-30.
 
+- [ ] **Ctrl+P** (built 2026-11-04): with no lithium-ion pack on your back it says one was added, and once you're
+      wearing it (V to it, right-click), Ctrl+P says so and adds nothing. I tested the rule, not the keypress.
 - [ ] **0.1.3-alpha, the hotbar's slots** (built and on main 2026-10-19; `start.cmd` plays it):
       - **Your row stays as it is** in LakeTest2. Spend the last of something: its slot stays, dimmed, and the
         next bite lands back in it.
@@ -140,9 +142,6 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Yours to run
 
-- [ ] **`git push`, one more time** (2026-10-26): one README fix. Its download link was `…/releases/latest`, and
-      GitHub never counts a pre-release as "latest", so it opened the plain Releases page instead of 0.1.3. It now
-      links to the Releases page on purpose (newest at the top). Nothing else is waiting.
 - [ ] **The repo's description** on GitHub (the gear beside "About"): it reads *"Its voxel world based mining
       game…"*, which wants an apostrophe: "It's".
 - [ ] **0.1.3's release notes, if you like**: GitHub wrote them itself, listing your two September pull requests
@@ -178,6 +177,9 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **Pushing is mine now** (2026-11-03): *"Push commits as and when you like"*. The README's Releases link went up on
+  2026-11-04 (`651a188`) with your YouTube link merged in. Force-pushing and rewriting pushed history stay yours.
 
 - **Pushed and released** (2026-10-26): *"release generated and pushed"*. GitHub's main is the same commit as
   here, all ten of going public's files match, GitHub recognises CONTRIBUTING and the pull request template, and

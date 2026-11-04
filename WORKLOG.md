@@ -1,5 +1,32 @@
 ﻿# Overburden — Worklog
 
+## 2026-11-04 — Ctrl+P, one lithium-ion pack
+
+His ask: *"ctrl+p should give one lithium pack unless you are already wearing one"*. Built in a worktree, rule in
+Core (`DebugSeed.PressOnePack`), `Main.GiveOnePack` as the wire, on the same P edge after Alt+P's check. `P` read
+only Alt, so Ctrl+P was the whole kit until now.
+- **Read literally, and said so to him**: one pack into the count, not put on. Only the worn pack refuses; lead-acid,
+  the quantum backpack, nothing worn or any number carried all give one, on every press.
+- **It needs no term, checked rather than assumed.** A debug door into a conserved quantity is a term, but this one
+  doesn't open into one: `PowerExact` reads the rows and the worn pack only, the pocket has no identity (`TotalVoxels`
+  is read for display and nothing else), and a count with no `CarriedPacks` entry is empty on channel 0. Worn, it
+  enters through `initial` at 0 mJ. A fresh pack can draw from cells, which moves energy and mints none. So it isn't
+  behind `--dev`, like P.
+- **Ctrl is sprint too, so P on the run is now the one pack**, not the kit. Said in QUICKSTART and in the comment.
+  Ctrl+Alt+P stays Alt+P, because Alt is read first.
+- **A hole is not null.** The first draft copied `Resolve`'s `TryGet` and called that the removed-mod refusal, but
+  `Registry.Freeze` fills a removed mod's ID with an `IsUnknown` placeholder, so `TryGet` says yes on any real world.
+  The rule checks `IsUnknown` and a frozen-hole test holds it. `P`'s `Resolve` doesn't, so P seeds such a placeholder
+  today; left alone, small, and only a world missing the base game's own pack could reach it.
+- **Tests**: ten new in `DebugSeedTests`, suite **2,345**. A battery of sixteen, recipes written first: **all red, none
+  survived**, source restored byte for byte. r6 `2601 / 325 / 3446 at 411`, no `ERROR` line, on the worktree's own
+  build. **The key itself isn't tested**, since nothing presses keys headless; his check is in MATTHEW-TODO.
+- **In step**: QUICKSTART's table and its line on modifiers, `ControlsCard.cs`, `tools/alpha/README.txt`, COMMANDS.md.
+  No version bump and no zip: this rides the next one.
+- **The stale rule**: his 2026-11-03 *"Push commits as and when you like"* is now in CLAUDE.md's Conventions, with
+  force-pushing and rewriting pushed history still his. Its "His, now" and MATTHEW-TODO's "Yours to run" lost the
+  README push, done as `651a188` with his YouTube link merged.
+
 ## 2026-10-26 — Alpha session D built: going public
 
 Built as D15 says, after his pull and push: files only, the game never launched, `d4acd59` (docs/ALPHA-PLAN.md,

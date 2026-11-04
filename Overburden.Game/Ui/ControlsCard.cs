@@ -66,6 +66,7 @@ public static class ControlsCard
         text.Append("[table=2]");
         Row(text, "Right mouse, pack in hand", "wear it (the one you wore goes back in your pocket, with its charge)");
         Row(text, "P", "a kit: 100 of every machine, material and pack (a test key)");
+        Row(text, "Ctrl+P", "one empty lithium-ion pack, unless you already wear one (a test key)");
         Row(text, "Alt+P", "fill every placed power cell, and the pack you wear (a test key)");
         text.Append("[/table]\n");
         Note(text, "A worn pack recharges slowly from charged vacuum cells on its channel. Solar panels charge cells under open sky.");

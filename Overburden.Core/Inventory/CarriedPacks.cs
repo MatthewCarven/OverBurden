@@ -14,8 +14,8 @@ namespace Overburden.Core.Inventory;
 /// was <i>"keep its charge as an item please"</i> (2026-09-18). This is the smallest object that
 /// does it: the inventory's count of a pack material stays the truth of how many are carried,
 /// and this list annotates <em>some</em> of them with a charge and a channel. A carried pack
-/// with no entry here is empty on channel 0, which is what <c>P</c> seeds and what a fresh pack
-/// is.
+/// with no entry here is empty on channel 0, which is what <c>P</c> and <c>Ctrl+P</c> seed and what
+/// a fresh pack is.
 /// </para>
 /// <para>
 /// <b>A zero charge is not stored.</b> The only way a pack gains charge is being worn, so an

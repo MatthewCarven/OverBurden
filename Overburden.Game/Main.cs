@@ -5318,7 +5318,8 @@ public partial class Main : Node3D
 
     /// <summary>
     /// <c>P</c> puts a hundred of each item in the inventory (<see cref="DebugSeed"/>) — the debug bind
-    /// M10-PLAN decision 7 named beside <c>R</c>, retired when M10g's recipe exists.
+    /// M10-PLAN decision 7 named beside <c>R</c>, retired when M10g's recipe exists. <c>Ctrl+P</c> gives
+    /// one lithium-ion pack instead and <c>Alt+P</c> charges.
     /// </summary>
     private void SeedMachines()
     {
@@ -5343,6 +5344,14 @@ public partial class Main : Node3D
             return;
         }
 
+        // Ctrl+P is the lighter press (2026-11-04, his ask), after Alt so Ctrl+Alt+P stays what it
+        // was. Ctrl is sprint too, so P on the run is this and not the kit.
+        if (Input.IsKeyPressed(Key.Ctrl))
+        {
+            GiveOnePack();
+            return;
+        }
+
         // The list and its hundred are DebugSeed's (2026-10-12, his ask: a hundred of each, and the
         // lithium-ion pack), in Core so the list is tested against the shipped content. Every press
         // adds a hundred, the computer and the packs included; a fresh pack is empty on channel 0.
@@ -5358,6 +5367,33 @@ public partial class Main : Node3D
             + "take the row's empty slots and the computer and packs are a V away (right-click with a pack in hand equips it). "
             + "Alt+P fills every placed cell and the pack");
         Tell($"{DebugSeed.Each} of each added. The computer and packs are a V away; right-click with a pack in hand to wear it.");
+    }
+
+    /// <summary>
+    /// <c>Ctrl+P</c>: one lithium-ion pack in the inventory, or a line saying why not. The rule is
+    /// <see cref="DebugSeed.PressOnePack"/>'s, in Core so it is tested against the shipped content.
+    /// </summary>
+    private void GiveOnePack()
+    {
+        OnePackOutcome outcome = DebugSeed.PressOnePack(Content.Materials, _inventory, _pack?.MaterialId);
+        if (outcome == OnePackOutcome.NotInContent)
+        {
+            GD.Print($"M10: {DebugSeed.OnePack} is not in this world's content, so Ctrl+P gives nothing");
+            Tell("This world has no lithium-ion pack to give.");
+            return;
+        }
+
+        int materialId = Content.Materials.GetNumericId(DebugSeed.OnePack);
+        string label = Hud.DisplayName(Content.Materials, materialId);
+        if (outcome == OnePackOutcome.AlreadyWearing)
+        {
+            GD.Print($"M10: Ctrl+P — nothing added, the {label} is already worn; {_inventory.Voxels(materialId):N0} carried");
+            Tell($"You're already wearing a {label}.");
+            return;
+        }
+
+        GD.Print($"M10: Ctrl+P — one {label} added to the inventory, empty on channel 0, a V away; {_inventory.Voxels(materialId):N0} carried");
+        Tell($"One {label} added, empty. It's a V away; right-click with it in hand to wear it.");
     }
 
     /// <summary>Every placed storage row charged to its capacity, through the set's one debug door.</summary>
