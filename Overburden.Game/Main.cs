@@ -223,6 +223,12 @@ public partial class Main : Node3D
     private double _undoAfterSeconds = 3.0;
     private bool _precisePlaceWhileProfiling;
     private long _startingStock;
+
+    // IM-6b: --placeat= and --deposit=, applied once the world around them has loaded (PlaceAtsIfDue).
+    private readonly List<PlaceAt> _placeAts = [];
+    private readonly List<DepositAt> _deposits = [];
+    private bool _placeAtsDone;
+    private long _depositsMoved;
     private BrushShape _startingBrush = BrushShape.Cube;
 
     private PlayerController? _player;
@@ -904,6 +910,9 @@ public partial class Main : Node3D
     // line (decision 8); each channel's bank at the last boundary, for M10: bank —'s crossings of zero; and each
     // vault's phase at the last boundary, for M10: vault —'s one-off lines (decision 15), the oracle's instrument.
     private Runway? _runway;
+
+    // IM-6b, decisions 13 and 14: the fusing vaults' cyan bodies and the pile's cyan blocks, windowed only.
+    private VaultGlitch? _vaultGlitch;
     private readonly long[] _bankAtLastBoundary = new long[MachineTick.Channels];
     private bool _banksSeen;
     private readonly Dictionary<BrushCell, VaultPhase> _vaultPhases = [];
@@ -2843,6 +2852,42 @@ public partial class Main : Node3D
                     _startingStock = stock;
                     break;
 
+                // IM-6b: any tool on T at open by its ID, bare or namespaced — the siphons' headless seam, as
+                // --entangle is the miner's. An ID the content lacks prints and stays on the default.
+                case "tool" when value.Length > 0:
+                    _tierAtOpen = value.Contains(':', StringComparison.Ordinal) ? value : $"{Identifier.BaseNamespace}:{value}";
+                    break;
+
+                // IM-6b (its pass, decision 16; collapse decision 13's grammar): a machine placed at a voxel with its
+                // ports set, --placeat=<id>@x,y,z[,port=value...], once the world around it has loaded. Repeatable.
+                // A debug door, but into no conserved quantity: the body comes from the pocket like a placement.
+                case "placeat":
+                    if (PlaceAt.TryParse(value, out PlaceAt placeAt, out string? placeAtError))
+                    {
+                        _placeAts.Add(placeAt);
+                    }
+                    else
+                    {
+                        GD.Print($"Overburden: --placeat={value} — {placeAtError}; ignored");
+                    }
+
+                    break;
+
+                // IM-6b (decision 16): a material moved from the pocket into a placed vault or crate through the store's
+                // own door (StoreMoves.IntoBox, counted deposited), after the restore, --stock= and every --placeat=.
+                // --deposit=<id>:<voxels>[@x,y,z]; with no cell, the last --placeat=. Repeatable.
+                case "deposit":
+                    if (DepositAt.TryParse(value, out DepositAt deposit, out string? depositError))
+                    {
+                        _deposits.Add(deposit);
+                    }
+                    else
+                    {
+                        GD.Print($"Overburden: --deposit={value} — {depositError}; ignored");
+                    }
+
+                    break;
+
                 case "brush" when Enum.TryParse(value, ignoreCase: true, out BrushShape brush):
                     _startingBrush = brush;
                     break;
@@ -3201,6 +3246,11 @@ public partial class Main : Node3D
         GD.Print($"M6c: brush is now {_place.NextBrush().ToString().ToLowerInvariant()}");
     }
 
+    /// <summary>The store's moves over the set and the pocket (IM-6a's Core seam): one, shared by the panel and --deposit=.</summary>
+    private StoreMoves StoreMovesFor(MachineSet machines) => _storeMoves ??= new StoreMoves(machines, _inventory);
+
+    private StoreMoves? _storeMoves;
+
     /// <summary>Hands the HUD this frame's state to draw.</summary>
     /// <remarks>
     /// <b>The HUD is told, never asked.</b> Every value here is read from the controllers that
@@ -3363,6 +3413,12 @@ public partial class Main : Node3D
         // wants at the GUI stage and the keys it wants go to a focused field before anyone.
         _panel = new MachinePanel { Name = "MachinePanel" };
         AddChild(_panel);
+
+        // IM-6b, decision 9: the stock section's verbs go through Core's store moves, the seam M10g's screen shares.
+        if (_machines is not null && _materials is not null)
+        {
+            _panel.AttachStore(StoreMovesFor(_machines), _inventory, _materials, Content.Materials, () => _pack);
+        }
 
         // The map last, so it draws over everything -- it is a thing you open to look at, and
         // anything drawn on top of it would be in the way of the one job it has.
@@ -3995,6 +4051,25 @@ public partial class Main : Node3D
             return;
         }
 
+        // IM-6b, decision 11: a siphon on T says so, on the log and the message line.
+        if (SiphonClicks.IsWaterTool(tier))
+        {
+            string litres = tier.Bite switch
+            {
+                ToolBite.Chunk => "512,000 L",
+                ToolBite.Tunnel => "8,000 L",
+                _ => "1,000 L",
+            };
+            GD.Print(
+                $"M3d: {tier.Id} — a siphon: left click or Q held takes up to {litres} of water at the crosshair into the store, "
+                + $"right click pours up to {litres} back; {tier.Power?.JoulesPerLitre ?? 0:N0} J a litre taken, poured free; "
+                + (_pack is { IsWindow: true } window ? $"the quantum backpack is worn on channel {window.Channel}" : "it takes nothing without the quantum backpack worn"));
+            Tell(_pack is { IsWindow: true }
+                ? $"{Capitalised(ToolName(tier))}: left takes water into the store, right pours it."
+                : $"{Capitalised(ToolName(tier))}: wear the quantum backpack to use it.");
+            return;
+        }
+
         GD.Print(tier.Bite switch
         {
             ToolBite.Chunk =>
@@ -4220,6 +4295,7 @@ public partial class Main : Node3D
         // After the update, so every arrival the update completed is queued before the drain
         // reconciles it; the hooks only queued.
         DrainMachines();
+        PlaceAtsIfDue();
 
         // UNDO-PLAN: a step is a frame in which something was written, closed after the
         // drain so a dismantle and its bite are one step. A frame that wrote nothing closes
@@ -4258,6 +4334,7 @@ public partial class Main : Node3D
         }
 
         RefreshHud(delta);
+        _vaultGlitch?.Frame(Time.GetTicksMsec() / 1000.0);
         RecordFillMilestones();
 
         if (_profiler is not null && _profiler.Tick(delta))
@@ -4823,6 +4900,15 @@ public partial class Main : Node3D
                 History = _history,
                 Reserved = _collapseDirector?.Reserved,
             };
+
+            // IM-6b, decisions 13 and 14: the glitches, in a windowed run only — headless draws nothing, and building
+            // meshes there would move the headless figures every recipe is compared against.
+            bool windowed = !DisplayServer.GetName().Equals("headless", StringComparison.Ordinal);
+            int stone = MaterialId("overburden:stone");
+            if (windowed && stone != MaterialIds.AirNumericId)
+            {
+                _vaultGlitch = new VaultGlitch(this, _materials!, stone);
+            }
             if (_noGate)
             {
                 GD.Print("M10: --nogate — the pool is off and every pump is free (the pre-M10c arm)");
@@ -4848,7 +4934,6 @@ public partial class Main : Node3D
         }
     }
 
-    /// <summary>The <c>machines</c> bracket's second half: every pump, once, through the tick.</summary>
     /// <summary>
     /// IM-4a: the siphon's queue at the boundary (its pass, decision 2) — where the fluid's ownership has
     /// cleared and before the machine tick, whose run the bank's draw may not enter. Every twin checked
@@ -4873,6 +4958,7 @@ public partial class Main : Node3D
         }
     }
 
+    /// <summary>The <c>machines</c> bracket's second half: every pump, once, through the tick.</summary>
     private void RunMachineTick()
     {
         if (_machineTick is null || _machines is null || _machines.Count == 0)
@@ -4974,7 +5060,15 @@ public partial class Main : Node3D
         }
 
         PrintBankCrossings();
-        PrintVaultPhases();
+
+        if (_vaultGlitch is not null)
+        {
+            _vaultGlitch.UpdateFuses(_machines, CellIsLoaded);
+            if (_vaultDump is not null)
+            {
+                _vaultGlitch.AddPile(_vaultDump.PileVoxelsLast, Time.GetTicksMsec() / 1000.0);
+            }
+        }
 
         if (_hud is null)
         {
@@ -5067,6 +5161,10 @@ public partial class Main : Node3D
             {
                 _vaultFusesBurnt++;
                 GD.Print($"M10: vault — fuse burnt at {row.Cell}: {name} on channel {channel}{(contents.Wreck ? " (a wreck)" : string.Empty)}, dumping — owes {contents.TotalVoxels:N0} voxel(s) and {VolumeText.OfMillilitres(contents.WaterMillilitres)} of water");
+            }
+            else if (was == VaultPhase.Dumping && now == VaultPhase.Holding)
+            {
+                GD.Print($"M10: vault — dump ended at {row.Cell}: {name} on channel {channel} is a store again, {holds}");
             }
             else
             {
@@ -5247,6 +5345,93 @@ public partial class Main : Node3D
             {
                 GD.Print($"M10: --openpanel — no row at {wanted}, so there is nothing to open");
             }
+        }
+    }
+
+    /// <summary>
+    /// <c>--placeat=</c> and then <c>--deposit=</c> (IM-6b, its pass decision 16): once, when a profile warms or three
+    /// seconds into a plain run, as <c>--breach</c> waits. Each body through <see cref="PlaceBody"/> where its chunk is
+    /// loaded (the cell carved first, the body taken from the pocket as a placement takes it), a row alone where it is
+    /// not; its ports through the set's one write, clamped and printed. Then each deposit through the store's own door.
+    /// </summary>
+    private void PlaceAtsIfDue()
+    {
+        if (_placeAtsDone || (_placeAts.Count == 0 && _deposits.Count == 0) || _machines is null || _materials is null || _pipeline is null)
+        {
+            return;
+        }
+
+        bool due = _profiler is null ? _secondsSinceStart >= 3.0 : _profiler.Warm;
+        if (!due)
+        {
+            return;
+        }
+
+        _placeAtsDone = true;
+        const int Cell = BrushCell.Voxels * BrushCell.Voxels * BrushCell.Voxels;
+        BrushCell? last = null;
+        foreach (PlaceAt at in _placeAts)
+        {
+            if (!Content.Materials.TryGetNumericId(at.Material, out int material) || _materials.Machine(material) is not { } definition)
+            {
+                GD.Print($"M10: --placeat — {at.Material} is not a machine in this content; nothing placed");
+                continue;
+            }
+
+            BrushCell cell = BrushCell.FromVoxel(at.Voxel);
+            string how;
+            if (_machines.TryGet(cell, out MachineRow existing))
+            {
+                how = $"NOT placed: {Content.Materials.GetIdentifier(existing.MaterialId)} is already there";
+            }
+            else if (_pipeline.Streamer.Get(cell.OriginVoxel.Chunk)?.Voxels is not null)
+            {
+                _inventory.Add(material, Cell);
+                PlaceResult placed = PlaceBody(cell, material);
+                how = placed.Placed == Cell ? "placed" : $"NOT placed ({placed})";
+            }
+            else
+            {
+                _machines.Add(new MachineRow(cell, material, BrushFacing.PositiveX, definition.DefaultPorts()));
+                how = "a row alone (its chunk is not loaded)";
+            }
+
+            var writes = new List<string>();
+            if (_machines.TryGet(cell, out _))
+            {
+                last = cell;
+                foreach ((string name, long value) in at.Ports)
+                {
+                    writes.Add($"{name} := {value}: {_machines.SetPort(cell, name, value)}");
+                }
+            }
+
+            GD.Print($"M10: --placeat — {Hud.DisplayName(Content.Materials, material)} at {cell} (voxel {at.Voxel}): {how}"
+                     + (writes.Count > 0 ? $"; {string.Join("; ", writes)}" : string.Empty));
+        }
+
+        foreach (DepositAt deposit in _deposits)
+        {
+            BrushCell? target = deposit.Voxel is { } voxel ? BrushCell.FromVoxel(voxel) : last;
+            if (target is not { } cell)
+            {
+                GD.Print($"M10: --deposit — {deposit.Material} names no cell and no --placeat= placed one; nothing moved");
+                continue;
+            }
+
+            if (!Content.Materials.TryGetNumericId(deposit.Material, out int material))
+            {
+                GD.Print($"M10: --deposit — {deposit.Material} is not in this content; nothing moved");
+                continue;
+            }
+
+            long carried = _inventory.Voxels(material);
+            StoreMove move = StoreMovesFor(_machines).IntoBox(cell, material, Math.Min(deposit.Voxels, carried));
+            _depositsMoved += move.Voxels;
+            GD.Print(
+                $"M10: --deposit — {deposit.Voxels:N0} voxel(s) of {Hud.DisplayName(Content.Materials, material)} asked into {cell}, {carried:N0} carried: "
+                + (move.Refused ? $"refused — {MachinePanel.RefusalText(move.Refusal)}" : $"{move.Voxels:N0} moved")
+                + $"; the store holds {_machines.HeldVoxels:N0} voxel(s), deposited {_machines.DepositedVoxels:N0} — {(_machines.StoreExact ? "exact" : "*** NO ***")}");
         }
     }
 
@@ -5902,6 +6087,16 @@ public partial class Main : Node3D
                 ToolBite.Cube => _cubeCooldownSwept,
                 _ => false,
             };
+            // IM-6b: a water tool's line says what it is — never a hardness and a price a voxel it does not have.
+            if (SiphonClicks.IsWaterTool(tier))
+            {
+                GD.Print(
+                    $"M10: {tier.Id} — a siphon, {tier.Bite.ToString().ToLowerInvariant()} at range: takes water into the store (left click, Q held) "
+                    + $"and pours it back (right click), one op a {rate:F2} s, {tier.Power?.JoulesPerLitre ?? 0:N0} J a litre taken from the bank "
+                    + "through the quantum backpack, poured free; its clicks never reach the carve or the fill");
+                continue;
+            }
+
             GD.Print(
                 $"M10: {tier.Id} — {tier.Bite.ToString().ToLowerInvariant()} at range, takes hardness <= {tier.HardnessThreshold:F1}, "
                 + $"{rate:F2} s a bite{(swept ? " (swept)" : string.Empty)}, "
@@ -8004,6 +8199,11 @@ public partial class Main : Node3D
             _bMachines += machines;
             _bMachinesMax = Math.Max(_bMachinesMax, machines);
 
+            // IM-6b, decision 15: a fuse lit, out or burnt at this tick, told before the dump moves anything, so a
+            // burnt fuse's line says everything the vault owes. Outside both brackets: a print, no work.
+            PrintVaultPhases();
+            t3 = Stopwatch.GetTimestamp();
+
             // IM-5a, decision 9: the dump, after the tick so a fuse that burns out releases in the same
             // boundary, and before the table check so a lake's rise lands before the ceiling's refresh.
             // Its own term; t3 is stamped again after it, or with the table check off it reads as collapse.
@@ -8818,12 +9018,6 @@ public partial class Main : Node3D
         return Math.Max(1, (int)Math.Ceiling(radius) + 1);
     }
 
-    /// <summary>
-    /// The chunk fill a right click queued, at the boundary (M9d). Publishes first, so the fill's
-    /// wet answer is the grid as this boundary's own passes left it — the hand-off, the drains and
-    /// the pour have written cells since the collection's publish — and then places through the
-    /// same path a click would, tallied the same way.
-    /// </summary>
     /// <summary>The boundary's half of a machine placed into water — M10-PLAN decision 2's deferred, displacing path.</summary>
     private void RunPendingMachinePlacements()
     {
@@ -9843,7 +10037,8 @@ public partial class Main : Node3D
                       + $"port writes {_machines.PortWrites} ({_machines.PortWritesClamped} clamped), computer {_place?.ComputerOpens ?? 0} open(s) / {_place?.ComputerMisses ?? 0} miss(es)\n"
                       + (_machines.VaultVoxelsEntering + _machines.DepositedVoxels + _machines.VaultsWrecked > 0
                           ? $"vaults    held {_machines.HeldVoxels:N0} + owed {_machines.OwedVoxels:N0} voxel(s) == entering {_machines.VaultVoxelsEntering:N0} − leaving {_machines.VaultVoxelsLeaving:N0} "
-                            + $"+ deposited {_machines.DepositedVoxels:N0} − withdrawn {_machines.WithdrawnVoxels:N0}: {(_machines.StoreExact ? "exact" : "*** NO ***")}; "
+                            + $"+ deposited {_machines.DepositedVoxels:N0} − withdrawn {_machines.WithdrawnVoxels:N0} − dumped {_machines.VoxelsDumped:N0} − decohered {_machines.VoxelsDecohered:N0}: "
+                            + $"{(_machines.StoreExact ? "exact" : "*** NO ***")}; "
                             + $"{_machines.VaultsWrecked:N0} wreck(s), {_machines.VaultMovesAtPick:N0} pick move(s) ({_machines.VoxelsMovedAtPick:N0} voxel(s)), {_machines.PickVoxelsRefused:N0} body voxel(s) refused, "
                             + $"{_machines.UnreadableVaults:N0} unreadable\n"
                           : string.Empty)
@@ -9900,7 +10095,8 @@ public partial class Main : Node3D
                + $"{t.StorageRows:N0} cell(s){(t.StorageRowsOff > 0 ? $" (+{t.StorageRowsOff:N0} off)" : "")} hold {t.StoredMillijoules:N0} mJ ({MachinePanel.Joules(t.StoredMillijoules)}), pack {(t.Pack is null ? "none" : $"{t.Pack.ChargeMillijoules:N0} mJ ({MachinePanel.Joules(t.Pack.ChargeMillijoules)})")}; "
                + $"{t.Converters:N0} panel(s), sampled {t.SolarSampled:N0} / unsampled {t.SolarUnsampled:N0} (sky answered {_solarSky?.Answered ?? 0:N0}, no column {_solarSky?.Unanswered ?? 0:N0}), "
                + $"open {(t.SolarSampled + t.SolarUnsampled > 0 ? t.OpenColumnsSum / (double)(t.SolarSampled + t.SolarUnsampled) : 0):F2}/16 mean, overcast {t.OvercastByte}/256 at the last boundary; "
-               + $"pool == entering − leaving + generated − drawn − clamped + initial − taken − stowed: {(t.PowerExact ? "exact" : "*** NO ***")}\n";
+               + $"held {t.HeldMillijoules:N0} by vault bills, debug {t.PackDebugMillijoules:N0}, siphon paid {t.SiphonPaidMillijoules:N0}; "
+               + $"pool == entering − leaving + generated − drawn − clamped − held + initial + debug − taken − stowed − siphonPaid: {(t.PowerExact ? "exact" : "*** NO ***")}\n";
     }
 
     private string PlacementLines()
@@ -10332,8 +10528,34 @@ public partial class Main : Node3D
                 + $"{_machines.ChunksSkippedByPalette} skipped by palette, {_machines.ChunksLeftBeforeDrain} left before the drain | "
                 + $"drain {_machineDrainCalls} call(s), {(_machineDrainCalls > 0 ? _machineDrainMillisSum / _machineDrainCalls : 0):F2} ms mean, {_machineDrainMillisMax:F2} max | "
                 + $"port writes {_machines.PortWrites} ({_machines.PortWritesClamped} clamped), computer {_place?.ComputerOpens ?? 0} open(s) / {_place?.ComputerMisses ?? 0} miss(es)"
-                + MachineTickSummary());
+                + MachineTickSummary()
+                + VaultStoreSummary());
         }
+    }
+
+    /// <summary>
+    /// IM-6b, decision 15: the store on the periodic <c>M10:</c> line — both of its lines, each term, and whether each is
+    /// exact — and the fuses the one-off <c>M10: vault —</c> lines have told, with the panel's and <c>--deposit=</c>'s moves.
+    /// Empty until anything has entered a vault, so a world with no store prints as before.
+    /// </summary>
+    private string VaultStoreSummary()
+    {
+        if (_machines is null
+            || _machines.VaultVoxelsEntering + _machines.DepositedVoxels + _machines.VaultWaterEntering
+               + _machines.WaterDepositedMillilitres + _machines.WaterVaultedMillilitres + _machines.VaultsWrecked == 0)
+        {
+            return string.Empty;
+        }
+
+        MachineSet m = _machines;
+        return $" | store: held {m.HeldVoxels:N0} + owed {m.OwedVoxels:N0} voxel(s) == entering {m.VaultVoxelsEntering:N0} − leaving {m.VaultVoxelsLeaving:N0} "
+               + $"+ deposited {m.DepositedVoxels:N0} − withdrawn {m.WithdrawnVoxels:N0} − dumped {m.VoxelsDumped:N0} − decohered {m.VoxelsDecohered:N0}: "
+               + $"{(m.StoreExact ? "exact" : "*** NO ***")}; "
+               + $"water held {m.HeldWaterMillilitres:N0} + owed {m.OwedWaterMillilitres:N0} mL == entering {m.VaultWaterEntering:N0} − leaving {m.VaultWaterLeaving:N0} "
+               + $"+ siphoned {m.WaterDepositedMillilitres:N0} − poured {m.WaterWithdrawnMillilitres:N0} + vaulted {m.WaterVaultedMillilitres:N0} "
+               + $"− dumped {m.WaterDumpedMillilitres:N0} − decohered {m.WaterDecoheredMillilitres:N0}: {(m.StoreWaterExact ? "exact" : "*** NO ***")}; "
+               + $"fuses {_vaultFusesLit:N0} lit, {_vaultFusesOut:N0} out, {_vaultFusesBurnt:N0} burnt (M10: vault —); "
+               + $"{_panel?.StockMoves ?? 0:N0} stock move(s) through the panel, {_depositsMoved:N0} voxel(s) by --deposit=";
     }
 
     /// <summary>

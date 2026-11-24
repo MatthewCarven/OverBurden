@@ -104,6 +104,33 @@ public class StoreMovesTests
         public static EquippedPack LeadAcidPack() => new(LeadAcid, Materials.Machine(LeadAcid)!, 0, 0);
     }
 
+    /// <summary>IM-6b (decision 9): the stock section's rows — the store's holdings summed over the vaults it lists, and one box's own.</summary>
+    [Fact]
+    public void TheStoresStockIsItsOpenVaultsSummedAndABoxShowsItsOwnOpenOrNot()
+    {
+        var rig = new Rig();
+        rig.Box(new BrushCell(0, 0, 0), High, channel: 1, contents: Rig.Holding((Stone, 640), (Dirt, 64)));
+        rig.Box(new BrushCell(1, 0, 0), Small, channel: 1, contents: Rig.Holding((Stone, 60)));
+        rig.Box(new BrushCell(2, 0, 0), High, channel: 2, contents: Rig.Holding((Stone, 5)));
+        MachineRow off = rig.Box(new BrushCell(3, 0, 0), High, channel: 1, enabled: false, contents: Rig.Holding((Dirt, 7)));
+        MachineRow crate = rig.Box(new BrushCell(4, 0, 0), Crate, contents: Rig.Holding((Dirt, 3)));
+
+        // A switched-off vault is out of the store (decision 27), so its 7 dirt are not in the channel's stock.
+        Assert.Equal(new SortedDictionary<int, long> { [Stone] = 700, [Dirt] = 64 }, rig.Moves.StockOfStore(1));
+        Assert.Equal(new SortedDictionary<int, long> { [Stone] = 5 }, rig.Moves.StockOfStore(2));
+        Assert.Empty(rig.Moves.StockOfStore(0));
+
+        // But its own panel still shows what it holds, and so does a crate's.
+        Assert.Equal(new SortedDictionary<int, long> { [Dirt] = 7 }, rig.Moves.StockOfBox(off.Cell));
+        Assert.Equal(new SortedDictionary<int, long> { [Dirt] = 3 }, rig.Moves.StockOfBox(crate.Cell));
+        Assert.Empty(rig.Moves.StockOfBox(new BrushCell(9, 9, 9)));
+
+        // A click moves a piece of a counted item and a cubic metre of anything else.
+        Assert.Equal(1, StoreMoves.ClickVoxels(MaterialUnit.Count));
+        Assert.Equal(64, StoreMoves.ClickVoxels(MaterialUnit.Cells));
+        Assert.Equal(64, StoreMoves.ClickVoxels(MaterialUnit.Litres));
+    }
+
     [Fact]
     public void ToStoreFillsTheBackpacksChannelInFillOrderAndToPocketTakesTheLastFilledFirst()
     {

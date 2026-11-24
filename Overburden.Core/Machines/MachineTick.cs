@@ -1703,11 +1703,11 @@ public sealed class MachineTick : IChannelBank
         return ring;
     }
 
-    /// <summary>The outlet's weight: its port, clamped to a positive number, or one where the material declares none.</summary>
     /// <summary>Whether the row is on: its <see cref="EnabledPort"/> non-zero, or on where the material declares none.</summary>
     public static bool IsEnabled(MachineRow row) =>
         !row.TryGetPort(EnabledPort, out long enabled) || enabled != 0;
 
+    /// <summary>The outlet's weight: its port, clamped to a positive number, or one where the material declares none.</summary>
     private static long WeightOf(MachineRow row) =>
         row.TryGetPort(WeightPort, out long weight) ? Math.Max(1, weight) : 1;
 

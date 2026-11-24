@@ -64,6 +64,7 @@ public sealed partial class MachinePanel : CanvasLayer
     private sealed record PortView(string Name, SpinBox Spin, Label Bounds);
 
     private MachineRow? _row;
+    private MachineDefinition? _openDefinition;
     private MachineSet? _machines;
     private MachineTick? _tick;
     private MachineKind _kind;
@@ -156,6 +157,9 @@ public sealed partial class MachinePanel : CanvasLayer
         _status = new Label { MouseFilter = Control.MouseFilterEnum.Ignore, AutowrapMode = TextServer.AutowrapMode.WordSmart };
         column.AddChild(_status);
 
+        // IM-6b: the stock section (decision 9), shown on a vault, a crate and the quantum backpack.
+        BuildStock(column);
+
         var hint = new Label
         {
             Text = "Esc or click outside to close   ·   the tick reads a change at its next boundary",
@@ -180,6 +184,7 @@ public sealed partial class MachinePanel : CanvasLayer
         _row = row;
         _pack = null;
         _machines = machines;
+        _openDefinition = definition;
         _tick = tick;
         _kind = definition.Kind;
         _label = label;
@@ -198,6 +203,10 @@ public sealed partial class MachinePanel : CanvasLayer
 
         _views.Clear();
 
+        // IM-6b, decision 10: a vault's channel box opens locked, each time its panel opens.
+        _channelLocked = definition.Kind == MachineKind.Vault;
+        _padlock = null;
+
         foreach (PortDefinition port in definition.Ports)
         {
             _portRows.AddChild(BuildPortRow(port, row));
@@ -212,6 +221,7 @@ public sealed partial class MachinePanel : CanvasLayer
 
         _root.Visible = true;
         RefreshStatus();
+        ShowStock(definition.Kind != MachineKind.Vault ? StockSubject.None : definition.IsChannelVault ? StockSubject.Vault : StockSubject.Crate);
     }
 
     /// <summary>
@@ -236,7 +246,13 @@ public sealed partial class MachinePanel : CanvasLayer
         _sinceRefresh = RefreshSeconds;
 
         _title.Text = label.ToUpperInvariant();
-        _where.Text = "equipped   ·   recharges from its channel after every placed consumer";
+
+        // IM-6b, decision 8: a window says what it is — the bank on its channel, nothing of its own, never recharged.
+        _where.Text = pack.IsWindow
+            ? "worn   ·   a window onto its channel's bank and store: it holds nothing itself and is never recharged"
+            : "equipped   ·   recharges from its channel after every placed consumer";
+        _channelLocked = false;
+        _padlock = null;
 
         foreach (Node child in _portRows.GetChildren())
         {
@@ -260,6 +276,7 @@ public sealed partial class MachinePanel : CanvasLayer
 
         _root.Visible = true;
         RefreshStatus();
+        ShowStock(pack.IsWindow ? StockSubject.Store : StockSubject.None);
     }
 
     /// <summary>
@@ -270,6 +287,17 @@ public sealed partial class MachinePanel : CanvasLayer
     /// <returns>False when no open row declares a port of that name.</returns>
     public bool TypeInto(string name, long value)
     {
+        // IM-6b, decision 10: the padlock as a hand clicks it — --panelset=unlock=1, before a vault's channel.
+        if (name == "unlock" && _padlock is not null)
+        {
+            if (value != 0 && _channelLocked)
+            {
+                Unlock();
+            }
+
+            return true;
+        }
+
         foreach (PortView view in _views)
         {
             if (view.Name == name)
@@ -298,6 +326,9 @@ public sealed partial class MachinePanel : CanvasLayer
         _pack = null;
         _machines = null;
         _tick = null;
+        _subject = StockSubject.None;
+        _channelLocked = false;
+        _padlock = null;
         _root.Visible = false;
     }
 
@@ -317,6 +348,36 @@ public sealed partial class MachinePanel : CanvasLayer
 
         _sinceRefresh = 0.0;
         RefreshStatus();
+        RefreshStock();
+    }
+
+    /// <summary>Whether the open vault's channel box is locked (decision 10): for this opening only, saved nowhere.</summary>
+    private bool _channelLocked;
+
+    private Button? _padlock;
+
+    /// <summary>Whether the channel box is locked now — headless's, for the log.</summary>
+    public bool ChannelLocked => _channelLocked;
+
+    /// <summary>The padlock's click: the channel box opens until the panel closes (decision 10).</summary>
+    private void Unlock()
+    {
+        _channelLocked = false;
+        foreach (PortView view in _views)
+        {
+            if (view.Name == MachineTick.ChannelPort)
+            {
+                view.Spin.Editable = true;
+            }
+        }
+
+        if (_padlock is not null)
+        {
+            _padlock.Text = "unlocked";
+            _padlock.Disabled = true;
+        }
+
+        GD.Print($"M10: panel — {_label} at {_row?.Cell}: the channel box is unlocked until the panel closes");
     }
 
     private Control BuildPortRow(PortDefinition port, MachineRow row)
@@ -351,6 +412,21 @@ public sealed partial class MachinePanel : CanvasLayer
         var bounds = new Label { Text = $"{port.Min} … {port.Max}", MouseFilter = Control.MouseFilterEnum.Ignore };
         bounds.AddThemeColorOverride("font_color", DimText);
         line.AddChild(bounds);
+
+        // IM-6b, decision 10: a vault's channel box behind a padlock, so a stray scroll never moves a store to a
+        // channel that cannot pay its bill. A click unlocks it until the panel closes.
+        if (_channelLocked && port.Name == MachineTick.ChannelPort)
+        {
+            spin.Editable = false;
+            _padlock = new Button
+            {
+                Text = "locked — click to unlock",
+                FocusMode = Control.FocusModeEnum.None,
+                TooltipText = "moves this vault, and everything it holds, to another channel's store and bank",
+            };
+            _padlock.Pressed += Unlock;
+            line.AddChild(_padlock);
+        }
 
         var view = new PortView(port.Name, spin, bounds);
         _views.Add(view);
@@ -441,9 +517,17 @@ public sealed partial class MachinePanel : CanvasLayer
             return;
         }
 
+        long channelBefore = _row.TryGetPort(MachineTick.ChannelPort, out long before) ? before : 0;
         PortWrite write = _machines.SetPort(_row.Cell, view.Name, (long)Math.Round(value));
         Writes++;
         GD.Print($"M10: panel — {_label} at {_row.Cell}: {view.Name} := {(long)Math.Round(value)}: {write}");
+
+        // IM-6b, decision 10: moving a vault that holds anything moves its contents with it (decision 17), logged.
+        if (_kind == MachineKind.Vault && view.Name == MachineTick.ChannelPort && write.Landed && write.Value != channelBefore
+            && VaultState.TryRead(_row, out VaultContents moved) && !moved.IsEmpty)
+        {
+            GD.Print($"M10: panel — {_label} at {_row.Cell} moved from channel {channelBefore} to {write.Value} holding {moved.TotalVoxels:N0} voxel(s) and {VolumeText.OfMillilitres(moved.WaterMillilitres)} of water: its store and its bill go with it");
+        }
 
         if (write.Landed && (long)Math.Round(view.Spin.Value) != write.Value)
         {
@@ -465,10 +549,21 @@ public sealed partial class MachinePanel : CanvasLayer
             // The pack's line, refreshed every tick of the throttle and printed once at open: a
             // charge is a number that moves every boundary and a print per move would be the log
             // the stall rule exists to prevent.
-            long bound = _pack.Definition.RechargeWatts is { } watts && _tick is not null ? watts * _tick.BoundaryMillis : 0;
-            string recharge = bound > 0 ? $"up to {Joules(bound)} a boundary" : "at any rate the channel can give";
-            _status.Text = $"charged {ChargeOf(_pack.ChargeMillijoules, _pack.CapacityMillijoules)}   ·   recharges on channel {_pack.Channel}, {recharge}";
-            _status.AddThemeColorOverride("font_color", _pack.ChargeMillijoules > 0 ? MovedText : StallText);
+            if (_pack.IsWindow)
+            {
+                long bank = _tick?.BankOf(_pack.Channel) ?? 0;
+                _status.Text = $"a window onto channel {_pack.Channel}: the bank there holds {Joules(bank)}, and every tool and siphon draws straight from it";
+                _status.AddThemeColorOverride("font_color", bank > 0 ? MovedText : StallText);
+            }
+            else
+            {
+                // IM-6b, decision 3: the recharge as power, auto-scaled.
+                string recharge = _pack.Definition.RechargeWatts is { } watts and > 0
+                    ? $"up to {PowerText.OfWatts(watts)}"
+                    : "at any rate the channel can give";
+                _status.Text = $"charged {ChargeOf(_pack.ChargeMillijoules, _pack.CapacityMillijoules)}   ·   recharges on channel {_pack.Channel}, {recharge}";
+                _status.AddThemeColorOverride("font_color", _pack.ChargeMillijoules > 0 ? MovedText : StallText);
+            }
             if (_printedStall is null)
             {
                 _printedStall = PumpStall.None;
@@ -549,14 +644,16 @@ public sealed partial class MachinePanel : CanvasLayer
             int open = ConverterState.ReadOpenColumns(row);
             long output = _tick?.SolarOutputOf(row) ?? 0;
             byte overcast = _tick?.OvercastByte ?? 0;
-            return ($"generating {Joules(output)} a boundary onto channel {channel}   ·   {open}/16 open, overcast {overcast}/256",
+            // IM-6b, decision 3: the output as power, auto-scaled.
+            long boundary = _tick?.BoundaryMillis ?? MachineTick.DefaultBoundaryMillis;
+            return ($"generating {PowerText.OfMillijoulesPerBoundary(output, boundary)} onto channel {channel}   ·   {open}/16 open, overcast {overcast}/256",
                 output > 0 ? MovedText : StallText, null);
         }
 
         return row.LastStall switch
         {
             PumpStall.None when row.LastMovedMillilitres > 0 =>
-                ($"moved {Litres(row.LastMovedMillilitres)} at the last boundary", MovedText, PumpStall.None),
+                ($"moved {Litres(row.LastMovedMillilitres)} at the last boundary{PumpDraw(row)}", MovedText, PumpStall.None),
             PumpStall.None => ("waiting for the first boundary", DimText, null),
             PumpStall.NoOutlet => ($"stalled: no outlet on channel {channel}", StallText, PumpStall.NoOutlet),
             PumpStall.NoWater => ("stalled: no water at the intake", StallText, PumpStall.NoWater),
@@ -567,6 +664,23 @@ public sealed partial class MachinePanel : CanvasLayer
             PumpStall.Signalled => ($"stalled: held off — {OnSignalText(row, channel)}", StallText, PumpStall.Signalled),
             _ => (row.LastStall.ToString(), StallText, row.LastStall),
         };
+    }
+
+    /// <summary>
+    /// A pump's draw at the last boundary, as power (IM-6b, decision 3: shown for the first time): what it moved at its
+    /// joules a litre — a joule a litre is a millijoule a millilitre — or nothing under <c>--nogate</c>.
+    /// </summary>
+    private string PumpDraw(MachineRow row)
+    {
+        if (_tick is null || _tick.PowerOff || _machines is null || row.LastMovedMillilitres <= 0)
+        {
+            return string.Empty;
+        }
+
+        long perMillilitre = _openDefinition?.JoulesPerLitre ?? 0;
+        return perMillilitre <= 0
+            ? string.Empty
+            : $", drawing {PowerText.OfMillijoulesPerBoundary(row.LastMovedMillilitres * perMillilitre, _tick.BoundaryMillis)}";
     }
 
     /// <summary>What a reader's <c>onsignal</c> asks of it, in words: off while its channel is signalled, or on only while it is.</summary>
@@ -597,9 +711,9 @@ public sealed partial class MachinePanel : CanvasLayer
     }
 
     /// <summary>
-    /// A vault's line: <c>VAULT — holds 40 voxels, 0.6 of 1.0 m³ (62.5%) · bill 1.25 J a boundary on
-    /// channel 0, own 93.8 J of 93.8 J (100.0%) · HOLDING</c>, the phase as <c>FUSE 12.0 s</c> (or
-    /// <c>(paused)</c>), <c>DUMPING</c> or <c>WRECK</c>; a crate says so.
+    /// A vault's line: <c>VAULT — holds 40 voxels, 625 L of 1 m³ (62.5%) · bill 2.5 W on channel 0, own 93.8 J of
+    /// 93.8 J (100.0%) · HOLDING</c>, the phase as <c>FUSE 12.0 s</c> (or <c>(paused)</c>), <c>DUMPING — owes …</c> or
+    /// <c>WRECK — owes …</c>; a crate says so. Since IM-6b the stock section shows it on screen, and this line is the log's.
     /// </summary>
     private (string Text, Color Colour, PumpStall? Stall) VaultStatus(MachineRow row, long channel)
     {
@@ -609,11 +723,11 @@ public sealed partial class MachinePanel : CanvasLayer
             return ("VAULT — its state is from a newer build: kept as it is, holding whatever it holds", StallText, null);
         }
 
-        string used = $"{contents.UsedMillilitres / (double)MachineDefinition.MillilitresPerCubicMetre:N1} of "
-                      + $"{definition.InsideMillilitres / (double)MachineDefinition.MillilitresPerCubicMetre:N1} m³ "
+        // IM-6b (fact 9): volumes through VolumeText, as the hotbar and the store read them.
+        string used = $"{VolumeText.OfMillilitres(Math.Max(0, contents.UsedMillilitres))} of {VolumeText.OfMillilitres(definition.InsideMillilitres)} "
                       + $"({Share(contents.UsedMillilitres, definition.InsideMillilitres)})";
         string holds = $"holds {contents.TotalVoxels:N0} voxel(s)"
-                       + (contents.WaterMillilitres > 0 ? $" and {Litres(contents.WaterMillilitres)}" : string.Empty)
+                       + (contents.WaterMillilitres > 0 ? $" and {VolumeText.OfMillilitres(contents.WaterMillilitres)} of water" : string.Empty)
                        + $", {used}";
         if (!definition.IsChannelVault)
         {
@@ -627,8 +741,8 @@ public sealed partial class MachinePanel : CanvasLayer
         string own = $"own {ChargeOf(contents.OwnChargeMillijoules, MachineTick.OwnChargeCapacity(definition, contents))}";
         (string phase, Color colour) = contents switch
         {
-            { Wreck: true } => ("WRECK — its contents are owed to the world", StallText),
-            { Phase: VaultPhase.Dumping } => ("DUMPING — its contents are owed to the world", StallText),
+            { Wreck: true } => ($"WRECK — owes {Owed(contents)}", StallText),
+            { Phase: VaultPhase.Dumping } => ($"DUMPING — owes {Owed(contents)}", StallText),
             { Phase: VaultPhase.Fusing } when row.LastHoldPaid =>
                 ($"FUSE {contents.FuseMillisLeft / 1000.0:N1} s (paused) — the bill is paid; out when its minute is back", StallText),
             { Phase: VaultPhase.Fusing } => ($"FUSE {contents.FuseMillisLeft / 1000.0:N1} s — the bill went unpaid", StallText),
@@ -636,7 +750,8 @@ public sealed partial class MachinePanel : CanvasLayer
             _ => ("HOLDING", contents.IsEmpty ? DimText : MovedText),
         };
 
-        return ($"VAULT — {holds}   ·   bill {Joules(bill)} a boundary on channel {channel}, {own}   ·   {phase}", colour, null);
+        long boundaryMillis = _tick?.BoundaryMillis ?? MachineTick.DefaultBoundaryMillis;
+        return ($"VAULT — {holds}   ·   bill {PowerText.OfMillijoulesPerBoundary(bill, boundaryMillis)} on channel {channel}, {own}   ·   {phase}", colour, null);
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using Overburden.Core.Building;
+using Overburden.Core.Content;
 using Overburden.Core.Inventory;
 
 namespace Overburden.Core.Machines;
@@ -147,6 +148,56 @@ public sealed class StoreMoves
             ? _machines.MoveFromStoreInto(pack.Channel, cell, materialId, voxels - fromPocket)
             : 0;
         return new StoreMove(fromPocket + fromStore, StoreRefusal.None);
+    }
+
+    /// <summary>
+    /// What the backpack's channel's store holds, by material — the stock section's rows on the backpack's panel
+    /// (IM-6's pass, decision 9): every vault the store lists (<see cref="MachineSet.StoreOf"/>), summed. Water is not
+    /// here; it is millilitres on the rows (<see cref="MachineSet.StoredWaterOf"/>).
+    /// </summary>
+    public SortedDictionary<int, long> StockOfStore(int channel)
+    {
+        var stock = new SortedDictionary<int, long>();
+        foreach (MachineRow row in _machines.StoreOf(Math.Clamp(channel, 0, MachineTick.Channels - 1)))
+        {
+            if (VaultState.TryRead(row, out VaultContents contents))
+            {
+                Add(stock, contents);
+            }
+        }
+
+        return stock;
+    }
+
+    /// <summary>
+    /// What the one vault or crate at <paramref name="cell"/> holds, by material, whether its box is open or not — a
+    /// closed box still shows its stock (decision 9) — and empty for no box or one this build cannot read.
+    /// </summary>
+    public SortedDictionary<int, long> StockOfBox(BrushCell cell)
+    {
+        var stock = new SortedDictionary<int, long>();
+        if (_machines.TryGet(cell, out MachineRow? row)
+            && _machines.IsVault(row)
+            && VaultState.TryRead(row, out VaultContents contents))
+        {
+            Add(stock, contents);
+        }
+
+        return stock;
+    }
+
+    /// <summary>Voxels one click of a stock row moves (decision 9): a piece for a counted item, else a cubic metre (a body).</summary>
+    public static long ClickVoxels(MaterialUnit unit) => DebugSeed.VoxelsPerUnit(unit);
+
+    private static void Add(SortedDictionary<int, long> stock, VaultContents contents)
+    {
+        foreach ((int material, long voxels) in contents.Voxels)
+        {
+            if (voxels > 0)
+            {
+                stock[material] = stock.GetValueOrDefault(material) + voxels;
+            }
+        }
     }
 
     private StoreMove? Refusal(EquippedPack? pack, int materialId)

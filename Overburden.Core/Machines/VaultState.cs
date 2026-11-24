@@ -8,7 +8,10 @@ public enum VaultPhase : byte
     /// <summary>A store: it takes deposits and gives withdrawals, and its bill is paid.</summary>
     Holding,
 
-    /// <summary>Its bill went unpaid: the fuse is burning. A boundary that pays in full disarms it.</summary>
+    /// <summary>
+    /// Its bill went unpaid with its own minute spent: the fuse is lit. A boundary that pays the bill pauses it; it goes
+    /// out only once the spare has refilled the minute (IM-3b, his word, amending decision 28's "disarms").
+    /// </summary>
     Fusing,
 
     /// <summary>The fuse burned out: its contents are owed to the world, and nothing stops the dump (34).</summary>
