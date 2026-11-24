@@ -1,5 +1,45 @@
 ﻿# Overburden — Worklog
 
+## 2026-11-24 — IM-6: the code-level pass (the bank, the vault, water and the dump)
+
+The hand-over's next, with nothing left in front of it once the warnings and f-1 landed. Docs only: the game wasn't
+launched and nothing was built, since he may start `start.cmd` from this folder.
+- **The reading.** Three read-only searches ran in parallel, each reporting file and line against `4a2895c`:
+  - the header, the creative surface and the keys;
+  - the HUD, the panel and the store's doors;
+  - the tools, the siphon, the content and the dump's wire.
+
+  Then the load-bearing facts were checked by hand: the tick's order and the held cells' cut
+  (`MachineTick.cs:808-915`, `:975-983`, `:1153-1302`, `:1350-1382`); the HUD's pack line; the store's doors and the
+  pocket's refusal; a profile with `--world=`; a placed cell's empty charge; Alt+P's door; the card's auto-open;
+  who reads `Takes`; the texture tables; the tool-cycle tests; the ID grammar and the name rule.
+- **Twenty-four facts, twenty-six decisions, six of them forks** (the plan, "IM-6 — the code-level pass"). The facts
+  that turned a decision:
+  - The HUD shows a worn backpack as an empty pack, because a window has no charge of its own.
+  - Nothing in the Game reads a tool's `Takes`, so a siphon file on T before the clicks' water branch would dig and
+    fill for free.
+  - The runway's figures are global or internal. The bank's own change counts Alt+P, picks and vault recharges as
+    flows, so the runway is built from per-channel flows counted at the bank's draw.
+  - P can't seed a placeable vault without filling the alpha's row, so containers go off the row, as items do.
+  - A water slot would read the pocket's `0 L`, so water becomes a gauge beside the row (amends decision 23).
+  - The panel never logs a vault, so the oracle reads new one-off `M10: vault —` lines.
+  - A profile with `--world=` makes a world, so `--mode=creative` applies to any run that creates one (amends 51).
+  - `start.cmd` passes `--dev`, so creative's key gate has to win over it, with Ctrl+P and Alt+H added (amends 52).
+  - `--placeat=` is f-2's, and IM-6's oracle needs it, so it lands in IM-6b.
+- **The split recommended:**
+  - 6a: Core, with nothing changed in play;
+  - 6b: the wire and content, the vault playable in sandbox with no save change;
+  - 6c: creative, with the v8 capture, header v9, the kit, the grant, the keys, the card and the oracle.
+
+  The save-format bump goes last, so his worlds move past 0.1.3 only once creative is there to use.
+- **f-1's finding, narrowed.** Sun, and cells not held, still refill a vault's minute. A fuse stays paused under a
+  signal only on a channel whose charged cells are all held and whose sun covers no more than the bills, after a door
+  put charge into a held cell. No rule change is recommended.
+- **Every door priced** in the pass's table. The kit and the first cell's gift are the two mints, both by design,
+  each printed `granted` and made once by a header bit. An undo of the first cell's placement loses the gift.
+- **Small things found**, to fix in 6b if it is taken: the profile's voxel and power lines print shorter formulas
+  than they check; `VaultState.cs:11` still says a paid boundary disarms a fuse; and two doc summaries are stray.
+
 ## 2026-11-24 — Collapse f-1: the sensor's Core, the signal, and the vault's bill kept paid
 
 TODO's "Order and collisions" item 2, ideally before IM-6, whose playable vault leans on its rule that a

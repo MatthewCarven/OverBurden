@@ -653,7 +653,7 @@ name, bounds or default.
 | **IM-3** Core (amended by its pass, below) | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
 | **IM-4** Core (its pass, 2026-09-30, splits it into 4a–4c, twelve decisions taken; **4a, 4b and 4c built**; 4c kept today's lake rule at his word, displacement is its own pass) | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; ~~the pump stalls `full` only when every ring entry refuses~~ a full vault reads `NoRoom`, the first refusal met (the pass's decision 11). Mutation: drop `vaulted`, red. |
 | **IM-5** Core (its pass, 2026-09-30, splits it into 5a, the water, and 5b, the pile; sixteen decisions taken as recommended) | The dump: the pile writer, the Tier A release, the Tier B ball with its twin sized to the budget, the ceilings and decoherence, the global budgets, owed while unloaded, the unload batch's session, the dead state; a heap-writer bench arm. | A fixture room receives every voxel once; a pile into a chunk that unloads, then a kill with no session save, then a reopen, counts every voxel once; the unloaded arm releases at arrival; N vaults dumping share the budget exactly; the Tier B ceiling decoheres the excess; power returning after the fuse does nothing; Ctrl+Z cannot touch the pile; Tier B exact, Tier A's counters seam-checked. Mutation: route the dump through `Add`, and the seam goes red. |
-| **IM-6** Wire | Header v9, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v8 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
+| **IM-6** Wire (its pass, 2026-11-24, splits it into 6a, Core; 6b, the wire and the vault in sandbox; and 6c, creative; twenty-six decisions wait on his word) | Header v9, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v8 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
 | **IM-7** Core | The `quarry` kind: the box, `Facing`, the cursor, the skips, the scan cap, the stalls, the allotment and the carve's draw (`dug`), recording off with the chunk forget. | Digs a fixture box once, top down; never a machine or a full vault; pays exactly the voxels removed × 50 J; `OFF SITE` on an unloaded chunk; `flooded`; the cursor survives a save; Ctrl+Z on a hand dig in a chunk the quarry wrote is dropped, and in an untouched chunk still works; a Release bench arm at 1, 4 and 16 quarries. Mutation: quarry writes with recording on, red. |
 | **IM-8** Wire | Quarry wiring: the `quarry` bracket, the panel, the pins, the README's OH&S line. | Headless on the fixed seed: bites, and `quarry` against the 1 ms line; r6. **Playable: quarries.** |
 | **IM-9** Core+wire | Recall, the board, pin states, the power sensor, the unloaded-sensor guard. | `released == landed + in flight + lost + recalled` in both collapse modes and under `--bitechunks`; a part-picked machine credits `cleared + Recalled`, not 64; a bankrupt channel recalls nothing; a recalled pump is 64 in the pocket and none of it rubble; after the drain, Ctrl+Z re-adds nothing and the next arrival rebuilds nothing. Mutation: credit 64, red. A sensors × radius arm against `machines`. |
@@ -2344,6 +2344,462 @@ The test now insists the floor is reached the very next boundary with no rest, a
 **On main** (fast-forwarded the same night): the r6 control to the digit, 2601 / 325 / 3446 at 411, no
 `ERROR`. **Owed at IM-6:** the in-game read of a real dump (the `dump` term, the frame line, and the remeshes
 against the bench), with the pile's cyan glitch (decision 16).
+
+## IM-6 — the code-level pass (2026-11-24)
+
+Everything TODO put before IM-6 landed on 2026-11-24: the build warnings and collapse f-1. This pass reads IM-6's row
+and the decisions it wires (11, 12, 21–23, 26, 28, 51–55, IM-3b's 6, IM-5's 16) against main at `4a2895c`. It
+covers:
+- the header, the world's open, the loader, the pocket and the row, the debug keys and the card;
+- the HUD, the machine panel and the store's doors;
+- the tools and T, the siphon, the content and its textures, the dump's wire and the glitch.
+
+The reading was three read-only searches, each reporting file and line, with the load-bearing facts checked by hand.
+The reader maps describe `71e6eed`; what moved since is folded into the facts. **Nothing is built; the decisions below
+wait on his word.**
+
+**Twenty-four facts.**
+
+*The vault in play*
+1. **No vault, crate or siphon file ships, and the grammar is ready.**
+   - Seventeen materials ship, and four tools: the hand pick and the quantum miner, tunneller and excavator (the steel
+     pick retired 2026-10-12).
+   - The loader takes `"kind": "vault"` (`ContentLoader.cs:832-833`), with its rules at `MachineDefinition.cs:645-700`.
+   - An ID's path may hold `/` (`Identifier.cs:143-144`). A material's ID is its `id` key, not its file name, and
+     files are listed one folder deep (`ContentLoader.cs:403-425`, `IContentSource.cs:52`). So `quantum_vault/high`
+     loads from `quantum_vault_high.json`.
+   - **There is no label key.** A material's name on screen is its path with `_` read as a space (`Hud.cs:666`,
+     `Main.cs:6084`), so `quantum_vault/high` would read "quantum vault/high".
+2. **A texture is a JSON layer plus two Game tables.** `textureLayer` indexes an array built from
+   `VoxelMaterial.LayerColour` (`VoxelMaterial.cs:47-98`) and a parallel `jitter` array (`:130`). A length mismatch is
+   an error (`:131-134`). Layers 0–14 are taken, the backpack's cyan at 13 and lithium at 14, so new layers start at
+   15. The HUD's swatch reads the same colour (`Hud.cs:617`). `water.json` has no layer.
+3. **Six assertions, in four test files, hard-count what IM-6 adds:**
+   - `ShippedContentTests.cs:236`, 7 machine materials;
+   - `:270`, 5 materials that can't be placed;
+   - `:113-115`, the exact four-tool cycle;
+   - `:187-189`, the last three on T being the quantum rock tools (water tools sort after rock tools,
+     `ToolTiers.cs:38-47`, so three siphons become the last three);
+   - `CollapseTests.cs:1044`, 12 IDs appended to the v3 fixture;
+   - `DebugSeedTests.cs:297`, the list of items.
+4. **P can't seed a placeable machine without breaking the alpha's row.**
+   - P credits the pump, outlet, panel, cell, clay and glass in that order, and leaves slot 9 for the first stone.
+     `DebugSeedTests.cs:131-147` pins this.
+   - Five vaults and a crate are placeable, so on the alpha's path the row would fill and stone would get no slot.
+   - The backpack is an item, so it stays off the row (`MaterialTable.cs:113-119`, `Main.cs:1578`).
+   - P still doesn't seed the backpack (`DebugSeed.cs:68-79`), as IM-2 left it.
+
+*The bank on screen*
+5. **The HUD shows the quantum backpack as an empty pack.** The pack line prints the pack's own charge and capacity
+   (`Hud.cs:713-721`), so a window reads `pack 0 mJ / 0 mJ (–)`. Yet `EquippedPack.SpendableMillijoules` is documented
+   as the number the HUD reads (`EquippedPack.cs:71-75`). The backpack's panel says it recharges (`MachinePanel.cs:238`,
+   `:467-470`). Today only `--pack=` and `--stock=` reach a backpack, so nobody has seen either.
+6. **None of the figures a runway needs is both per channel and public.**
+   - The boundary report sums all sixteen channels (`MachineTick.cs:48-94`).
+   - The hand's and the siphon's spend are lifetime counters outside the report (`:498`, `:523`), since they happen
+     between boundaries.
+   - The per-channel bank, `IChannelBank.BankMillijoules`, is internal (`IChannelBank.cs:9`,
+     `MachineTick.cs:1384-1409`), and Core is visible to the tests only.
+   - The HUD is pushed every frame, and is handed no machine set and no tick (`Main.cs:3194-3223`).
+7. **The bank's own change is the wrong signal for a runway.**
+   - Alt+P fills cells through `SetCharge`, counted as `entering` (`Main.cs:5420-5430`, `MachineSet.cs:168-183`).
+   - A picked cell leaves through `leaving`.
+   - A vault's recharge and return move charge between the cells and its own minute (`MachineTick.cs:1166-1182`,
+     `:1257-1302`).
+
+   Averaged over 10 s, picking up one full 5 GJ cell would read as 500 MW out (arithmetic).
+8. **No watts formatter exists.** Energy is formatted by `MachinePanel.Joules`, in the Game (`MachinePanel.cs:669-679`).
+   The panel prints power as energy a boundary: the bill (`:638`), a panel's output (`:551`), a pack's recharge
+   (`:467-468`). A pump's power is never shown.
+
+*The panel and the store's doors*
+9. **The panel's vault line is IM-3's minimal branch** (`MachinePanel.cs:603-639`).
+   - Its volumes have their own format, not `VolumeText`.
+   - `DUMPING` doesn't say what the vault owes.
+   - Ports are generic boxes written through `SetPort` (`:321-358`, `:443`), so the channel box has no lock.
+   - **It never logs a vault.** The log line prints only when the stall kind changes (`:488-495`), and a vault's stall
+     is always null.
+10. **The store's doors exist, and the Game calls none of them.**
+    - `Deposit` and `Withdraw` work on a channel: fill order going in, last-filled first coming out.
+    - `DepositInto` and `WithdrawFrom` work on one row, refused unless its box is open (`MachineSet.Vaults.cs:501-534`).
+    - There is no channel total or capacity for blocks. Water has `WaterRoomOf` and `StoredWaterOf` (`:287-315`).
+11. **A move to the pocket could lose voxels without a word.** `WithdrawFrom` takes from the vault, then credits the
+    pocket. The pocket drops a material it refuses into `RefusedVoxels` (`VolumetricInventory.cs:165-169`), a counter
+    only a test reads. This can't happen today: water is held as millilitres on the row, and fluids are the only
+    materials the pocket refuses.
+12. **The computer reaches 512 m only with an at-range tier on T** (`PlaceController.cs:862-863`,
+    `MiningController.cs:194`); otherwise it reaches 5 m. A right-click on nothing with a pack worn opens the pack's
+    panel (`PlaceController.cs:582-586`, `Main.cs:3640-3657`).
+
+*The siphon and water*
+13. **Nothing in the Game reads a tool's `Takes`.** Only the loader, `ToolTiers` and `Siphon.Enqueue` read it.
+    - A water tool on T today would carve and fill as a rock tool, and free, since its `joulesPerVoxel` is 0.
+    - Both clicks need a water branch before the controllers are called (`Main.cs:6092-6155`, `:5856-5908`).
+    - `Enqueue` (`Siphon.cs:231`) refuses a rock tool, no window, and `Busy`.
+    - The siphon is drained at `Main.cs:7746`, inside the `pour` term, and nothing enqueues.
+14. **A water slot would read `0 L`.** Every slot shows the pocket's amount (`Hud.cs:598-648`), and the pocket never
+    holds water.
+    - A saved row may name water (`HotbarSlots.cs:262-264`).
+    - But water is an item, so it takes a slot only by a pin, and the hand can't hold water to pin it.
+    - Selecting an item does nothing (`PlaceController.cs:568-571`).
+
+*The dump's wire and the glitch*
+15. **The dump runs and prints, and nothing on screen shows a fuse or a dump.**
+    - `RunDump` (`Main.cs:4894-4926`) prints `M10: dump —` when a dump starts, when it ends, and every tenth boundary
+      between. `dump` is on the boundary line.
+    - Nothing glitches a fusing vault's body. The HUD has no vault or fuse text. The panel's line is the only fuse
+      display.
+16. **The pile reports chunks, not voxels** (`VaultDump.Pile.cs:127`, cleared each boundary at `:257`). So the Game
+    can't put a glitch where a block appeared. The collapse's glitch is one node per mino with a per-node seed
+    (`CollapsePictures.cs:337-386`, `CollapseGlitch.gdshader:11`), and the Game has no MultiMesh.
+17. **The store's lines print only in a profile**, and the voxel line prints a shorter formula than the one it
+    checks (`Main.cs:9594-9595` against `MachineSet.Vaults.cs:411-413`). The profile's power line prints an old
+    formula too (`Main.cs:9652`).
+    - The periodic `M10:` line carries the bills, the own charges and the fuse counts (`Main.cs:9561-9575`), but none
+      of the store's voxel terms.
+    - Nothing prints a crossing of zero.
+    - `VaultState.cs:11` still says a paid boundary disarms a fuse.
+18. **The `fluidsurf` trigger is a judgement, not code** (`WORKLOG.md:386-388`). The `M8b:` line prints the install's
+    mean and worst (`Main.cs:8989-8995`), windowed only.
+
+*The header and creative*
+19. **The header is in Core and checks its own length.**
+    - v8 appends nine int32 slots (`WorldHeader.cs:461-466`).
+    - The writer throws on a length mismatch (`:468-476`), and the reader refuses leftover bytes (`:802-806`).
+    - Every open rewrites the header at the build's version (`Main.cs:1685`), so a world a v9 build opens is refused
+      by 0.1.3 by name.
+    - The golden v7 fixture is embedded (`Fixtures/v7-header-before-the-hotbar.bin`, read at
+      `WorldHeaderTests.cs:1056-1089`). The program that wrote it isn't in the repo, and there is no v8 fixture.
+20. **A profile can make a world.**
+    - `--world=` turns persistence back on for a profile (`Main.cs:2540-2542`, `:2853-2856`), so decision 51's "a
+      profile has no world" is false then.
+    - `--nosave` never sets `_newWorld` (`:10216-10226`).
+    - Creation-only flags are warned and ignored on an existing world (`:10298-10332`).
+    - `--mode=` is an unknown flag today.
+21. **A placed cell starts empty** (`Place.cs:677`). A 1 GJ gift set through `SetCharge` would hide inside `entering`,
+    beside restores and Alt+P. `PowerExact` (`MachineTick.cs:667-672`) has no `granted` term, and neither has the
+    `M6c:` line (`Main.cs:10148-10161`).
+22. **The debug keys have no mode gate, and `--dev` gates three of them.**
+    - P, Alt+P, Ctrl+P, R, Alt+R, Alt+G and L always answer (`Main.cs:5333-5450`, `:8885-8932`, `:6273-6289`).
+    - Ctrl+R's million litres, H and Alt+H answer only under `--dev` (`:5273-5313`, `:8924`).
+    - `start.cmd` passes `--dev` (`start.cmd:49`). So if creative honoured `--dev`, every creative world he opened from
+      it would have H.
+    - The card is built once with the `--dev` flag (`Main.cs:3370`), and lists P, Ctrl+P and Alt+P as test keys
+      (`ControlsCard.cs:68-70`). It opens itself at a new world's first open, in an export only (`Main.cs:3393-3398`).
+23. **A loader section is a loop, and a missing one is silent.** Extras load before materials
+    (`ContentLoader.cs:111-114`), and materials and tools are read by folder (`:403`, `:577`). A build that doesn't
+    read `kits/` ignores it without a word, because unknown folders are never listed.
+24. **The oracle has no doors yet.**
+    - `--placeat=` is collapse f-2's (COLLAPSE-PLAN decision 13) and isn't built. f-2 is "not before IM-6", yet
+      IM-6's oracle needs it.
+    - Nothing headless can fill a vault, because the Game calls no store door.
+    - `--pump`, `--cell=0`, `--solar=`, `--weather=1` and `--clock=` do exist (COMMANDS.md).
+
+**f-1's finding, narrowed by hand** (the hand-over asked whether the playable vault needs more).
+- A lit fuse goes out only in `RechargeVaults`, from what the pool holds after the consumers (`MachineTick.cs:1257-1302`).
+- The held cells leave the pool before the consumers (`:975-983`), and get back at most what they held (`:1362-1367`),
+  so they never gain charge.
+- **Sun, and cells still on, still refill a vault's minute and put its fuse out.**
+- So a fuse stays paused under a signal only when both hold:
+  - every charged cell on the channel is held, and the sun covers no more than the bills;
+  - charge reached a held cell after the fuse lit, through Alt+P, a cell switched on or moved onto the channel, or
+    Ctrl+Z of a pick. When a fuse lights, the channel's enabled cells hold less than one boundary's bill between them.
+- It burns again when those cells run dry. So the vault waits; it never dumps because of the signal.
+
+**Twenty-six decisions.** Six are forks (◆). Three amend the plan: 12 amends decision 23, 21 decision 51, and 24
+decision 52.
+
+1. **◆ Split IM-6 in three.**
+   - **IM-6a (Core, and nothing changes in play):** the runway's numbers, power and energy text, the store's moves and
+     fill, and the pile's positions.
+   - **IM-6b (wire and content):** the vault, crate and siphon files, P, the HUD, the panel, the siphon on T, the
+     glitches, the lines, and `--placeat=`. **Playable: the bank, the vault, water and the dump**, in his sandbox
+     world through P and Alt+P, with no save-format change.
+   - **IM-6c (Core and wire):** the v8 capture, header v9, `--mode=creative`, the kit, the first cell's grant, the
+     keys, the card, and the storm oracle. **Playable: a creative world.**
+
+   This follows the Core/wire seam and puts the save-format bump last. The vault plays before creative exists, because
+   sandbox already has P and Alt+P, and his worlds move to v9 only when creative is there to use.
+   *Cost:* three sessions, not one, and the creative world arrives third. *The other arms:*
+   - two slices: the vault in sandbox, Core and wire in one long session, then creative;
+   - IM-6 whole, as the split row has it.
+
+   *Revisit:* 6a proves small at its re-read; then it folds into 6b.
+
+   **IM-6a (Core)**
+2. **The runway is built from flows on each channel, never from the bank's change** (facts 6 and 7).
+   - The tick keeps, for each channel, each boundary's generation, the bills paid from the pool, the bills paid from
+     own charges, the pumps' draw, and the own charges given and returned.
+   - Every draw between boundaries is counted per channel inside the bank's `Draw`: the window's today, the siphon's,
+     and later the quarry's `dug` and recall's. A new drawer is then outflow by construction.
+   - A Core `Runway` keeps twenty boundaries (10 s) for each channel:
+     - in = generation;
+     - out = bills from the pool + pumps + draws;
+     - left out: own charges given and returned (IM-3b's decision 6), `entering`, `leaving` and Alt+P.
+   - The runway is the bank ÷ (out − in) while out > in. It is amber under 10 minutes and red under 60 s.
+   - The bank and the ledger get public reads. The draw itself stays internal.
+
+   *Price:* it prints only, and no conserved quantity moves. Its test is an identity: each per-channel term sums to the
+   global term. *Cost:* six arrays of sixteen. *The other arm:* the bank's change, less every door that isn't outflow,
+   which each new door would have to remember. *Revisit:* the runway reads wrong in play.
+3. **Power and energy text in Core** (fact 8).
+   - `PowerText` sits beside `VolumeText`: W under 1 kW, then kW, MW and GW, one decimal under 100. It converts
+     millijoules a boundary through the 500 ms boundary.
+   - `Joules` moves to Core as `EnergyText`, with the same output, so both have tests.
+   - The mod files stay in watts.
+   - Readers: the HUD's bank line, a vault's bill, a panel's output, a pack's recharge, and a pump's draw, shown for
+     the first time.
+4. **The store's moves: one Core seam that the panel and M10g's screen both call.**
+   - `ToStore` and `ToPocket` work on the backpack's channel. `IntoBox` and `OutOfBox` work on one aimed vault or
+     crate. `OutOfCombined` takes from the pocket first, then the store, for the screen's combined box
+     (M10-LADDER-PLAN, "His design for the screen's boxes", its point 2).
+   - Each returns what moved. A move refused because a box is closed says why: switched off, dumping, a wreck.
+   - **None of them moves a material the pocket would refuse** (fact 11), and `Withdraw` and `WithdrawFrom` get the
+     same guard.
+   - A store fill (used and inside, blocks and water together, per channel) feeds the HUD's `store 68%`.
+
+   *Price:* a deposit and its withdrawal round-trip exactly, since both are counted in `StoreExact`. The guard closes
+   the one silent loss. *Cost:* a small class the Game could have done without. It is there because the screen is
+   coming, and because the Game has no tests.
+5. **The pile's positions.** The pile records the voxels it wrote this boundary, at most the 512 of its budget, beside
+   `PileChunksLast`, for the glitch (decision 14).
+   *Cost:* 512 positions a boundary.
+
+   **IM-6b (wire and content)**
+6. **The vault and crate files** (decisions 15, 18 and 22, the grade table, and IM-3b's 1).
+   - **Five grades**, `quantum_vault/low`, `/medium`, `/high`, `/mythical` and `/god`, with `insideCubicMetres` 100 up
+     to 1,000,000.
+   - **The water rates** are 25, 10, 4, 1.6 and 0.64 W/m³, and blocks a tenth of each (2.5 down to 0.064 W/m³). That
+     is the grade table divided by volume (arithmetic): every number is still his to tune.
+   - `holdsWater` true, `ownChargeSeconds` 60, a `channel` port 0–15 and an `enabled` port 0–1.
+   - **No `weight` port**, so a vault weighs 1 in a pump's ring (IM-4b).
+   - **The crate:** `insideCubicMetres` 1, `holdsWater` false, no links and no channel.
+   - **The label is a name rule, not a key:** a path `a/b` reads "a (b)", so his "quantum vault (god)" comes from the
+     ID (fact 1).
+   - **Textures:** layers 15 to 20. The vaults are the entanglement's cyan on a dark body, brighter by grade, so the
+     grades tell apart on the row. The crate is a timber brown. These are look calls, unscreenshotted.
+
+   *Cost:* five permanent IDs, and a sixth for the crate; fact 3's six counts move. *The other arm:* one shared layer,
+     which decision 18 allowed and which makes the five swatches identical.
+7. **◆ P seeds the backpack, the crate and the five vaults**, a hundred each as it does everything else (decision 52's
+   *"in sandbox, P also seeds the new machines"*). **Containers take a slot only by a pin**: the set kept off the row
+   grows from items to items and containers (fact 4). So the alpha's path keeps slot 9 for stone, and its test stands.
+   *Cost:* a vault is a V away, as the computer is. *The other arms:*
+   - a key of its own for the store's set;
+   - the high vault and the crate on the row, which leaves stone without a slot on the alpha's path.
+
+   *Revisit:* he wants a vault on the row by itself.
+8. **The HUD's bank line replaces the pack line while a window is worn** (decision 11, fact 5):
+   `BANK 612 MJ ch 0 · +3.8 kW sun · −104 kW · runway 1 h 38 m · hold 2 kW · store 68%`.
+   - The runway shows only while the net is negative, amber and red as decision 2 says. `store` shows when the channel
+     has a store.
+   - Main reads the ledger at each boundary and hands the HUD a record, so the HUD is still told, never asked.
+   - `M10: bank —` prints each crossing of zero, both ways.
+   - The backpack's panel says what a window is: the bank on its channel, nothing of its own, never recharged.
+   - The lead-acid and lithium-ion packs keep today's line.
+   - The tool's refusal stays a line on the HUD: there is no sound for his *"failed — insufficient charge"* yet.
+9. **The stock section** (decision 21): on a vault's panel, a crate's, and the backpack's (the computer's right-click on
+   nothing, which opens the whole store).
+   - **At the top:** a capacity bar in `VolumeText`; the bill in watts with `own 118 kJ of 120 kJ`; and the state,
+     one of `HOLDING`, `FUSE 12.0 s`, `FUSE 12.0 s (paused)`, `DUMPING — owes 3.1 ML and 120 m³` or `WRECK`.
+   - **One row a material:** its swatch, name and amount, then **`→ pocket`** and **`→ store`** (`→ vault` on a vault's
+     panel, `→ crate` on a crate's). A click moves a cubic metre (a piece, for a counted item), and Shift-click moves
+     all of it, through decision 4's moves.
+   - **Water** is a row with no verbs: the siphon is its door.
+   - **His warranty line** goes at the foot of a vault's panel, verbatim. The crate has none.
+   - It opens within the computer's reach as today (fact 12).
+   - A move isn't an undo step. A later Ctrl+Z short of stock is refused, as it is today.
+10. **◆ The lock on the channel box is the panel's, for one opening.** A vault's channel box opens locked each time its
+    panel opens, and a click on the padlock unlocks it until the panel closes. Nothing is saved and nothing is in JSON.
+    Moving a vault that holds anything is logged.
+    *The other arms:*
+    - a saved `locked` port, which every mod's vault would carry;
+    - a confirmation only when the new channel can't pay the bill.
+
+    *Revisit:* he moves one by accident anyway.
+11. **The siphon on T** (decisions 24–26, IM-4's 5, fact 13).
+    - **Three files** in the quantum tools' bites, `quantum_siphon_cube`, `_tunnel` and `_chunk`: 1,000 L, 8,000 L and
+      512,000 L, at `joulesPerLitre` 1,000, with the rock tools' cooldowns.
+    - T has seven stops.
+    - **On a water tier,** Q and the left click enqueue a take, and the right click a pour, each before the
+      controllers are called. A refusal is told on the message line: no quantum backpack, or busy.
+    - The HUD's status line names the siphon and the store's water.
+    - The two tool-cycle tests change (fact 3).
+
+    *Cost:* the chunk size moves 512 MJ a click, half of creative's 1 GJ.
+12. **◆ Water shows beside the row, not on it** (amends decision 23; fact 14).
+    - While the backpack is worn, a tenth cell right of the nine shows the store's water through
+      `VolumeText.OfMillilitres`, lit while a siphon is on T.
+    - It has no number, is never selected, takes none of his nine slots, and saves nothing.
+
+    *The other arm:* decision 23 as written, a slot named water, which alpha C's format allows. It would read the
+    store's amount, but it needs a pin route the hand can't take, and selecting it gives the hand an item that does
+    nothing. *Revisit:* he wants it on the row.
+13. **The fuse shows** (decision 28).
+    - **The body:** a fusing vault's body glitches cyan, one node per fusing vault with the collapse's shader, windowed
+      only. A paused fuse holds steady.
+    - **The HUD's top line:** `VAULT LOSING CONTAINMENT — 14 s` for the soonest fuse among the vaults in the loaded box
+      and on the backpack's channel, with `(paused)` when it is paused.
+
+    *Cost:* a fuse on another channel and out of the box shows only on its panel, until IM-9's pins.
+14. **The pile's cyan glitch** (IM-5's decision 16; fact 16).
+    - The pile's positions (decision 5) are drawn as one MultiMesh with the glitch shader.
+    - Each instance is seeded from its position through the instance's custom data, fading over about a second,
+      windowed only.
+    - *Not checked in the repo:* that Godot's MultiMesh shares one instance uniform, hence the custom data. The build
+      checks it.
+
+    *The other arm:* one node per voxel, the collapse's way, which IM-5's fact 14 priced at 11.7–21 ms a frame at
+    scale. *Revisit:* the frame line in decision 17's read.
+15. **The lines** (fact 17).
+    - The periodic `M10:` line gains the store: both lines, each term, `exact`.
+    - One-off `M10: vault —` lines print when a fuse lights, goes out and burns down. These are the oracle's
+      instrument, since the panel never logs a vault.
+    - The profile's voxel and power lines print the formulas they check.
+    - `VaultState.cs:11`'s comment is corrected, and the two stray summaries are mended.
+16. **`--placeat=` lands here**, to collapse decision 13's grammar, so f-2 reuses it (fact 24). **And `--deposit=`**
+    moves a material from the pocket into a placed vault through the store's own door, after the restore and
+    `--stock=`.
+    *Cost:* f-2 is lighter by one flag.
+17. **The reads owed since IM-0, at 6b's close, windowed and on his yes** (a windowed run takes his focus):
+    - **The real dump:** a high vault on a channel with no cells, in the workings of a copy of his world, filled by the
+      panel's verbs and the siphon. Read the `dump` term, the frame line and the remeshes against the `--pile` bench.
+    - **A fuse burning out underground:** the same run, read from the fuse lighting to the dump's end.
+    - **The install:** the `M8b:` line's surface install against about 50 ms mean or 250 ms worst. If it is over,
+      the lever is the render, not the ceiling (IM-0's answer).
+18. **f-1's finding: no rule change** (narrowed above). The panel's `(paused)` and the HUD's say it, and a paused fuse
+    whose bills are paid by held cells adds *"paid by cells held off by a signal"*. The vault never dumps because of
+    the signal, which is all decision 10 asked.
+    *The other arm:* held cells refill the minutes too, which decision 10 never asked for, and which makes a held cell
+    feed vaults while its consumers are held off. *Revisit:* IM-3b's decision 5 trigger, a paused fuse that reads as
+    a bug in a play with f-2's sensor.
+
+    **IM-6c (Core and wire)**
+19. **The v8 capture comes first, and this time its program is kept.**
+    - Before the writer is touched, a one-file app on the unmodified Core writes a v8 header: a row that differs from
+      ID order, a slot at zero, a pack worn and one carried. It refuses to run unless the version is still 8.
+    - The header is committed as a fixture, and its program as `tools/make-v8-header.cs`, outside every project, so
+      the next bump can re-run it (fact 19).
+    - The real-world arm opens a copy of his world on the new build, and checks that 0.1.3 then refuses the copy.
+20. **Header v9 appends two bytes** (decision 51).
+    - **A mode byte:** sandbox 0, creative 1. 2 is reserved for survival and refused at read until it exists.
+    - **A flags byte:** bit 0, the kit was granted; bit 1, the first cell's charge was granted. Any other bit is
+      refused.
+    - One validator serves the writer and the reader. A v8 world reads as sandbox, with no flags set.
+    - The mode and the flags are the world's, as the inventory is. Nothing in IM-6 is keyed by player (TODO's
+      collision 8).
+
+    *Cost:* two bytes, and the tail constants in the header tests grow by them. **His first start on a v9 build moves
+    each world it opens to v9, and 0.1.3 refuses it after.** The next zip carries v9.
+21. **`--mode=creative` applies to any run that creates a world, profile or not** (amends decision 51's "a profile has
+    no world"; fact 20).
+    - It is warned and ignored on an existing world, as `--seed` is.
+    - `--nosave`, and a profile without `--world=`, have no world, so they are sandbox.
+    - A world's mode never changes after it is made. The open line and the seed banner name it.
+    - Core never reads it. No default reaches r6 (must-not-ship 12).
+22. **Kits** (decision 53, fact 23).
+    - **The section:** `kits/*.json`, read after the materials and strict. A kit names materials and counts in the
+      hotbar's units (a body, a cubic metre, a piece), and may set the row (nine IDs) and the worn pack with its
+      channel.
+    - **The union:** a creative world gets every kit's materials, summed. Two kits that both set the row or the pack
+      are refused, naming both files. The same kit ID twice is refused, as a material is.
+    - **The grant:** once, at creation, into the pocket, printed `granted` on that session's `M6c:` line, with the
+      header's bit 0 set in the same write.
+    - **The base game's kit, as IM-6 can fill it:**
+      - two cells, eight panels, four pumps and four outlets;
+      - one vault of each grade and a crate;
+      - the computer, and the quantum backpack worn on channel 0;
+      - 4,096 m³ each of stone, clay and glass.
+    - **The kit's row:** stone, clay, glass, the cell, the panel, the pump, the outlet, the high vault, the crate.
+    - Sensors and quarries join the kit with their slices (f-2, IM-8, IM-9).
+
+    *Cost:* a new content section, and a door into the pocket printed as decision 53 says.
+23. **◆ The first cell's 1 GJ arrives through a door of its own.**
+    - When the first storage row is placed in a creative world whose bit 1 is clear, a Core `Grant` writes 1 GJ into
+      it. The grant is counted `granted`, a new `PowerExact` term, and bit 1 is set in the same header write.
+    - **Priced:**
+      - a grant happens once;
+      - picking that cell takes its charge out through `leaving`, as picking any cell does, and Ctrl+Z of the pick
+        brings it back through `entering`;
+      - Ctrl+Z of the placement removes the row and its 1 GJ, and the bit stays set, so the gift is gone.
+
+    *Cost:* moving the first cell by picking it up loses the gift, as it would lose any cell's charge. *The other arm:*
+    the bit clears when the granted row leaves with its charge whole. That is a door the undo can see twice, which
+    IM-0b's lesson says not to open. *Revisit:* his first creative play.
+24. **◆ The keys: off in creative, whatever `--dev` says** (amends decision 52; fact 22).
+    - Off: P, Alt+P, **Ctrl+P** (a door into the pocket, built after the plan), R, Ctrl+R, Alt+R, Alt+G, H, **Alt+H**,
+      and L.
+    - Each says so once a session on the message line.
+    - The gate is a Core table (key, mode, `--dev` → allowed), so "every creative-off key does nothing" is a test.
+      Main asks it at each handler.
+    - `--stock=`, `--nogate` and `--pack=` stay honoured (decision 51). Fly stays.
+
+    *The other arm:* `--dev` re-opens them in creative. Since `start.cmd` passes `--dev`, every creative world he
+    opened would then keep H, which can freeze a burning fuse.
+25. **The card.** At a creative world's first open, the controls card opens in any binary, not only the export, with
+    decision 55's line at its head. In creative it lists none of the sandbox keys.
+    *The other arm:* the line in the seed banner, smaller and gone in ten seconds.
+26. **The storm oracle** (IM-6's row).
+    - A new creative world headless, on a fresh name deleted after. `--placeat=` a high vault and panels with no cell
+      on channel 0, `--deposit=` stone into the vault, a pump's ring for its water, and `--clock=` or `--weather=1` for
+      the storm.
+    - The log reads, in order: the own charge paying (`held … of which own` rising), `M10: vault — fuse lit`, `fuse
+      burnt`, then `M10: dump —` starting, with every identity exact.
+    - A reopen grants no second kit.
+    - r6 to the digit, and the v8 capture opening as sandbox.
+
+**Every door, priced** (IM-4c's rule: run each round trip before recommending):
+
+| Door | What moves | Mints or loses |
+|---|---|---|
+| A move to the store, then back to the pocket | voxels, pocket ↔ store | neither; both counted (`deposited`, `withdrawn`) |
+| A move to the pocket of a material it refuses | nothing (decision 4's guard) | neither; without the guard, it loses |
+| A siphon take, then a pour | litres and joules (IM-4a) | neither; a take costs 1,000 J a litre |
+| A vault moved to another channel | the row with its contents (IM-3) | neither |
+| The kit at creation | voxels into the pocket | mints, by design, printed `granted`, once (bit 0) |
+| The first cell's 1 GJ | joules into a row | mints, by design, printed `granted`, once (bit 1) |
+| The first cell picked, then Ctrl+Z | its charge out through `leaving`, back through `entering` | neither (today's rule for any cell) |
+| The first cell's placement undone | 1 GJ out through `leaving`; bit 1 stays | loses the gift, by design (23) |
+| `--mode=creative` on an existing world | nothing | neither |
+| P, Alt+P or Ctrl+P in creative | nothing | neither |
+
+**Tests and batteries, planned before building** (the memory's rule: write the recipes first).
+- **6a:**
+  - the per-channel terms sum to the global ones over random boundaries;
+  - a picked cell, Alt+P, a deposit's recharge and a return leave the runway alone;
+  - the window's and the siphon's draws count on their own channel;
+  - the 10 s window and the two thresholds;
+  - power and energy text against a table;
+  - each move in its order, a closed box refused with its reason, a refused material never moved, and `StoreExact`
+    exact over random moves;
+  - the fill;
+  - the pile's positions match its writes and its budget.
+
+  Mutations: a draw left off the ledger, given counted as outflow, `entering` counted, the combined order reversed,
+  the guard removed, the positions never cleared.
+- **6b:**
+  - every shipped file loads, and fact 3's counts move as predicted;
+  - P's row keeps slot 9 for stone with the containers pinned only;
+  - the seven-stop cycle, with `Default` still the hand pick;
+  - the r6 control;
+  - decision 17's reads;
+  - **his play**.
+
+  Most of 6b is Game code, which the suite doesn't reach, so the play is its test.
+- **6c:**
+  - the v9 round trip, and the v8 capture reading as sandbox with no flags;
+  - each refusal of the mode and the flags;
+  - the kit section: strict keys, the union, and the conflicts;
+  - the grant: exact in `PowerExact`, once, and every round trip in the table;
+  - the keys' table;
+  - the oracle.
+
+  Mutations: a grant with no term, the bit never set, a second kit at reopen, a v8 world read as creative, the mode
+  honoured on an existing world, a creative key allowed, `--dev` overriding the gate.
+
+*Estimates:* 6a is half a session and about thirty tests. 6b is a long session, mostly wire, closing on the windowed
+reads. 6c is a session and about thirty-five tests. **The riskiest part is 6c's header**, the save format every world
+crosses. In 6b it is the clicks' water branch, the one place a free tool could slip onto T (fact 13).
 
 ## Must not ship
 

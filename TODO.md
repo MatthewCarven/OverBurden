@@ -24,7 +24,7 @@ makes the zip. B, the first ten minutes (committed 2026-10-19), zipped as 0.1.2-
 (2026-10-19, header v8, so IM-6's mode byte is v9), zipped as 0.1.3-alpha, which carries B too. **D, going public**
 (2026-10-26, the plan's "Session D — built"): the README, CONTRIBUTING, CLA.md, the PR template, `.gitattributes`,
 and the notices' check in `make-alpha.ps1`; files only, riding the next zip. **Pushed, and 0.1.3 released on GitHub
-the same day.** What's left of it is his (MATTHEW-TODO): his play of 0.1.2 and 0.1.3. **IM-6 is next.**
+the same day.** What's left of it is his (MATTHEW-TODO): his play of 0.1.2 and 0.1.3. **IM-6's pass is written (2026-11-24); its decisions are his.**
 
 **Do first, before the slice named:**
 1. **The engine-wide pin — before IM-7.** A chunk any door wrote stays loaded until the next autosave (IM-5's
@@ -43,7 +43,8 @@ hotbar's unit (his answer: litres under a cubic metre, cubic metres from one up;
 IM-6's water slot uses). Cleared 2026-11-24: the build warnings, fifteen counted (ten from `start.cmd`'s build,
 five more in the tests), all fixed, none suppressed; zero from both builds now (WORKLOG). And collapse f-1, the
 sensor's Core, with the rule IM-6 leans on: a signalled-off cell never unpays a vault's bill (COLLAPSE-PLAN, "f-1 —
-built"). **Nothing stands before IM-6's pass now.**
+built"). **IM-6's pass is written (2026-11-24)**: split into 6a, 6b and 6c, with twenty-six decisions his
+(IDEAL-MACHINES-PLAN, "IM-6 — the code-level pass").
 
 **Collisions, two planned works on one code path or one question:**
 1. **Water bodies part a and LAKE-EDIT's "hand back sooner at ~95%"** both change when Tier B hands back to
@@ -66,12 +67,14 @@ built"). **Nothing stands before IM-6's pass now.**
    included). **And IM-6's stock section
    and M10g's screen** (his design, 2026-10-19: the store as a box on `E`'s screen, a container aimed at as a
    box beside it): IM-6 builds the panel's section, the screen calls the same moves (M10-LADDER-PLAN, "His
-   design for the screen's boxes").
+   design for the screen's boxes"). **IM-6's pass (2026-11-24) recommends water beside the row, not on it
+   (its decision 12), and the store's moves as one Core seam that the screen calls (its decision 4).**
 7. **Tier A seen from under it (Later) and LAKE-EDIT's wall breaking a sheet** both change how `WaterSurface`
    draws a lake. Do the look after LAKE-EDIT's decisions, or in the same pass.
 8. **Each player's own channels (multiplayer) and IM-6's formats.** IM-6 fixes the header's mode byte and the
    kit on per-world channels. Per-player channels later is a row and save change; IM-6's pass should not make
-   channels harder to key by player.
+   channels harder to key by player. **It doesn't (its decision 20): the mode and its two flags are the
+   world's, and nothing is keyed by player.**
 9. **A brush that defers whole when wet (Levers) and IM-4c's Ctrl+Z.** Built, it makes a wet fill's undo one
    press, not two. A synergy.
 10. **The pile and a landing collapse's reserved cells.** A pile voxel in one forces a re-plot (collapse part
@@ -113,13 +116,19 @@ built"). **Nothing stands before IM-6's pass now.**
       not reproduced (2026-10-10). **IM-5b is built (2026-10-11)**: the re-read (decision 11 needed a shape; his
       word, the cone, one up for one out), the bench (`--pile`: 512 voxels a boundary stands, chunks are the
       cost, so at most 8 a boundary), and the pile (the plan's "IM-5b — built"; suite 2,278). Seven choices the
-      build made are listed there for his word. **Into IM-6:** the pile's cyan glitch (decision 16), and the
-      in-game read of a real dump (the `dump` term, the frame line, remeshes against the bench). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
-      runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
-      vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
-      files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** a real dump read windowed at IM-6, a fuse
-      burning out underground, the `fluidsurf` line's install against the trigger (about 50 ms mean or 250 ms
-      worst; WORKLOG 2026-10-11); a bite under a lake (IM-7's bench); a dump underground headless (IM-5's).
+      build made are listed there for his word. **IM-6's code-level pass is written** (2026-11-24; the plan, "IM-6 —
+      the code-level pass"). It splits IM-6 into 6a (Core), 6b (the wire, with the vault playable in sandbox) and
+      6c (creative, header v9), and **twenty-six decisions wait on his word**. Every "into IM-6" item has its place
+      there:
+      - the pile's cyan glitch (decision 14);
+      - the in-game read of a real dump, a fuse burning out underground, and the `fluidsurf` install against about
+        50 ms mean or 250 ms worst (17);
+      - the grade files at `ownChargeSeconds` 60 (6);
+      - the runway counting the recharge and the return as transfers (2);
+      - his warranty line (9), the channel box's lock (10), and power auto-scaled (3).
+
+      Plays after IM-6, IM-8 and IM-9. **Still owed elsewhere:** a bite under a lake (IM-7's bench); a dump
+      underground headless (IM-5's).
 - [ ] **Building in a lake: walls that split a lake — built (L-1, L-2, E-1, 2026-10-01), played and passed
       (2026-10-09), and on main since the pond branch merged; three small things left open below**
       ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), "L-1 — built", "L-2 — built" and "E-1 —
@@ -182,7 +191,8 @@ built"). **Nothing stands before IM-6's pass now.**
       ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "f-1 — built"): a sense over the scheduler and the
       director (a Godot-free adapter can live in Core), the `M10:` terms and one-off lines, `P` seeding a
       sensor and its texture, `--placeat=`, decision 7's full panel status, and the headless oracle. Then f-3,
-      his play. Not in front of IM-6. Build in a worktree if he is playing.
+      his play. Not in front of IM-6. If IM-6's decision 16 is taken, `--placeat=` lands in IM-6b. Build in a
+      worktree if he is playing.
 - [ ] **M10e — the conductor index** (after the M10d play): `conductor` block, `ConductorTracker`
       marking a dirty set and nothing else in the hook, per-chunk summaries at schema 5 riding the
       batch write, `NetworkSet` with position-derived ids, `maxRunCells` as occupied brush cells,

@@ -13,6 +13,38 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md at the 2026-11-24 close (IM-6's code-level pass):**
+
+**2026-11-24 — the build warnings are cleared and collapse f-1 is built, both on main**
+([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "f-1 — the re-read against today's code" and "f-1 — built").
+- **Zero warnings** from `start.cmd`'s build and the solution's. Fifteen were counted: the ten recorded and five in
+  the tests that nobody had counted, because an incremental build reprints nothing. All were fixed, none suppressed.
+- **f-1, the sensor's Core**: `"kind": "sensor"` with `"senses": "collapse"` and `channel`/`radius` ports. The tick
+  reads every sensor through `ICollapseSense` at the start of a boundary and signals its channel until the next. The
+  relay pump and the vacuum cell follow `onsignal` (0 / 1 / 2) through the `sense` extra, served now. **A held cell
+  pays the vaults' bills and leaves the pool after them**, so a signal never unpays a vault: the rule IM-6 leans on.
+  It is out of the window's and the siphon's bank, takes no generation, and doesn't refill a vault's minute, so a
+  lit fuse stays paused under a signal and is never put out. No save change.
+- **Nothing signals in a played game yet**: the tick has no sense until f-2 hands it one. His pump and cell panels
+  show an `onsignal` box from this build (0; 2 holds the machine off and says so).
+- **Checked**: suite **2,396**; a battery of 45 recipes, 45 red; r6 `2601 / 325 / 3446 at 411`.
+- **Standing from the alpha** (its hand-overs are in STATUS-HISTORY): 0.1.3-alpha is the latest release, a GitHub
+  pre-release, and `releases/latest` skips pre-releases, so the README links to `/releases`. **The next zip carries**
+  D's player text, Ctrl+P (2026-11-04) and f-1's `onsignal` box; none is scheduled. A fresh worktree's export
+  rewrites `Overburden.Game/icon.svg.import` with LF endings, so `make-alpha.ps1` warns of uncommitted changes there.
+
+**Next session, in order:**
+1. **IM-6's code-level pass, at header v9**, with nothing in front of it now (TODO's "Order and collisions"). Its pass
+   carries: the vault's panel (his warranty line, a lock on the channel box, power auto-scaled), water in the hotbar
+   through `VolumeText` (a slot may name any material the table has, water included), the pile's cyan glitch
+   (decision 16), the windowed read of a real dump, and f-1's finding that a signal pauses a lit fuse without
+   putting it out; his E-screen design means the panel's stock section is built so the screen can reuse its moves.
+   The v9 bump starts with a v8 capture.
+2. **Collapse f-2, the wire**, alongside whenever suits (TODO's "Collapse part f"): a sense over the scheduler and
+   the director, the `M10:` terms, `P` seeding a sensor and its texture, `--placeat=`, and the headless oracle.
+3. **From D, later** (TODO's "The public repo"): a page for mod authors; a lawyer's read of CLA.md before the
+   first outside merge, if the game is ever to earn; CLA Assistant past a handful of outside PRs.
+
 **Moved from CLAUDE.md at the 2026-11-24 close (the build warnings and collapse f-1):**
 
 **2026-10-26 — alpha session D is built and on main: going public's files** (`d4acd59`;

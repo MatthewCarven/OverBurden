@@ -125,8 +125,23 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 ## Waiting on your word
 
-Nothing is blocked on these; each is a small change once you have a view.
+IM-6 waits on the first. Nothing else is blocked; each is a small change once you have a view.
 
+- [ ] **IM-6, the first vault you can play: twenty-six decisions**
+      ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-6 — the code-level pass"). "As
+      recommended" takes them all, or send any back by number. The six worth your eye:
+      - **1. Three steps, not one.** First the insides, which you won't see. Then the vault in your own LakeTest2,
+        through P and Alt+P: the bank on the HUD, the vault's stock on its panel, the siphon on T, the cyan glitch.
+        Creative mode comes last, because it changes the save format and moves your worlds past 0.1.3.
+      - **7. P gives the quantum backpack, a crate and the five vaults**, a hundred each. They stay off the row
+        until you pin them (hold V and press a number), so your first stone still lands in slot 9.
+      - **10. A vault's channel box opens locked** each time you open its panel. Click the padlock to change it.
+      - **12. Water shows as a gauge just right of the hotbar**, not in one of your nine slots. You can't select
+        it: the siphon is the only way water goes in or out.
+      - **23. A creative world's first vacuum cell arrives with 1 GJ, once.** Ctrl+Z on placing it, or picking it
+        up, takes the gift with it, as picking up any cell takes its charge.
+      - **24. In creative the test keys are off** (P, Alt+P, Ctrl+P, R, Ctrl+R, Alt+R, Alt+G, H, Alt+H and L),
+        even though `start.cmd` passes `--dev`. Fly stays.
 - [ ] **The collapse: pieces that jump — I gave you the wrong size.** You said "leave it" when I
       said "at most a metre". On a copy of your tower, one piece jumped 4.5 m (about 20 pieces in
       800 jumped at all). Watch for it when you play: if you see a piece hop up, say "fix it" —
@@ -404,7 +419,7 @@ Updated **2026-11-24**. **0.1.3-alpha is released on GitHub** (a pre-release, th
 built), going public's files and the README's Releases link are pushed, and **Ctrl+P** (one lithium-ion pack, in
 your hand) is on main for your next `start.cmd`. Your untested builds are one route at the top, "The retest, in
 one sitting"; development carries on alongside it. The build warnings and the collapse sensor's first step landed
-today, so **IM-6's pass is next**.
+today, and **IM-6's plan is written: twenty-six decisions wait on your word** (the top of "Waiting on your word").
 
 - **Two things landed on 2026-11-24, neither one yours to test**:
   - **The ten warnings `start.cmd` printed are gone**: zero now, from every build. All were real fixes and none
@@ -474,8 +489,8 @@ today, so **IM-6's pass is next**.
 - **IM-5a is built: the dump's water** (2026-10-10). On the surface it goes into the lake that ground drains to,
   over about ten seconds; in the mine it pours out round the vault, a little each half second. An emptied vault
   works again; an emptied wreck disappears.
-- **Next: IM-6**, the first thing you can play with a vault. Nothing stands before it now: the build warnings and
-  the collapse sensor's first step landed 2026-11-24.
+- **IM-6's plan is written** (2026-11-24), the first thing you can play with a vault. It comes in three steps,
+  with the vault in your own world before creative mode. Its decisions are at the top of "Waiting on your word".
 - **The clay leak is closed, not reproduced** (your word): your glass rain pool filled and held, and glass and
   clay are the same to the water. The 09-26 clay-roof drip closes with it; that day's look had already found the
   roof sound and the drip running off the eave outside your glass.

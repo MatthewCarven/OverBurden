@@ -214,40 +214,52 @@ version. A worktree has neither beside it, so give the script `-Godot <exe>` the
 
 ## Where things stand
 
-**2026-11-24 — the build warnings are cleared and collapse f-1 is built, both on main**
-([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "f-1 — the re-read against today's code" and "f-1 — built").
-- **Zero warnings** from `start.cmd`'s build and the solution's. Fifteen were counted: the ten recorded and five in
-  the tests that nobody had counted, because an incremental build reprints nothing. All were fixed, none suppressed.
-- **f-1, the sensor's Core**: `"kind": "sensor"` with `"senses": "collapse"` and `channel`/`radius` ports. The tick
-  reads every sensor through `ICollapseSense` at the start of a boundary and signals its channel until the next. The
-  relay pump and the vacuum cell follow `onsignal` (0 / 1 / 2) through the `sense` extra, served now. **A held cell
-  pays the vaults' bills and leaves the pool after them**, so a signal never unpays a vault: the rule IM-6 leans on.
-  It is out of the window's and the siphon's bank, takes no generation, and doesn't refill a vault's minute, so a
-  lit fuse stays paused under a signal and is never put out. No save change.
-- **Nothing signals in a played game yet**: the tick has no sense until f-2 hands it one. His pump and cell panels
-  show an `onsignal` box from this build (0; 2 holds the machine off and says so).
-- **Checked**: suite **2,396**; a battery of 45 recipes, 45 red; r6 `2601 / 325 / 3446 at 411`.
+**2026-11-24 — IM-6's code-level pass is written: twenty-six decisions wait on his word**
+([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-6 — the code-level pass"). Docs only, nothing built.
+The warnings and f-1, landed earlier the same day, are in STATUS-HISTORY.
+- **The split recommended (decision 1, a fork):**
+  - **6a**, Core, with nothing changed in play: the runway from per-channel flows, power and energy text, the store's
+    moves with a withdraw guard, and the pile's positions.
+  - **6b**, the wire and content: the vault, crate and siphon files, P, the HUD's bank line, the stock section, the
+    siphon on T, the glitches, the lines, `--placeat=` and the owed windowed reads. **The vault plays in his sandbox
+    world, with no save change.**
+  - **6c**, creative: the v8 capture with its program kept, header v9's mode and flags bytes, `--mode=creative`, kits,
+    the first cell's 1 GJ, the keys, the card and the storm oracle.
+- **The other five forks:**
+  - 7: P seeds the containers, pinned only, so slot 9 stays stone's.
+  - 10: the channel box's lock lasts one panel opening.
+  - 12: water shows beside the row, not on it (amends decision 23).
+  - 23: the first cell's gift comes once, and an undo of its placement loses it.
+  - 24: creative turns the debug keys off whatever `--dev` says, with Ctrl+P and Alt+H added (amends 52).
+- **Found:**
+  - a worn backpack reads `pack 0 mJ / 0 mJ` on the HUD;
+  - nothing in the Game reads a tool's `Takes`;
+  - no runway figure is both per channel and public;
+  - the panel never logs a vault;
+  - a profile with `--world=` makes a world (amends 51);
+  - `--placeat=` is f-2's, and IM-6's oracle needs it, so it moves to 6b.
+- **f-1's finding, narrowed:** sun, and cells still on, refill a vault's minute. A fuse stays paused under a signal
+  only on a channel whose charged cells are all held, with no sun to spare. No rule change (decision 18).
 - **Standing from the alpha** (its hand-overs are in STATUS-HISTORY): 0.1.3-alpha is the latest release, a GitHub
   pre-release, and `releases/latest` skips pre-releases, so the README links to `/releases`. **The next zip carries**
   D's player text, Ctrl+P (2026-11-04) and f-1's `onsignal` box; none is scheduled. A fresh worktree's export
   rewrites `Overburden.Game/icon.svg.import` with LF endings, so `make-alpha.ps1` warns of uncommitted changes there.
 
 **Next session, in order:**
-1. **IM-6's code-level pass, at header v9**, with nothing in front of it now (TODO's "Order and collisions"). Its pass
-   carries: the vault's panel (his warranty line, a lock on the channel box, power auto-scaled), water in the hotbar
-   through `VolumeText` (a slot may name any material the table has, water included), the pile's cyan glitch
-   (decision 16), the windowed read of a real dump, and f-1's finding that a signal pauses a lit fuse without
-   putting it out; his E-screen design means the panel's stock section is built so the screen can reuse its moves.
-   The v9 bump starts with a v8 capture.
+1. **IM-6a, once he takes the list** ("as recommended" takes all twenty-six). Read his list's notes first: at IM-4c
+   they reversed a choice. If `Overburden.Core/Machines` or `Main.cs` has moved since `4a2895c`, re-read the pass's
+   facts first. Build in a worktree if he is playing or may start.
 2. **Collapse f-2, the wire**, alongside whenever suits (TODO's "Collapse part f"): a sense over the scheduler and
-   the director, the `M10:` terms, `P` seeding a sensor and its texture, `--placeat=`, and the headless oracle.
+   the director, the `M10:` terms, `P` seeding a sensor and its texture, and the headless oracle. If IM-6's decision
+   16 is taken, `--placeat=` lands in IM-6b and f-2 reuses it.
 3. **From D, later** (TODO's "The public repo"): a page for mod authors; a lawyer's read of CLA.md before the
    first outside merge, if the game is ever to earn; CLA Assistant past a handful of outside PRs.
 
 The ideal machines plan: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to IM-3b,
 IM-4a (thirty-six mutations red), IM-4b, IM-4c (reduced at his word), **IM-5a, the dump's water** (2026-10-10,
 twenty-eight red) and **IM-5b, the pile** (2026-10-11, forty-two red; its seven build choices taken
-2026-10-12). **Taken and not built:** IM-6 onward.
+2026-10-12). **IM-6's pass is written** (2026-11-24; twenty-six decisions, his). **Taken and not built:** IM-7
+onward.
 
 **The lake plan is taken (2026-10-01): [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), all seven decisions
 as recommended; his last question closed 2026-10-12** (the walled area beneath TajMahal2 was two areas he
@@ -282,7 +294,7 @@ unbuildable as written. And **read his list's notes before building on an "as re
 sitting**: at IM-4c his notes reversed the choice. **Plan the mutation battery before running it**: at IM-5b,
 writing the recipes found six holes, and a recipe that survives can be one a fallback route hides.
 
-IM-6's panel owes his warranty line, a lock on the channel box, and power auto-scaled on screen.
+IM-6's pass puts his warranty line, the channel box's lock and power auto-scaled into IM-6b (decisions 9, 10 and 3).
 
 **Collapse f-2 is buildable alongside**, the sensor's wire ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "f-1 —
 built" names what it carries). **Build in a worktree if he is playing or may start**, because `start.cmd` builds
@@ -365,6 +377,9 @@ folder and the memory key are still to go, his, whenever suits.
 - **A debug door into a conserved quantity is a term**, or the identity lies from then on.
 - **An incremental build reprints no warnings** (2026-11-24): count them with `--no-incremental` and a warnings-only
   file log (`"-flp:logfile=<path>;warningsonly"`), on `start.cmd`'s build and the solution's both.
+- **Nothing in the Game reads a tool's `Takes`** (2026-11-24, IM-6's pass). A water tool file on T, before the clicks'
+  water branch exists, digs and fills as a rock tool, and free. Ship the siphon's files with the branch.
+- **A profile with `--world=` makes a world** (`Main.cs:2540-2542`). "A profile has no world" holds only without it.
 - **Check `git worktree list` at a session's start.** Alpha session B sat built and uncommitted in
   `.claude/worktrees/alpha-b` for six days while the hand-over said it was next (found 2026-10-19).
 - **A chord's modifier must not act on its own press** (2026-10-19, alpha C): V cycled on key-down, so V held
