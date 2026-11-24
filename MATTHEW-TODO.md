@@ -35,8 +35,9 @@ It has been a month, so this strings every untested build into one route. A line
 a step that reads wrong is the most useful kind. **★ marks what IM-6 builds on**: do those first if you only do some.
 
 1. **Ctrl+P** with no lithium-ion pack on your back: the pack lands in your hand and a line above the hotbar says
-   so. Right-click wears it. Ctrl+P again says you're wearing one and adds nothing. (Built 2026-11-04; I tested
-   the rule and the right-click, not the keypress.)
+   so. Right-click wears it. Ctrl+P again says you're wearing one and adds nothing. (Built 2026-11-04.) **Your
+   logs already show it working**: across your five plays of 5 and 9 November it added a pack 3 times and
+   refused 11 times while you wore one, with no errors. Only the feel is left: *did the HUD line read right?*
 2. **Alt+P** charges it, and the line above the hotbar says so (it should for P, R and Ctrl+Z too).
 3. ★ **Your row is as you left it.** Hold V and press a number: what's in your hand goes in that slot. A tap of V
    still steps through what you carry, but moves when you let go now. *Does the V chord feel right?*
