@@ -3527,7 +3527,7 @@ public partial class Main : Node3D
                 how = "from the world file";
                 if (pack.ChargeMillijoules != saved.ChargeMillijoules)
                 {
-                    GD.Print($"M10: pack — the world file's charge of {MachinePanel.Joules(saved.ChargeMillijoules)} is over {Content.Materials.GetIdentifier(saved.MaterialId)}'s capacity and was clamped to {MachinePanel.Joules(pack.ChargeMillijoules)}");
+                    GD.Print($"M10: pack — the world file's charge of {EnergyText.Of(saved.ChargeMillijoules)} is over {Content.Materials.GetIdentifier(saved.MaterialId)}'s capacity and was clamped to {EnergyText.Of(pack.ChargeMillijoules)}");
                 }
             }
             else
@@ -3535,7 +3535,7 @@ public partial class Main : Node3D
                 GD.Print(
                     $"M10: pack — the world file's equipped pack is material {saved.MaterialId} "
                     + $"({Content.Materials.GetIdentifier(saved.MaterialId)}), which is not a pack in this content; "
-                    + $"dropped with its {MachinePanel.Joules(saved.ChargeMillijoules)} forfeited");
+                    + $"dropped with its {EnergyText.Of(saved.ChargeMillijoules)} forfeited");
             }
         }
 
@@ -3578,7 +3578,7 @@ public partial class Main : Node3D
             GD.Print(
                 $"M10: pack — {Hud.DisplayName(Content.Materials, pack.MaterialId)} equipped {how}: "
                 + (pack.IsWindow
-                    ? $"a window onto channel {pack.Channel}'s cells, {MachinePanel.Joules(pack.SpendableMillijoules)} in the bank"
+                    ? $"a window onto channel {pack.Channel}'s cells, {EnergyText.Of(pack.SpendableMillijoules)} in the bank"
                     : $"{MachinePanel.ChargeOf(pack.ChargeMillijoules, pack.CapacityMillijoules)} on channel {pack.Channel}")
                 + (_mining is { MillijoulesPerVoxel: > 0 } m ? $" — {pack.VoxelsAffordable(m.MillijoulesPerVoxel):N0} voxel(s) at {m.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J each" : string.Empty));
         }
@@ -3651,11 +3651,11 @@ public partial class Main : Node3D
         {
             long fullest = _carriedPacks.FullestMillijoules(materialId);
             string kind = Hud.DisplayName(Content.Materials, materialId);
-            string other = fullest == 0 ? "an empty one" : $"one holding {MachinePanel.Joules(fullest)}";
+            string other = fullest == 0 ? "an empty one" : $"one holding {EnergyText.Of(fullest)}";
             GD.Print(
-                $"M10: pack — asked before swapping ({how}): the worn {kind} holds {MachinePanel.Joules(worn.ChargeMillijoules)}, "
-                + $"the fullest carried {MachinePanel.Joules(fullest)}; a right-click within {PackSwapGuard.WindowSeconds:F0} s wears it");
-            Tell($"You're wearing your fullest {kind} ({MachinePanel.Joules(worn.ChargeMillijoules)}). Right-click again to wear {other}.");
+                $"M10: pack — asked before swapping ({how}): the worn {kind} holds {EnergyText.Of(worn.ChargeMillijoules)}, "
+                + $"the fullest carried {EnergyText.Of(fullest)}; a right-click within {PackSwapGuard.WindowSeconds:F0} s wears it");
+            Tell($"You're wearing your fullest {kind} ({EnergyText.Of(worn.ChargeMillijoules)}). Right-click again to wear {other}.");
             return;
         }
 
@@ -3679,14 +3679,14 @@ public partial class Main : Node3D
         long stowed = HandOverPack(pack);
         string label = Hud.DisplayName(Content.Materials, materialId);
         string charged = carried is null
-            ? $"empty, {MachinePanel.Joules(pack.CapacityMillijoules)} capacity, channel {pack.Channel}; Alt+P fills it"
+            ? $"empty, {EnergyText.Of(pack.CapacityMillijoules)} capacity, channel {pack.Channel}; Alt+P fills it"
             : $"{MachinePanel.ChargeOf(pack.ChargeMillijoules, pack.CapacityMillijoules)} from the inventory, channel {pack.Channel}";
 
         string wearing = pack.IsWindow
             ? $"Wearing the {label}, a window on channel {pack.Channel}'s bank."
             : carried is null
                 ? $"Wearing an empty {label}. Alt+P fills it."
-                : $"Wearing a {label} holding {MachinePanel.Joules(pack.ChargeMillijoules)}.";
+                : $"Wearing a {label} holding {EnergyText.Of(pack.ChargeMillijoules)}.";
 
         if (outgoing is null)
         {
@@ -3699,14 +3699,14 @@ public partial class Main : Node3D
         bool kept = _carriedPacks.Stow(new PackSave(outgoing.MaterialId, outgoing.ChargeMillijoules, outgoing.Channel));
         string outgoingLabel = Hud.DisplayName(Content.Materials, outgoing.MaterialId);
         Tell(kept
-            ? $"{wearing} Your {outgoingLabel} ({MachinePanel.Joules(stowed)}) is in your pocket."
+            ? $"{wearing} Your {outgoingLabel} ({EnergyText.Of(stowed)}) is in your pocket."
             : $"{wearing} Your empty {outgoingLabel} is in your pocket.");
         GD.Print(
             $"M10: pack — {label} equipped in place of {Hud.DisplayName(Content.Materials, outgoing.MaterialId)} ({how}): {charged}; "
             + (kept
-                ? $"the outgoing pack is back in the inventory holding {MachinePanel.Joules(stowed)} on channel {outgoing.Channel}; "
+                ? $"the outgoing pack is back in the inventory holding {EnergyText.Of(stowed)} on channel {outgoing.Channel}; "
                 : "the outgoing pack is back in the inventory empty; ")
-            + $"{MachinePanel.Joules(_machineTick?.PackStowedMillijoules ?? stowed)} stowed by {(_machineTick?.PacksUnequipped ?? 1):N0} swap(s) this session, "
+            + $"{EnergyText.Of(_machineTick?.PackStowedMillijoules ?? stowed)} stowed by {(_machineTick?.PacksUnequipped ?? 1):N0} swap(s) this session, "
             + $"{_carriedPacks.Count():N0} carried pack(s) charged");
     }
 
@@ -5105,8 +5105,8 @@ public partial class Main : Node3D
 
             RunwayReading reading = _runway?.Read(channel) ?? default;
             GD.Print(bank == 0
-                ? $"M10: bank — channel {channel} is empty: 0 mJ in its enabled cells (was {MachinePanel.Joules(was)}); in {PowerText.OfMilliwatts(reading.InMilliwatts)}, out {PowerText.OfMilliwatts(reading.OutMilliwatts)} over the last {(_runway?.Recorded ?? 0) * _machineTick.BoundaryMillis / 1000.0:F1} s"
-                : $"M10: bank — channel {channel} has charge again: {MachinePanel.Joules(bank)}; in {PowerText.OfMilliwatts(reading.InMilliwatts)}, out {PowerText.OfMilliwatts(reading.OutMilliwatts)}");
+                ? $"M10: bank — channel {channel} is empty: 0 mJ in its enabled cells (was {EnergyText.Of(was)}); in {PowerText.OfMilliwatts(reading.InMilliwatts)}, out {PowerText.OfMilliwatts(reading.OutMilliwatts)} over the last {(_runway?.Recorded ?? 0) * _machineTick.BoundaryMillis / 1000.0:F1} s"
+                : $"M10: bank — channel {channel} has charge again: {EnergyText.Of(bank)}; in {PowerText.OfMilliwatts(reading.InMilliwatts)}, out {PowerText.OfMilliwatts(reading.OutMilliwatts)}");
         }
 
         _banksSeen = true;
@@ -5146,11 +5146,11 @@ public partial class Main : Node3D
             string name = Hud.DisplayName(Content.Materials, row.MaterialId);
             string holds = $"holds {contents.TotalVoxels:N0} voxel(s) and {VolumeText.OfMillilitres(contents.WaterMillilitres)} of water";
             string bill = PowerText.OfMillijoulesPerBoundary(MachineTick.BillOf(definition, contents, _machineTick.BoundaryMillis), _machineTick.BoundaryMillis);
-            string own = $"own {MachinePanel.Joules(contents.OwnChargeMillijoules)} of {MachinePanel.Joules(MachineTick.OwnChargeCapacity(definition, contents))}";
+            string own = $"own {EnergyText.Of(contents.OwnChargeMillijoules)} of {EnergyText.Of(MachineTick.OwnChargeCapacity(definition, contents))}";
             if (now == VaultPhase.Fusing)
             {
                 _vaultFusesLit++;
-                GD.Print($"M10: vault — fuse lit at {row.Cell}: {name} on channel {channel}, FUSE {contents.FuseMillisLeft / 1000.0:N1} s; its bill of {bill} went unpaid with its minute spent ({own}); {holds}; bank {MachinePanel.Joules(_machineTick.BankOf((int)channel))}");
+                GD.Print($"M10: vault — fuse lit at {row.Cell}: {name} on channel {channel}, FUSE {contents.FuseMillisLeft / 1000.0:N1} s; its bill of {bill} went unpaid with its minute spent ({own}); {holds}; bank {EnergyText.Of(_machineTick.BankOf((int)channel))}");
             }
             else if (was == VaultPhase.Fusing && now == VaultPhase.Holding)
             {
@@ -5293,7 +5293,7 @@ public partial class Main : Node3D
                 cellCell = PlaceSurfaceBody(ox + BrushCell.Voxels, oz, cellMaterial, out string cellHow);
                 long capacity = _materials.Machine(cellMaterial)!.CapacityMillijoules;
                 long landed = _machines.SetCharge(cellCell.Value, capacity);
-                GD.Print($"M10: --pump — a vacuum cell at {cellCell} beside the outlet ({cellHow}), charged to {MachinePanel.Joules(landed)} (--cell=0 omits it)");
+                GD.Print($"M10: --pump — a vacuum cell at {cellCell} beside the outlet ({cellHow}), charged to {EnergyText.Of(landed)} (--cell=0 omits it)");
             }
         }
 
@@ -5782,15 +5782,15 @@ public partial class Main : Node3D
             : _machineTick?.Pack is not null ? _machineTick.FillPack(_pack.CapacityMillijoules)
             : _pack.Give(_pack.CapacityMillijoules);
         GD.Print(
-            $"M10: Alt+P — {filled} cell(s) filled with {MachinePanel.Joules(millijoules)}"
-            + (_pack is null ? string.Empty : $", the pack given {MachinePanel.Joules(packGiven)} to {MachinePanel.Joules(_pack.ChargeMillijoules)}")
+            $"M10: Alt+P — {filled} cell(s) filled with {EnergyText.Of(millijoules)}"
+            + (_pack is null ? string.Empty : $", the pack given {EnergyText.Of(packGiven)} to {EnergyText.Of(_pack.ChargeMillijoules)}")
             + " (debug)");
         string cells = filled == 1 ? "1 power cell" : $"{filled:N0} power cells";
         Tell(_pack is null
             ? $"Filled {cells}. No pack worn to fill."
             : _pack.IsWindow
                 ? $"Filled {cells}."
-                : $"Filled {cells} and your pack ({MachinePanel.Joules(_pack.ChargeMillijoules)}).");
+                : $"Filled {cells} and your pack ({EnergyText.Of(_pack.ChargeMillijoules)}).");
     }
 
     /// <summary>Ends the process with no save, when <c>--abort=</c> asked for it.</summary>
@@ -6313,10 +6313,10 @@ public partial class Main : Node3D
             // player has to be told about.
             _printedFillRefused = true;
             GD.Print(
-                $"M10: gate — the fill at range stopped short: the rest of the shape needs {MachinePanel.Joules(_place.LastRefusedNeedMillijoules)} and the pack "
+                $"M10: gate — the fill at range stopped short: the rest of the shape needs {EnergyText.Of(_place.LastRefusedNeedMillijoules)} and the pack "
                 + (_pack is null ? "is not equipped"
-                    : _pack.IsWindow ? $"is a window on a bank of {MachinePanel.Joules(_pack.SpendableMillijoules)}"
-                    : $"holds {MachinePanel.Joules(_pack.ChargeMillijoules)}")
+                    : _pack.IsWindow ? $"is a window on a bank of {EnergyText.Of(_pack.SpendableMillijoules)}"
+                    : $"holds {EnergyText.Of(_pack.ChargeMillijoules)}")
                 + $" ({_place.UnpoweredPlacements:N0} placement(s) stopped short, {_place.VoxelsUnpowered:N0} voxel(s) unpowered, this session)");
         }
         else if (placed && !_place.RefusedUnpoweredThisFrame)
@@ -6434,14 +6434,14 @@ public partial class Main : Node3D
             _printedGateRanOut = true;
             GD.Print(
                 $"M10: gate — the {PackNoun()} ran out mid-bite: removed {last.Removed}, unpowered {last.Unpowered} of {last.Candidates}; "
-                + $"paid {MachinePanel.Joules(_mining.LastPaidMillijoules)}, the {PackNoun()} at {MachinePanel.Joules(_pack.SpendableMillijoules)}");
+                + $"paid {EnergyText.Of(_mining.LastPaidMillijoules)}, the {PackNoun()} at {EnergyText.Of(_pack.SpendableMillijoules)}");
         }
         else if (last.Removed == 0 && !_printedGateEmpty)
         {
             _printedGateEmpty = true;
             GD.Print(
                 $"M10: gate — the {PackNoun()} is spent: removed 0, unpowered {last.Unpowered} of {last.Candidates}; "
-                + $"the {PackNoun()} at {MachinePanel.Joules(_pack.SpendableMillijoules)} buys nothing at {_mining.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J a voxel");
+                + $"the {PackNoun()} at {EnergyText.Of(_pack.SpendableMillijoules)} buys nothing at {_mining.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J a voxel");
         }
     }
 
@@ -9909,11 +9909,11 @@ public partial class Main : Node3D
                 ? (_mining.SwingsWithNoPack == _mining.Swings && _mining.Swings > 0
                     ? $"gate      swung {_mining.Swings}, took nothing (no pack — the gate is on; --pack equips one, --nogate frees the miner)\n"
                     : $"gate      {_mining.VoxelsUnpowered:N0} voxel(s) unpowered over {_mining.UnpoweredSwings:N0} swing(s), "
-                      + $"{_mining.SwingsWithNoPack:N0} swing(s) with no pack; paid {_mining.MillijoulesPaid:N0} mJ ({MachinePanel.Joules(_mining.MillijoulesPaid)}) at "
+                      + $"{_mining.SwingsWithNoPack:N0} swing(s) with no pack; paid {_mining.MillijoulesPaid:N0} mJ ({EnergyText.Of(_mining.MillijoulesPaid)}) at "
                       + $"{_mining.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J a voxel; the pack "
                       + (_pack is null ? "none"
-                          : _pack.IsWindow ? $"is a window onto channel {_pack.Channel}, the bank at {_pack.SpendableMillijoules:N0} mJ ({MachinePanel.Joules(_pack.SpendableMillijoules)})"
-                          : $"at {_pack.ChargeMillijoules:N0} mJ ({MachinePanel.Joules(_pack.ChargeMillijoules)}) of {MachinePanel.Joules(_pack.CapacityMillijoules)}")
+                          : _pack.IsWindow ? $"is a window onto channel {_pack.Channel}, the bank at {_pack.SpendableMillijoules:N0} mJ ({EnergyText.Of(_pack.SpendableMillijoules)})"
+                          : $"at {_pack.ChargeMillijoules:N0} mJ ({EnergyText.Of(_pack.ChargeMillijoules)}) of {EnergyText.Of(_pack.CapacityMillijoules)}")
                       + $"; last swing {_mining.LastResult}\n")
                 : _noGate && _mining.EntangledSwings > 0 ? "gate      off (--nogate)\n" : string.Empty) +
             (_mining.EntangledSwings > 0
@@ -10003,20 +10003,20 @@ public partial class Main : Node3D
 
         long samples = t.SolarSampled + t.SolarUnsampled;
         string open = samples > 0 ? $"{t.OpenColumnsSum / (double)samples:F1}" : "–";
-        return $" | power: {t.StorageRows:N0} cell(s){(t.StorageRowsOff > 0 ? $" (+{t.StorageRowsOff:N0} off)" : "")} hold {MachinePanel.Joules(t.StoredMillijoules)}, "
-               + $"pack {(t.Pack is null ? "none" : t.Pack.IsWindow ? $"a window on ch {t.Pack.Channel}" : $"{MachinePanel.Joules(t.Pack.ChargeMillijoules)} of {MachinePanel.Joules(t.Pack.CapacityMillijoules)} (ch {t.Pack.Channel})")}, "
-               + $"generated {MachinePanel.Joules(t.GeneratedMillijoules)} ({t.Converters:N0} panel(s), open {open}/16 mean, {t.SolarUnsampled:N0} unsampled, overcast {t.OvercastByte}/256), "
-               + $"drawn {MachinePanel.Joules(t.DrawnByPumpsMillijoules)} by pumps + {MachinePanel.Joules(t.PackTakenMillijoules)} by the tool, clamped {MachinePanel.Joules(t.ClampedMillijoules)}, "
-               + $"pack given {MachinePanel.Joules(t.PackGivenMillijoules)}, stowed {MachinePanel.Joules(t.PackStowedMillijoules)} by {t.PacksUnequipped:N0} swap(s), "
-               + $"pack initial {MachinePanel.Joules(t.PackInitialMillijoules)}"
-               + (t.PackDebugMillijoules > 0 ? $", {MachinePanel.Joules(t.PackDebugMillijoules)} debug-filled into the pack" : string.Empty)
+        return $" | power: {t.StorageRows:N0} cell(s){(t.StorageRowsOff > 0 ? $" (+{t.StorageRowsOff:N0} off)" : "")} hold {EnergyText.Of(t.StoredMillijoules)}, "
+               + $"pack {(t.Pack is null ? "none" : t.Pack.IsWindow ? $"a window on ch {t.Pack.Channel}" : $"{EnergyText.Of(t.Pack.ChargeMillijoules)} of {EnergyText.Of(t.Pack.CapacityMillijoules)} (ch {t.Pack.Channel})")}, "
+               + $"generated {EnergyText.Of(t.GeneratedMillijoules)} ({t.Converters:N0} panel(s), open {open}/16 mean, {t.SolarUnsampled:N0} unsampled, overcast {t.OvercastByte}/256), "
+               + $"drawn {EnergyText.Of(t.DrawnByPumpsMillijoules)} by pumps + {EnergyText.Of(t.PackTakenMillijoules)} by the tool, clamped {EnergyText.Of(t.ClampedMillijoules)}, "
+               + $"pack given {EnergyText.Of(t.PackGivenMillijoules)}, stowed {EnergyText.Of(t.PackStowedMillijoules)} by {t.PacksUnequipped:N0} swap(s), "
+               + $"pack initial {EnergyText.Of(t.PackInitialMillijoules)}"
+               + (t.PackDebugMillijoules > 0 ? $", {EnergyText.Of(t.PackDebugMillijoules)} debug-filled into the pack" : string.Empty)
                + (t.HeldMillijoules + t.VaultBillsUnpaid > 0
-                   ? $", held {MachinePanel.Joules(t.HeldMillijoules)} by {t.VaultBillsPaid:N0} vault bill(s), {MachinePanel.Joules(t.HeldFromOwnMillijoules)} of it from their own charges "
+                   ? $", held {EnergyText.Of(t.HeldMillijoules)} by {t.VaultBillsPaid:N0} vault bill(s), {EnergyText.Of(t.HeldFromOwnMillijoules)} of it from their own charges "
                      + $"({t.VaultBillsUnpaid:N0} unpaid; fuses {t.FusesArmed:N0} lit, {t.FusesPaused:N0} boundary(ies) paused, {t.FusesDisarmed:N0} out, {t.FusesBurnt:N0} burnt); "
-                     + $"own charges hold {MachinePanel.Joules(t.VaultOwnChargeMillijoules)} of the {MachinePanel.Joules(t.StoredMillijoules)} stored, "
-                     + $"given {MachinePanel.Joules(t.OwnChargeGivenMillijoules)}, returned {MachinePanel.Joules(t.OwnChargeReturnedMillijoules)}"
+                     + $"own charges hold {EnergyText.Of(t.VaultOwnChargeMillijoules)} of the {EnergyText.Of(t.StoredMillijoules)} stored, "
+                     + $"given {EnergyText.Of(t.OwnChargeGivenMillijoules)}, returned {EnergyText.Of(t.OwnChargeReturnedMillijoules)}"
                    : string.Empty)
-               + (t.SiphonPaidMillijoules > 0 ? $", siphon paid {MachinePanel.Joules(t.SiphonPaidMillijoules)}" : string.Empty)
+               + (t.SiphonPaidMillijoules > 0 ? $", siphon paid {EnergyText.Of(t.SiphonPaidMillijoules)}" : string.Empty)
                + $" — pool == entering − leaving + generated − drawn − clamped − held + initial − taken − stowed{(t.PackDebugMillijoules > 0 ? " + debug" : string.Empty)}{(t.SiphonPaidMillijoules > 0 ? " − siphonPaid" : string.Empty)}: {(t.PowerExact ? "exact" : "*** NO ***")}";
     }
 
@@ -10092,7 +10092,7 @@ public partial class Main : Node3D
         long clamped = t.ClampedMillijoules - _clampedAtWarm;
         return $"power     in the window: generated {generated:N0} mJ, drawn {drawn:N0} by pumps, clamped {clamped:N0}; "
                + $"in all: generated {t.GeneratedMillijoules:N0} mJ, drawn {t.DrawnByPumpsMillijoules:N0} by pumps + {t.PackTakenMillijoules:N0} by the tool, clamped {t.ClampedMillijoules:N0}, pack given {t.PackGivenMillijoules:N0}, stowed {t.PackStowedMillijoules:N0}, pack initial {t.PackInitialMillijoules:N0}; "
-               + $"{t.StorageRows:N0} cell(s){(t.StorageRowsOff > 0 ? $" (+{t.StorageRowsOff:N0} off)" : "")} hold {t.StoredMillijoules:N0} mJ ({MachinePanel.Joules(t.StoredMillijoules)}), pack {(t.Pack is null ? "none" : $"{t.Pack.ChargeMillijoules:N0} mJ ({MachinePanel.Joules(t.Pack.ChargeMillijoules)})")}; "
+               + $"{t.StorageRows:N0} cell(s){(t.StorageRowsOff > 0 ? $" (+{t.StorageRowsOff:N0} off)" : "")} hold {t.StoredMillijoules:N0} mJ ({EnergyText.Of(t.StoredMillijoules)}), pack {(t.Pack is null ? "none" : $"{t.Pack.ChargeMillijoules:N0} mJ ({EnergyText.Of(t.Pack.ChargeMillijoules)})")}; "
                + $"{t.Converters:N0} panel(s), sampled {t.SolarSampled:N0} / unsampled {t.SolarUnsampled:N0} (sky answered {_solarSky?.Answered ?? 0:N0}, no column {_solarSky?.Unanswered ?? 0:N0}), "
                + $"open {(t.SolarSampled + t.SolarUnsampled > 0 ? t.OpenColumnsSum / (double)(t.SolarSampled + t.SolarUnsampled) : 0):F2}/16 mean, overcast {t.OvercastByte}/256 at the last boundary; "
                + $"held {t.HeldMillijoules:N0} by vault bills, debug {t.PackDebugMillijoules:N0}, siphon paid {t.SiphonPaidMillijoules:N0}; "
@@ -10131,7 +10131,7 @@ public partial class Main : Node3D
             // much of it did, with the pack's price so the count is legible as joules.
             (_place.VoxelsUnpowered > 0 || _place.MillijoulesPaid > 0
                 ? $"fillgate  {_place.VoxelsUnpowered:N0} voxel(s) unpowered over {_place.UnpoweredPlacements:N0} placement(s) that stopped short; "
-                  + $"paid {_place.MillijoulesPaid:N0} mJ ({MachinePanel.Joules(_place.MillijoulesPaid)}) at "
+                  + $"paid {_place.MillijoulesPaid:N0} mJ ({EnergyText.Of(_place.MillijoulesPaid)}) at "
                   + $"{_place.EntangledMillijoulesPerVoxel / MachineDefinition.PerMille:N0} J a voxel\n"
                 : string.Empty) +
             $"carrying  {_inventory.TotalLitres:F0} L across {_inventory.MaterialCount} material(s)\n" +
@@ -10948,7 +10948,7 @@ public partial class Main : Node3D
                 GD.Print(
                     $"M10: pack — the world file carries a charged pack of material {saved.MaterialId} "
                     + $"({Content.Materials.GetIdentifier(saved.MaterialId)}), which is not a pack in this content; "
-                    + $"dropped with its {MachinePanel.Joules(saved.ChargeMillijoules)} forfeited");
+                    + $"dropped with its {EnergyText.Of(saved.ChargeMillijoules)} forfeited");
                 continue;
             }
 
@@ -10962,7 +10962,7 @@ public partial class Main : Node3D
 
         if (kept > 0)
         {
-            GD.Print($"M10: pack — {kept:N0} carried pack(s) restored from the world file holding {MachinePanel.Joules(restored)} between them");
+            GD.Print($"M10: pack — {kept:N0} carried pack(s) restored from the world file holding {EnergyText.Of(restored)} between them");
         }
     }
 

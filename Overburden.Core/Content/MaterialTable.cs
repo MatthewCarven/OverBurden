@@ -127,7 +127,7 @@ public sealed class MaterialTable
     {
         for (int id = 1; id < _isPlaceable.Length; id++)
         {
-            if (!_isPlaceable[id] || _machine[id] is { Kind: MachineKind.Vault }) yield return id;
+            if (!_isPlaceable[id] || IsContainer(id)) yield return id;
         }
     }
 

@@ -913,7 +913,7 @@ public sealed partial class Hud : CanvasLayer
         // above replaces it while the quantum backpack is worn.
         string packLine = pack is null || pack.IsWindow
             ? string.Empty
-            : $"   ·   pack {MachinePanel.Joules(pack.ChargeMillijoules)} / {MachinePanel.Joules(pack.CapacityMillijoules)} ({MachinePanel.Share(pack.ChargeMillijoules, pack.CapacityMillijoules)})";
+            : $"   ·   pack {EnergyText.Of(pack.ChargeMillijoules)} / {EnergyText.Of(pack.CapacityMillijoules)} ({MachinePanel.Share(pack.ChargeMillijoules, pack.CapacityMillijoules)})";
         return Line(place, mining, precise, pack, carriedPackMillijoules, bank) + packLine;
     }
 
@@ -944,7 +944,7 @@ public sealed partial class Hud : CanvasLayer
         {
             // The fullest carried one is what the right-click equips, so it is what the hand
             // says it holds; a swap keeps the worn one's charge beside the count (2026-09-18).
-            string held = carriedPackMillijoules > 0 ? $"PACK  (in hand, {MachinePanel.Joules(carriedPackMillijoules)})" : "PACK  (in hand, empty)";
+            string held = carriedPackMillijoules > 0 ? $"PACK  (in hand, {EnergyText.Of(carriedPackMillijoules)})" : "PACK  (in hand, empty)";
             return pack is null
                 ? $"{held}   ·   right-click to equip it   ·   {tier}  (T)   ·   1-9 material, V cycle, V held + 1-9 pin"
                 : $"{held}   ·   right-click to swap — the worn one keeps its charge   ·   {tier}  (T)   ·   1-9 material, V cycle, V held + 1-9 pin";

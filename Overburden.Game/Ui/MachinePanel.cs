@@ -552,7 +552,7 @@ public sealed partial class MachinePanel : CanvasLayer
             if (_pack.IsWindow)
             {
                 long bank = _tick?.BankOf(_pack.Channel) ?? 0;
-                _status.Text = $"a window onto channel {_pack.Channel}: the bank there holds {Joules(bank)}, and every tool and siphon draws straight from it";
+                _status.Text = $"a window onto channel {_pack.Channel}: the bank there holds {EnergyText.Of(bank)}, and every tool and siphon draws straight from it";
                 _status.AddThemeColorOverride("font_color", bank > 0 ? MovedText : StallText);
             }
             else
@@ -766,8 +766,8 @@ public sealed partial class MachinePanel : CanvasLayer
     /// </remarks>
     internal static string ChargeOf(long chargeMillijoules, long capacityMillijoules) =>
         capacityMillijoules <= 0
-            ? Joules(chargeMillijoules)
-            : $"{Joules(chargeMillijoules)} of {Joules(capacityMillijoules)} ({Share(chargeMillijoules, capacityMillijoules)})";
+            ? EnergyText.Of(chargeMillijoules)
+            : $"{EnergyText.Of(chargeMillijoules)} of {EnergyText.Of(capacityMillijoules)} ({Share(chargeMillijoules, capacityMillijoules)})";
 
     /// <summary>A part of a whole as a percentage to one place; a non-zero part under a tenth reads <c>&lt;0.1%</c> rather than <c>0.0%</c>.</summary>
     internal static string Share(long part, long whole)
@@ -780,10 +780,6 @@ public sealed partial class MachinePanel : CanvasLayer
         double percent = 100.0 * part / whole;
         return part > 0 && percent < 0.05 ? "<0.1%" : $"{percent:N1}%";
     }
-
-    /// <summary>Millijoules in the unit a person reads: mJ under a joule, then J, kJ, MJ, GJ.</summary>
-    /// <remarks>Core's <see cref="EnergyText"/> since IM-6a (decision 3), with the same output; the callers move with 6b's panel.</remarks>
-    internal static string Joules(long millijoules) => EnergyText.Of(millijoules);
 
     /// <summary>Millilitres as litres, whole when they are whole — the tick's unit shown in the player's.</summary>
     private static string Litres(long millilitres) =>
