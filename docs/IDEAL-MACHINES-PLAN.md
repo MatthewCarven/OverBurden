@@ -127,7 +127,8 @@ The rest are engineering, and "as recommended" takes them. **Each fork is marked
   cannot see, and the Core judge found it minting in both designs that tried.
 - **◆ 23. Water shows on the hotbar**, as its own ID, while the quantum backpack is worn. It is never
   placed by an ordinary right-click; the siphon is its only door. That is taken 8 read literally. The
-  other arm keeps water off the hotbar, in the store's list only.
+  other arm keeps water off the hotbar, in the store's list only. *(Amended by IM-6's pass, decision 12, taken
+  2026-11-24: water shows as a gauge beside the row, not in one of its nine slots.)*
 - **◆ 27. No hand valve on a vault.** Your line *"i am deliberately going to flood that entire valley"*
   was about your pond on `Regions16`, in full: *"… for spread and flood testing purposes"*. R and Ctrl+R
   do that in sandbox. So a vault's `enabled` 0 closes it to deposits and withdrawals and it keeps paying.
@@ -157,7 +158,8 @@ The rest are engineering, and "as recommended" takes them. **Each fork is marked
   moves.
 - **◆ 52. In creative, the debug keys are off**: P, Alt+P, R, Ctrl+R, Alt+R, Alt+G, H and L. Alt+P alone
   would make bankruptcy a keypress, and H would freeze a burning fuse. Every world you have is sandbox and
-  keeps them all.
+  keeps them all. *(Amended by IM-6's pass, decision 24, taken 2026-11-24: Ctrl+P and Alt+H are off too, and
+  creative turns them off whatever `--dev` says.)*
 
 ---
 
@@ -355,7 +357,9 @@ full high vault of water for about 35 hours with no sun; a full god vault for ab
 
 23. **◆ Water is an ID used only by the store**, `overburden:water`: `placeable: false`, not a programmer, a
     fluid. It shows in the hotbar's last slot while the backpack is worn, and the pocket refuses it by
-    every path: `--stock=`, `P`, the to-pocket verb. Tier B still holds anonymous
+    every path: `--stock=`, `P`, the to-pocket verb. *(Amended by IM-6's pass, decision 12, taken 2026-11-24:
+    it shows as a gauge beside the row, never selected and taking none of its nine slots, because a slot shows
+    the pocket's amount and the hand can't hold water to pin it.)* Tier B still holds anonymous
     millilitres, and nothing in the fluid engine reads this file. *Cost:* one permanent ID, the one
     MATERIALS-NOTES option B would need anyway. *Revisit:* he wants water in the pocket.
 24. **Four doors, each a twin counter, never through `Add`, `Emit` or the relay's `PourPending`.**
@@ -584,11 +588,14 @@ rubble.
     survival reserved. `--mode=creative` applies only when a world is created, like `--seed`, and is warned
     and ignored on an existing world. A profile and a `--nosave` run have no world, so they are always sandbox
     and r6 holds; a headless run that creates a named world with `--mode=creative` is creative, which is how
-    the oracles reach it. **Core never reads the mode**; no rule of water, power or support differs by mode.
+    the oracles reach it. *(Amended by IM-6's pass, decision 21, taken 2026-11-24: a profile with `--world=`
+    does make a world (`Main.cs:2540-2542`), so `--mode=creative` applies to any run that creates one, profile
+    or not; `--nosave`, and a profile without `--world=`, are the runs with no world.)* **Core never reads the mode**; no rule of water, power or support differs by mode.
     Command-line flags (`--stock=`, `--nogate`) are his developer doors and are honoured in any mode. ~~M10g's
     hotbar assignment moves to v9.~~ The hotbar's slots shipped first, at v8 (ALPHA-PLAN, session C).
 52. **◆ Creative turns the debug keys off; sandbox keeps them all.** P, Alt+P, R, Ctrl+R, Alt+R, Alt+G, H and
-    L are off in creative. Fly stays in every mode: it is the only way out of burial until M11. In sandbox, P
+    L are off in creative. *(Amended by IM-6's pass, decision 24, taken 2026-11-24: Ctrl+P, built 2026-11-04, and
+    Alt+H are off too, and creative turns them off whatever `--dev` says, since `start.cmd` passes it.)* Fly stays in every mode: it is the only way out of burial until M11. In sandbox, P
     also seeds the new machines.
 53. **A creative world starts with a kit**, from `kits/*.json`, a content section unioned across mods (not a
     path special to the base game), granted once at creation into the pocket as real counts, printed as
@@ -653,7 +660,7 @@ name, bounds or default.
 | **IM-3** Core (amended by its pass, below) | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
 | **IM-4** Core (its pass, 2026-09-30, splits it into 4a–4c, twelve decisions taken; **4a, 4b and 4c built**; 4c kept today's lake rule at his word, displacement is its own pass) | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; ~~the pump stalls `full` only when every ring entry refuses~~ a full vault reads `NoRoom`, the first refusal met (the pass's decision 11). Mutation: drop `vaulted`, red. |
 | **IM-5** Core (its pass, 2026-09-30, splits it into 5a, the water, and 5b, the pile; sixteen decisions taken as recommended) | The dump: the pile writer, the Tier A release, the Tier B ball with its twin sized to the budget, the ceilings and decoherence, the global budgets, owed while unloaded, the unload batch's session, the dead state; a heap-writer bench arm. | A fixture room receives every voxel once; a pile into a chunk that unloads, then a kill with no session save, then a reopen, counts every voxel once; the unloaded arm releases at arrival; N vaults dumping share the budget exactly; the Tier B ceiling decoheres the excess; power returning after the fuse does nothing; Ctrl+Z cannot touch the pile; Tier B exact, Tier A's counters seam-checked. Mutation: route the dump through `Add`, and the seam goes red. |
-| **IM-6** Wire (its pass, 2026-11-24, splits it into 6a, Core; 6b, the wire and the vault in sandbox; and 6c, creative; twenty-six decisions wait on his word) | Header v9, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v8 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
+| **IM-6** Wire (its pass, 2026-11-24, splits it into 6a, Core; 6b, the wire and the vault in sandbox; and 6c, creative; twenty-six decisions taken as recommended 2026-11-24) | Header v9, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v8 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
 | **IM-7** Core | The `quarry` kind: the box, `Facing`, the cursor, the skips, the scan cap, the stalls, the allotment and the carve's draw (`dug`), recording off with the chunk forget. | Digs a fixture box once, top down; never a machine or a full vault; pays exactly the voxels removed × 50 J; `OFF SITE` on an unloaded chunk; `flooded`; the cursor survives a save; Ctrl+Z on a hand dig in a chunk the quarry wrote is dropped, and in an untouched chunk still works; a Release bench arm at 1, 4 and 16 quarries. Mutation: quarry writes with recording on, red. |
 | **IM-8** Wire | Quarry wiring: the `quarry` bracket, the panel, the pins, the README's OH&S line. | Headless on the fixed seed: bites, and `quarry` against the 1 ms line; r6. **Playable: quarries.** |
 | **IM-9** Core+wire | Recall, the board, pin states, the power sensor, the unloaded-sensor guard. | `released == landed + in flight + lost + recalled` in both collapse modes and under `--bitechunks`; a part-picked machine credits `cleared + Recalled`, not 64; a bankrupt channel recalls nothing; a recalled pump is 64 in the pocket and none of it rubble; after the drain, Ctrl+Z re-adds nothing and the next arrival rebuilds nothing. Mutation: credit 64, red. A sensors × radius arm against `machines`. |
@@ -2800,6 +2807,10 @@ decision 52.
 *Estimates:* 6a is half a session and about thirty tests. 6b is a long session, mostly wire, closing on the windowed
 reads. 6c is a session and about thirty-five tests. **The riskiest part is 6c's header**, the save format every world
 crosses. In 6b it is the clicks' water branch, the one place a free tool could slip onto T (fact 13).
+
+**Taken as recommended, all twenty-six, 2026-11-24** (*"As recommended"*), the same evening. The three amendments
+are carried into decisions 23, 51 and 52 and the fork list above. Decision 16 moves `--placeat=` into IM-6b, and
+COLLAPSE-PLAN's decision 13 and its f-2 row say so. **IM-6a is next.**
 
 ## Must not ship
 

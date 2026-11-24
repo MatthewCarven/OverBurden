@@ -39,6 +39,11 @@ launched and nothing was built, since he may start `start.cmd` from this folder.
   each printed `granted` and made once by a header bit. An undo of the first cell's placement loses the gift.
 - **Small things found**, to fix in 6b if it is taken: the profile's voxel and power lines print shorter formulas
   than they check; `VaultState.cs:11` still says a paid boundary disarms a fuse; and two doc summaries are stray.
+- **Taken as recommended, all twenty-six, the same evening** (*"As recommended"*). The amendments are carried
+  through every copy in one pass: decisions 23, 51 and 52 and the fork list (IDEAL-MACHINES-PLAN), `--placeat=`'s
+  move to IM-6b (COLLAPSE-PLAN's decision 13, its f-2 row and its next line), the screen's note (M10-LADDER-PLAN),
+  C8's consequence (ALPHA-PLAN), and `water.json`'s comment, which said the hotbar. DESIGN.md has no copy. **IM-6a
+  is next.**
 
 ## 2026-11-24 — Collapse f-1: the sensor's Core, the signal, and the vault's bill kept paid
 

@@ -2656,7 +2656,9 @@ Read as two layouts, both on `E` tapped:
 It amends decision 1 (a tap of `E` aimed at a container opens it beside you) and meets IDEAL-MACHINES-PLAN
 decision 21, the stock section of the computer's panel, which IM-6 builds first. **Recommended there:** IM-6
 builds that section as planned, so the vault is playable before M10g; the screen calls the same moves; and
-M10g's pass decides whether the panel keeps its verbs once the screen exists.
+M10g's pass decides whether the panel keeps its verbs once the screen exists. **IM-6's pass, taken 2026-11-24**
+(IDEAL-MACHINES-PLAN, "IM-6 — the code-level pass", decisions 4 and 12): the moves are one Core seam, with this
+section's pocket-first order for the combined box, and water shows as a gauge beside the row, not on it.
 
 #### His design for the player's slots (2026-10-19)
 

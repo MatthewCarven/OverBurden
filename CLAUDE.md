@@ -214,9 +214,10 @@ version. A worktree has neither beside it, so give the script `-Godot <exe>` the
 
 ## Where things stand
 
-**2026-11-24 — IM-6's code-level pass is written: twenty-six decisions wait on his word**
+**2026-11-24 — IM-6's code-level pass is written, and his word took all twenty-six decisions as recommended**
 ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-6 — the code-level pass"). Docs only, nothing built.
-The warnings and f-1, landed earlier the same day, are in STATUS-HISTORY.
+The warnings and f-1, landed earlier the same day, are in STATUS-HISTORY. **Taken the same evening** (*"As
+recommended"*), with the amendments to decisions 23, 51 and 52 carried into the plan.
 - **The split recommended (decision 1, a fork):**
   - **6a**, Core, with nothing changed in play: the runway from per-channel flows, power and energy text, the store's
     moves with a withdraw guard, and the pile's positions.
@@ -246,19 +247,20 @@ The warnings and f-1, landed earlier the same day, are in STATUS-HISTORY.
   rewrites `Overburden.Game/icon.svg.import` with LF endings, so `make-alpha.ps1` warns of uncommitted changes there.
 
 **Next session, in order:**
-1. **IM-6a, once he takes the list** ("as recommended" takes all twenty-six). Read his list's notes first: at IM-4c
-   they reversed a choice. If `Overburden.Core/Machines` or `Main.cs` has moved since `4a2895c`, re-read the pass's
-   facts first. Build in a worktree if he is playing or may start.
+1. **IM-6a, the Core** (the pass's decisions 2–5): the runway's per-channel flows, power and energy text, the store's
+   moves with the withdraw guard, and the pile's positions, with their tests and battery (recipes written first).
+   Nothing changes in play. If `Overburden.Core/Machines` or `Main.cs` has moved since `4a2895c`, re-read the pass's
+   facts first. Build in a worktree if he is playing or may start. Then 6b, then 6c.
 2. **Collapse f-2, the wire**, alongside whenever suits (TODO's "Collapse part f"): a sense over the scheduler and
-   the director, the `M10:` terms, `P` seeding a sensor and its texture, and the headless oracle. If IM-6's decision
-   16 is taken, `--placeat=` lands in IM-6b and f-2 reuses it.
+   the director, the `M10:` terms, `P` seeding a sensor and its texture, and the headless oracle. `--placeat=` lands in
+   IM-6b (its decision 16), and f-2 reuses it.
 3. **From D, later** (TODO's "The public repo"): a page for mod authors; a lawyer's read of CLA.md before the
    first outside merge, if the game is ever to earn; CLA Assistant past a handful of outside PRs.
 
 The ideal machines plan: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to IM-3b,
 IM-4a (thirty-six mutations red), IM-4b, IM-4c (reduced at his word), **IM-5a, the dump's water** (2026-10-10,
 twenty-eight red) and **IM-5b, the pile** (2026-10-11, forty-two red; its seven build choices taken
-2026-10-12). **IM-6's pass is written** (2026-11-24; twenty-six decisions, his). **Taken and not built:** IM-7
+2026-10-12). **IM-6's pass is written and taken** (2026-11-24, all twenty-six as recommended). **Taken and not built:** IM-7
 onward.
 
 **The lake plan is taken (2026-10-01): [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), all seven decisions

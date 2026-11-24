@@ -600,7 +600,7 @@ them: the row stays nine slots, and "still carried" means in the backpack.
 ### What this changes elsewhere, once taken
 - **IDEAL-MACHINES-PLAN**: decision 51 and IM-6's row put the mode byte in **v9**, and IM-6's oracle *"a v7
   world opens as sandbox"* reads v8; decision 51's last sentence turns round. Decision 23's water on the row is
-  a slot under C8.
+  a slot under C8. *(IM-6's pass, taken 2026-11-24, put water beside the row instead: its decision 12.)*
 - **M10-LADDER-PLAN's inventory section**: decision 2 is built by C (its *"v4 world"* is a v7 one, and fact 3's
   *"v6"* is v8); decision 3's grid assigns, and drags, through the call C4's pin uses; decision 4's filter stays
   the grid's, and C3 decides only what lands on an empty slot.

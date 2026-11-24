@@ -1150,14 +1150,16 @@ signal medium later, and nothing here would have to be undone for it.
     12 s, 1 chunk away`, and `… cleared`.
 13. **A headless placement flag, `--placeat=<id>@x,y,z[,port=value…]`,** places a machine at a
     voxel with ports set, as a profile warms. It is a debug door, but not into a conserved
-    quantity, so it needs no identity term. It is the oracle's only way in.
+    quantity, so it needs no identity term. It is the oracle's only way in. *(IM-6's pass, decision 16, taken
+    2026-11-24: `--placeat=` lands in IM-6b, to this grammar, because IM-6's storm oracle needs it first; f-2
+    reuses it.)*
 
 ### The split
 
 | Slice | What | Verified by |
 |---|---|---|
 | **f-1** (**built 2026-11-24**, below) | Core: the `sensor` kind (loader, validate), `onsignal` (its readers opt in through IM-1's `sense` extra, and f-1 switches it on), the per-channel signal and the override in `MachineTick`, stall reason `signalled`. A small `ICollapseSense` interface (`Armed(chunk)`, `Member(chunk)`, `FuseLeft(chunk)`) so the tick never holds the director. | Tests with a fake sense: a fuse trips it, an event trips it, out of radius does not, 0 / 1 / 2 on a cell and a pump, the pool identity exact through a signal, a signal never written to a port or the blob. A mutation battery. |
-| **f-2** | The wire: `Main` hands the tick a sense over the scheduler and director, the panel status, the `M10:` terms and one-off lines, `P` seeds a sensor, the texture, `--placeat=`. | **The oracle:** on a scratch world, `--bitechunks=2 --collapseafter=10,10`, a sensor and a cell (`onsignal=1`) beside the bite on channel 0. `M10:` reads the channel signalled while the fuse burns, the cell out of the pool, cleared after the event ends. Plus the r6 control to the digit. |
+| **f-2** | The wire: `Main` hands the tick a sense over the scheduler and director, the panel status, the `M10:` terms and one-off lines, `P` seeds a sensor, the texture, `--placeat=` (built in IM-6b if that lands first: IM-6's decision 16). | **The oracle:** on a scratch world, `--bitechunks=2 --collapseafter=10,10`, a sensor and a cell (`onsignal=1`) beside the bite on channel 0. `M10:` reads the channel signalled while the fuse burns, the cell out of the pool, cleared after the event ends. Plus the r6 control to the digit. |
 | **f-3** | His play: a sensor by a failing roof, a cell on its channel set to go off. | His sentence. |
 
 **The riskiest part is f-2's oracle.** The bite, the fuse and the placement all have to line up
@@ -1290,7 +1292,8 @@ panel branch. Built in a worktree, on main the same day.
 
 **f-2 is next for the collapse, not before IM-6**: a sense over the scheduler and the director (it can be a Godot-free
 adapter in Core, tested on its own), the `M10:` terms and one-off lines (decision 12), `P` seeding a sensor and its
-texture (decision 9), `--placeat=` (decision 13), decision 7's full panel status, and the headless oracle.
+texture (decision 9), `--placeat=` (decision 13; IM-6b builds it if it lands first), decision 7's full panel
+status, and the headless oracle.
 
 ## What would reverse this
 

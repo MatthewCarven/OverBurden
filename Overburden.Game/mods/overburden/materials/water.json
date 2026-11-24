@@ -1,5 +1,5 @@
 {
-  "$comment": "Water as an ID (IDEAL-MACHINES-PLAN decision 23; IM-4's pass, decision 8): the store's water, shown on the hotbar while the quantum backpack is worn (IM-6). A fluid, so the pocket refuses it at its one door, and never placed. The store keeps water as millilitres on a vault's row, not under this ID; Tier B holds anonymous millilitres and never reads this file.",
+  "$comment": "Water as an ID (IDEAL-MACHINES-PLAN decision 23; IM-4's pass, decision 8): the store's water, shown as a gauge beside the hotbar while the quantum backpack is worn (IM-6's pass, decision 12). A fluid, so the pocket refuses it at its one door, and never placed. The store keeps water as millilitres on a vault's row, not under this ID; Tier B holds anonymous millilitres and never reads this file.",
   "id": "water",
   "hardness": 0,
   "supportDistance": 0,
