@@ -10529,7 +10529,8 @@ public partial class Main : Node3D
                 + $"drain {_machineDrainCalls} call(s), {(_machineDrainCalls > 0 ? _machineDrainMillisSum / _machineDrainCalls : 0):F2} ms mean, {_machineDrainMillisMax:F2} max | "
                 + $"port writes {_machines.PortWrites} ({_machines.PortWritesClamped} clamped), computer {_place?.ComputerOpens ?? 0} open(s) / {_place?.ComputerMisses ?? 0} miss(es)"
                 + MachineTickSummary()
-                + VaultStoreSummary());
+                + VaultStoreSummary()
+                + HudBankSummary());
         }
     }
 
@@ -10538,6 +10539,20 @@ public partial class Main : Node3D
     /// exact — and the fuses the one-off <c>M10: vault —</c> lines have told, with the panel's and <c>--deposit=</c>'s moves.
     /// Empty until anything has entered a vault, so a world with no store prints as before.
     /// </summary>
+    /// <summary>
+    /// IM-6b: what the HUD's bank line (decision 8) and fuse line (decision 13) read now, while they show — so a plain
+    /// headless run, which builds the HUD but draws nothing, has them in the log. Empty while neither shows.
+    /// </summary>
+    private string HudBankSummary()
+    {
+        if (_hud is null || (_hud.BankText.Length == 0 && _hud.FuseLineText.Length == 0))
+        {
+            return string.Empty;
+        }
+
+        return " | hud: " + string.Join("   ·   ", new[] { _hud.BankText, _hud.FuseLineText }.Where(text => text.Length > 0));
+    }
+
     private string VaultStoreSummary()
     {
         if (_machines is null
