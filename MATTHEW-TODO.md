@@ -25,57 +25,52 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-**Still to test, queued at your word** (2026-10-19: *"I know i've still got stuff to test can we put that on
-my todo and keep going?"*). Nothing below blocks the next build; the oldest is from 2026-09-30.
+**Still to test, queued at your word** (2026-10-19, and 2026-11-24: *"Keep my testing backlog open for updates
+and i will get around to testing things"*). **Nothing here blocks development**, which carries on alongside; tell
+me in the chat whenever you've tried something, and I'll fold it in.
 
-- [ ] **Ctrl+P** (built 2026-11-04): with no lithium-ion pack on your back, the pack lands in your hand and a
-      right-click wears it; press it again and it says you're wearing one and adds nothing. I tested the rule and
-      the right-click, not the keypress.
-- [ ] **0.1.3-alpha, the hotbar's slots** (built and on main 2026-10-19; `start.cmd` plays it):
-      - **Your row stays as it is** in LakeTest2. Spend the last of something: its slot stays, dimmed, and the
-        next bite lands back in it.
-      - **Hold V and press a number**: what's in your hand goes in that slot. A tap of V still steps through
-        what you carry, but it moves when you let go now, not when you press.
-      - **A new world**: dig grass and dirt, press P. The machines, clay and glass fill the row and your first
-        stone lands in slot 9; the computer and packs are a V away.
-      - **Build until the stone runs out**: your hand stays on stone and a click says you're out, instead of
-        switching to whatever you have most of.
-      - *Does the V chord feel right?*
-- [ ] **0.1.2-alpha, the first ten minutes** (in 0.1.3 too):
-      - **Esc** opens the menu (Resume, Controls, Quit); **F1** the controls card. Esc still closes a panel or
-        the map first. Quit should say *Saving…* and close.
-      - **A line above the hotbar** says what just happened: the hand pick on stone, an empty pack, Ctrl+Z's
-        result, P, Alt+P and R.
-      - **The swap asks**: wear a charged lithium-ion pack, right-click another (empty) one. It should say
-        you're wearing your fullest and do nothing; a second right-click within 3 s swaps.
-      - **H** (you have `--dev`: `start.cmd` and your `start2`–`start5` pass it) shows an amber *WATER HELD*
-        line until H again.
-      - *Does any of it read wrong, and is the card's text the right size?* Then the zip's yours to upload
-        (below).
-- [ ] **The 2026-10-12 builds, in one sitting** (none has had a look yet):
-      - **F11 and Alt+Enter** go fullscreen and back; **F10** is far mode now.
-      - **The version** reads small in the upper-left corner (`Overburden 0.1.1-alpha (…)` in the zip).
-      - **Your Korobeiniki under a collapse**: bring a roof down and listen through the fuse. *Does it fit, and
-        is it too loud or too quiet?*
-      - **A fresh world starts on the hand pick**: `start.cmd "--world=HandTest"`, dig dirt, then try stone
-        (refused: it wants a quantum tool, so `P`, right-click a pack, `Alt+P`). *Does that read as a start, or
-        as broken?*
-      - **The hotbar in m³**: anything over a cubic metre reads `1,767,903 m³`, not litres.
+### The retest, in one sitting (about 20 minutes, `start.cmd`, LakeTest2)
+
+It has been a month, so this strings every untested build into one route. A line back on any step is plenty, and
+a step that reads wrong is the most useful kind. **★ marks what IM-6 builds on**: do those first if you only do some.
+
+1. **Ctrl+P** with no lithium-ion pack on your back: the pack lands in your hand and a line above the hotbar says
+   so. Right-click wears it. Ctrl+P again says you're wearing one and adds nothing. (Built 2026-11-04; I tested
+   the rule and the right-click, not the keypress.)
+2. **Alt+P** charges it, and the line above the hotbar says so (it should for P, R and Ctrl+Z too).
+3. ★ **Your row is as you left it.** Hold V and press a number: what's in your hand goes in that slot. A tap of V
+   still steps through what you carry, but moves when you let go now. *Does the V chord feel right?*
+4. ★ **Spend the last of something**: T to the quantum miner, dig some stone, then place it until it runs out.
+   Your hand stays on stone and a click says you're out, instead of switching to whatever you have most of; the
+   slot stays, dimmed, and the next bite lands back in it. Over a cubic metre reads in m³, not litres.
+5. **The swap asks**: `P` for spare packs, then with the charged one on, right-click an empty one. It should say
+   you're wearing your fullest and do nothing; a second right-click within 3 s swaps.
+6. **The pack's recharge**: place a vacuum cell, `Alt+P`, drain the pack with Q, and watch it come back from the
+   cell, a cube bite's worth every 1.6 s.
+7. ★ **The panel by hand**: computer in hand, right-click a pump, type 99 into a box capped at 15, press Esc once
+   with the field live. *One Esc or two?*
+8. **Ctrl+Z on a fill that's still waiting**: place a block right into water and press Ctrl+Z at once. *Nothing
+   should land* (before, it came back half a second later). A shape half in water: the first press cancels the
+   wet half, a second takes back the dry half.
+9. **H** shows an amber *WATER HELD* line until H again (`start.cmd` passes `--dev`).
+10. **The screen**: F11 and Alt+Enter go fullscreen and back, F10 is far mode, and the version reads small in the
+    upper-left corner.
+11. **Esc** opens the menu (Resume, Controls, Quit) and **F1** the controls card; Esc closes a panel or the map
+    first. *Is the card's text the right size?* Quit says *Saving…* and closes.
+
+**Then a new world, five minutes** (`start.cmd "--world=HandTest"`):
+- It starts on the hand pick: dirt digs, and stone is refused with a line saying it wants a quantum tool. *Does
+  that read as a start, or as broken?*
+- ★ `P` fills the row with the machines, clay and glass, your first stone lands in slot 9, and the computer and
+  packs are a V away.
+- If you bring a roof down anywhere, listen to your Korobeiniki through the fuse. *Does it fit; too loud or
+  too quiet?*
+
+### Also open
 
 - [ ] **The quick start**, [QUICKSTART.md](QUICKSTART.md): every key, written for a stranger. Have a read and
       say what's wrong or missing; it becomes the in-game controls card and the zip's readme.
-
-- [ ] **The pack's recharge, when you're near it anyway** (the pack itself is played, see Answered): place a
-      vacuum cell (`P` gives them), `Alt+P` to fill it and the pack, drain the pack with Q, and watch it come
-      back from the cell, a cube bite's worth every 1.6 s. Your play had no cell, so this part is untried.
-
-- [ ] **Ctrl+Z on a fill that's still waiting** (IM-4c, built 2026-09-30): place a single block right into
-      water (or fill a chunk at range) and press Ctrl+Z at once. *Nothing should land.* Before, it came
-      back half a second later. The log says `undo — 1 placement(s) waiting for the boundary cancelled`.
-      A shape half in water puts its dry half down at the click: the first press cancels the wet half,
-      and a second takes back the dry half. (You said you'll test it.)
-
-- [ ] **M10d-2, the play** — the recipes below. Nothing else is blocked on me.
+- [ ] **M10d-2, the play** — the recipes below.
 
 ---
 
@@ -107,8 +102,7 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 - [ ] **7. The tiers and the hold.** Fresh pack (`P`, right-click to equip), `Alt+P`, then `T`
       through the cycle holding Q on each. *Does the battery read as the gate, and the cycle as a
       ladder?*
-- [ ] **8. The panel by hand.** Right-click a pump with the computer, type 99 into a box capped at
-      15, press Esc once with the field live. *One Esc or two?*
+- [ ] **8. The panel by hand** is step 7 of the retest, above.
 - [ ] **9. The pack across a quit.** Quit wearing a pack, reopen. *Does Q costing charge while T
       doesn't read as the design?*
 - [ ] **10. Undo's edges.** (a) Bite, spend the material, Ctrl+Z — refused whole? (b) Bite into a
@@ -404,9 +398,10 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-26**. **0.1.3-alpha is released on GitHub** (a pre-release, the zip byte-identical to the one
-built) **and going public's files are pushed**; checked from here, everything on GitHub matches. One README fix to
-push (Yours to run).
+Updated **2026-11-24**. **0.1.3-alpha is released on GitHub** (a pre-release, the zip byte-identical to the one
+built), going public's files and the README's Releases link are pushed, and **Ctrl+P** (one lithium-ion pack, in
+your hand) is on main for your next `start.cmd`. Your untested builds are one route at the top, "The retest, in
+one sitting"; development carries on alongside it, next the ten build warnings, then collapse f-1, then IM-6's pass.
 
 - **Going public is built** (2026-10-26, the last of the four alpha sessions):
   - **The README** is written for a visitor: your pitch, the download (GitHub's Releases, your Drive links as the
