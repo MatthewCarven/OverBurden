@@ -110,8 +110,11 @@ public class ShippedContentTests
 
         Assert.False(content.Tools.Contains(Identifier.Parse("overburden:steel_pick")));
         var tiers = ToolTiers.Order(content.Tools.Entries().Select(e => e.Value).Where(t => !t.IsUnknown));
+
+        // IM-6b (its pass, decision 11): seven stops, the three siphons after every rock tool.
         Assert.Equal(
-            ["overburden:hand_pick", QuantumMinerId, "overburden:quantum_tunneller", QuantumExcavatorId],
+            ["overburden:hand_pick", QuantumMinerId, "overburden:quantum_tunneller", QuantumExcavatorId,
+             "overburden:quantum_siphon_cube", "overburden:quantum_siphon_tunnel", "overburden:quantum_siphon_chunk"],
             tiers.Select(t => t.Id.ToString()));
 
         ToolDefinition start = ToolTiers.Default(tiers);
@@ -181,9 +184,9 @@ public class ShippedContentTests
             Assert.True(tool.HardnessThreshold >= hardest);
         }
 
-        // They are the last three on the cycle — miner, tunneller (2026-09-23), excavator — and
-        // none is the start.
-        var tiers = ToolTiers.Order(content.Tools.Entries().Select(e => e.Value));
+        // They are the last three rock tools on the cycle — miner, tunneller (2026-09-23), excavator —
+        // and none is the start. Since IM-6b the three siphons come after them, the last three stops.
+        var tiers = ToolTiers.Order(content.Tools.Entries().Select(e => e.Value)).Where(t => t.Takes == ToolTakes.Rock).ToList();
         Assert.Equal(QuantumMinerId, tiers[^3].Id.ToString());
         Assert.Equal("overburden:quantum_tunneller", tiers[^2].Id.ToString());
         Assert.Equal(QuantumExcavatorId, tiers[^1].Id.ToString());
@@ -233,7 +236,8 @@ public class ShippedContentTests
         Assert.True(outlet.Hardness <= tallest, "no shipped tier can take a relay outlet body, so none can be dismantled");
 
         MaterialTable table = MaterialTable.From(content.Materials);
-        Assert.Equal(7, table.MachineIds.Count); // IM-2 added the quantum backpack, 2026-10-12 the lithium-ion pack
+        // IM-2 added the quantum backpack, 2026-10-12 the lithium-ion pack, IM-6b the five vaults and the crate.
+        Assert.Equal(13, table.MachineIds.Count);
 
         // M10b: only a ring has weights, so the pump declares none and the outlet does; a port
         // the panel would list that nothing reads is the thing decision 11 refuses a via for.

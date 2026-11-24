@@ -69,6 +69,9 @@ public class DebugSeedTests
         Assert.Equal(6_400L, inventory.Voxels(Id(materials, "vacuum_cell")));
         Assert.Equal(6_400L, inventory.Voxels(Id(materials, "clay")));
         Assert.Equal(6_400L, inventory.Voxels(Id(materials, "glass")));
+        Assert.Equal(100L, inventory.Voxels(Id(materials, "quantum_backpack")));
+        Assert.Equal(6_400L, inventory.Voxels(Id(materials, "crate")));
+        Assert.Equal(6_400L, inventory.Voxels(Id(materials, "quantum_vault/god")));
     }
 
     [Fact]
@@ -132,7 +135,7 @@ public class DebugSeedTests
     {
         Registry<MaterialDefinition> materials = Shipped();
         var inventory = new VolumetricInventory();
-        inventory.KeepOffTheRow(MaterialTable.From(materials).Items());
+        inventory.KeepOffTheRow(MaterialTable.From(materials).OffTheRow());
 
         inventory.Add(Id(materials, "grass"), 12);
         inventory.Add(Id(materials, "dirt"), 30);
@@ -146,10 +149,51 @@ public class DebugSeedTests
         inventory.Add(Id(materials, "stone"), 64);
         Assert.Equal(Id(materials, "stone"), inventory.MaterialInSlot(8));
 
-        foreach (string item in new[] { "computer", "lead_acid_pack", "lithium_ion_pack" })
+        foreach (string item in new[] { "computer", "lead_acid_pack", "lithium_ion_pack", "quantum_backpack" })
         {
             Assert.Equal(100, inventory.Voxels(Id(materials, item)));
             Assert.False(inventory.Hotbar.Contains(Id(materials, item)), $"{item} took a slot by itself");
+        }
+
+        // IM-6b (its pass, decision 7): the containers are carried, a hundred bodies each, and take no slot by themselves.
+        foreach (string container in new[] { "crate", "quantum_vault/low", "quantum_vault/medium", "quantum_vault/high", "quantum_vault/mythical", "quantum_vault/god" })
+        {
+            Assert.Equal(100L * 64L, inventory.Voxels(Id(materials, container)));
+            Assert.False(inventory.Hotbar.Contains(Id(materials, container)), $"{container} took a slot by itself");
+        }
+    }
+
+    /// <summary>IM-6b (decision 7): a container pinned takes its slot like any material, and a pin is the only way on.</summary>
+    [Fact]
+    public void AContainerTakesASlotOnlyByAPin()
+    {
+        Registry<MaterialDefinition> materials = Shipped();
+        var inventory = new VolumetricInventory();
+        inventory.KeepOffTheRow(MaterialTable.From(materials).OffTheRow());
+        Assert.True(DebugSeed.Press(materials, inventory, out _));
+
+        int high = Id(materials, "quantum_vault/high");
+        Assert.False(inventory.Hotbar.Contains(high));
+        inventory.Hotbar.Pin(8, high);
+        Assert.Equal(high, inventory.MaterialInSlot(8));
+    }
+
+    /// <summary>IM-6b (decision 7): what keeps off the row is the items and the six containers, nothing placeable besides.</summary>
+    [Fact]
+    public void TheShippedOffTheRowSetIsTheItemsAndTheContainers()
+    {
+        Registry<MaterialDefinition> materials = Shipped();
+        MaterialTable table = MaterialTable.From(materials);
+
+        string[] offRow = [.. table.OffTheRow().Select(id => materials.GetIdentifier(id).Path).Order(StringComparer.Ordinal)];
+        Assert.Equal(
+            ["computer", "crate", "lead_acid_pack", "lithium_ion_pack", "quantum_backpack",
+             "quantum_vault/god", "quantum_vault/high", "quantum_vault/low", "quantum_vault/medium", "quantum_vault/mythical", "water"],
+            offRow);
+
+        foreach (int id in table.OffTheRow().Where(table.IsPlaceable))
+        {
+            Assert.True(table.IsContainer(id), $"{materials.GetIdentifier(id)} is placeable and kept off the row without being a container");
         }
     }
 

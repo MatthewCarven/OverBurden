@@ -899,6 +899,15 @@ public partial class Main : Node3D
     private Siphon? _siphon;
     private readonly SiphonClicks _siphonClicks = new();
     private SiphonRefusal? _siphonRefusalPrinted;
+
+    // IM-6b: the runway (IM-6a's Core, decision 2), recorded after each boundary's tick and read into the HUD's bank
+    // line (decision 8); each channel's bank at the last boundary, for M10: bank —'s crossings of zero; and each
+    // vault's phase at the last boundary, for M10: vault —'s one-off lines (decision 15), the oracle's instrument.
+    private Runway? _runway;
+    private readonly long[] _bankAtLastBoundary = new long[MachineTick.Channels];
+    private bool _banksSeen;
+    private readonly Dictionary<BrushCell, VaultPhase> _vaultPhases = [];
+    private long _vaultFusesLit, _vaultFusesOut, _vaultFusesBurnt;
     private VaultDump? _vaultDump;
     private long _dumpPrints;
 
@@ -1577,7 +1586,8 @@ public partial class Main : Node3D
 
         // Alpha session C, decision C3: the items (the computer, the packs) take a slot only by a
         // pin, so P's kit fills an empty row with blocks and machines and leaves room for stone.
-        _inventory.KeepOffTheRow(_materials.Items());
+        // IM-6b (its pass, decision 7): the containers too, the five vaults and the crate.
+        _inventory.KeepOffTheRow(_materials.OffTheRow());
 
         var viewers = new ViewerSet();
         _scheduler = new JobScheduler(viewers);
@@ -3207,6 +3217,12 @@ public partial class Main : Node3D
         }
 
         bool precise = _camera.MouseCaptured && Input.IsKeyPressed(Key.Alt);
+
+        // IM-6b: the bank line is the boundary's (ReadBank), but a backpack taken off goes at once.
+        if (_pack is not { IsWindow: true } && _hud.BankText.Length > 0)
+        {
+            _hud.ShowBank(null);
+        }
 
         // The camera's own forward axis, not its yaw: Core's Compass turns a direction into a
         // bearing, and a direction needs no sign convention to be right.
@@ -4928,6 +4944,145 @@ public partial class Main : Node3D
         }
     }
 
+    /// <summary>
+    /// IM-6b, at each boundary after the tick and the dump: the runway records the tick's flows (decision 2), the HUD is
+    /// handed the backpack's channel's bank (decision 8) and the soonest lit fuse (decision 13), and the one-off lines
+    /// print — <c>M10: bank —</c> at each crossing of zero (decision 11), <c>M10: vault —</c> when a fuse lights, goes out
+    /// and burns down (decision 15). Prints and displays only; nothing conserved moves.
+    /// </summary>
+    private void ReadBank()
+    {
+        if (_machineTick is null || _machines is null)
+        {
+            return;
+        }
+
+        _runway ??= new Runway(_machineTick.BoundaryMillis);
+
+        // A boundary with no machines runs no tick (RunMachineTick), so its flows are last boundary's; a fresh runway
+        // reads the empty channel as it is rather than a stale drain.
+        if (_machines.Count == 0)
+        {
+            if (_runway.Recorded > 0)
+            {
+                _runway = new Runway(_machineTick.BoundaryMillis);
+            }
+        }
+        else
+        {
+            _runway.Record(_machineTick);
+        }
+
+        PrintBankCrossings();
+        PrintVaultPhases();
+
+        if (_hud is null)
+        {
+            return;
+        }
+
+        _hud.ShowBank(_pack is { IsWindow: true } window ? BankLine.Read(_machines, _runway, window.Channel) : null);
+        _hud.ShowFuse(BankLine.SoonestFuse(_machines, CellIsLoaded, _pack is { IsWindow: true } worn ? worn.Channel : null));
+    }
+
+    /// <summary>Whether a machine cell's chunk is in the loaded box — the fuse line's "in the loaded box" (decision 13).</summary>
+    private bool CellIsLoaded(BrushCell cell) => _pipeline?.Streamer.Get(cell.OriginVoxel.Chunk)?.Voxels is not null;
+
+    /// <summary>
+    /// <c>M10: bank —</c> (decision 11): each channel whose bank reached zero or left it since the last boundary, both
+    /// ways. The first boundary only takes the baseline, so an empty channel at open prints nothing.
+    /// </summary>
+    private void PrintBankCrossings()
+    {
+        if (_machineTick is null)
+        {
+            return;
+        }
+
+        for (int channel = 0; channel < MachineTick.Channels; channel++)
+        {
+            long bank = _machineTick.BankOf(channel);
+            long was = _bankAtLastBoundary[channel];
+            _bankAtLastBoundary[channel] = bank;
+            if (!_banksSeen || (bank > 0) == (was > 0))
+            {
+                continue;
+            }
+
+            RunwayReading reading = _runway?.Read(channel) ?? default;
+            GD.Print(bank == 0
+                ? $"M10: bank — channel {channel} is empty: 0 mJ in its enabled cells (was {MachinePanel.Joules(was)}); in {PowerText.OfMilliwatts(reading.InMilliwatts)}, out {PowerText.OfMilliwatts(reading.OutMilliwatts)} over the last {(_runway?.Recorded ?? 0) * _machineTick.BoundaryMillis / 1000.0:F1} s"
+                : $"M10: bank — channel {channel} has charge again: {MachinePanel.Joules(bank)}; in {PowerText.OfMilliwatts(reading.InMilliwatts)}, out {PowerText.OfMilliwatts(reading.OutMilliwatts)}");
+        }
+
+        _banksSeen = true;
+    }
+
+    /// <summary>
+    /// <c>M10: vault —</c> (decision 15): a vault whose fuse lit, went out or burned down since the last boundary, with
+    /// its cell, grade, channel, holding and bill. The oracle's instrument, since the panel never logs a vault (fact 9).
+    /// A vault new since the last boundary takes its phase silently, unless it arrives already fusing.
+    /// </summary>
+    private void PrintVaultPhases()
+    {
+        if (_machines is null || _machineTick is null)
+        {
+            return;
+        }
+
+        HashSet<BrushCell> seen = [];
+        foreach (MachineRow row in _machines.Rows)
+        {
+            if (_machines.VaultDefinitionOf(row) is not { IsChannelVault: true } definition
+                || !VaultState.TryRead(row, out VaultContents contents))
+            {
+                continue;
+            }
+
+            seen.Add(row.Cell);
+            VaultPhase now = contents.Phase;
+            bool known = _vaultPhases.TryGetValue(row.Cell, out VaultPhase was);
+            _vaultPhases[row.Cell] = now;
+            if (known ? was == now : now != VaultPhase.Fusing)
+            {
+                continue;
+            }
+
+            long channel = row.TryGetPort(MachineTick.ChannelPort, out long c) ? c : 0;
+            string name = Hud.DisplayName(Content.Materials, row.MaterialId);
+            string holds = $"holds {contents.TotalVoxels:N0} voxel(s) and {VolumeText.OfMillilitres(contents.WaterMillilitres)} of water";
+            string bill = PowerText.OfMillijoulesPerBoundary(MachineTick.BillOf(definition, contents, _machineTick.BoundaryMillis), _machineTick.BoundaryMillis);
+            string own = $"own {MachinePanel.Joules(contents.OwnChargeMillijoules)} of {MachinePanel.Joules(MachineTick.OwnChargeCapacity(definition, contents))}";
+            if (now == VaultPhase.Fusing)
+            {
+                _vaultFusesLit++;
+                GD.Print($"M10: vault — fuse lit at {row.Cell}: {name} on channel {channel}, FUSE {contents.FuseMillisLeft / 1000.0:N1} s; its bill of {bill} went unpaid with its minute spent ({own}); {holds}; bank {MachinePanel.Joules(_machineTick.BankOf((int)channel))}");
+            }
+            else if (was == VaultPhase.Fusing && now == VaultPhase.Holding)
+            {
+                _vaultFusesOut++;
+                GD.Print($"M10: vault — fuse out at {row.Cell}: {name} on channel {channel}, its minute is back ({own}); {holds}; bill {bill}");
+            }
+            else if (now == VaultPhase.Dumping)
+            {
+                _vaultFusesBurnt++;
+                GD.Print($"M10: vault — fuse burnt at {row.Cell}: {name} on channel {channel}{(contents.Wreck ? " (a wreck)" : string.Empty)}, dumping — owes {contents.TotalVoxels:N0} voxel(s) and {VolumeText.OfMillilitres(contents.WaterMillilitres)} of water");
+            }
+            else
+            {
+                GD.Print($"M10: vault — {name} at {row.Cell} on channel {channel}: {was} → {now}; {holds}");
+            }
+        }
+
+        if (seen.Count != _vaultPhases.Count)
+        {
+            foreach (BrushCell gone in _vaultPhases.Keys.Where(cell => !seen.Contains(cell)).ToArray())
+            {
+                _vaultPhases.Remove(gone);
+            }
+        }
+    }
+
     /// <summary>What the dumps have decohered of each material, by name, over the session (decision 12's print).</summary>
     private string DecoheredByMaterial() =>
         _machines is null || _machines.VoxelsDecoheredByMaterial.Count == 0
@@ -5375,10 +5530,11 @@ public partial class Main : Node3D
 
         GD.Print(
             $"M10: P — {DebugSeed.Each} of each added to the inventory: relay pumps, relay outlets, solar panels and vacuum cells, "
-            + $"{DebugSeed.Each} m³ of clay and of glass, computers, lead-acid packs and lithium-ion packs; the blocks and machines "
-            + "take the row's empty slots and the computer and packs are a V away (right-click with a pack in hand equips it). "
-            + "Alt+P fills every placed cell and the pack");
-        Tell($"{DebugSeed.Each} of each added. The computer and packs are a V away; right-click with a pack in hand to wear it.");
+            + $"{DebugSeed.Each} m³ of clay and of glass, computers, lead-acid packs, lithium-ion packs and quantum backpacks, "
+            + "crates and the five quantum vaults (low, medium, high, mythical, god); the blocks and machines take the row's empty "
+            + "slots, and the computer, packs and containers are a V away (right-click with a pack in hand equips it; hold V and "
+            + "press 1-9 to pin one). Alt+P fills every placed cell and the pack");
+        Tell($"{DebugSeed.Each} of each added. The computer, packs, crates and vaults are a V away; right-click with a pack in hand to wear it.");
     }
 
     /// <summary>
@@ -6155,7 +6311,7 @@ public partial class Main : Node3D
     }
 
     /// <summary>A tool as a sentence names it: <c>overburden:hand_pick</c> is "hand pick".</summary>
-    private static string ToolName(ToolDefinition tool) => tool.Id.Path.Replace('_', ' ');
+    private static string ToolName(ToolDefinition tool) => ContentLabel.Of(tool.Id);
 
     /// <summary>
     /// Puts a sentence on the HUD's message line (ALPHA-PLAN B9). The log keeps its own print beside
@@ -7856,7 +8012,12 @@ public partial class Main : Node3D
             double dump = Milliseconds(t3, t3d);
             _bDump += dump;
             _bDumpMax = Math.Max(_bDumpMax, dump);
-            t3 = t3d;
+
+            // IM-6b: the runway and the HUD's bank, after the tick and the dump so the line reads this boundary's
+            // flows and phases. Print and display only: nothing conserved moves. Inside the dump's stamp, so the
+            // table check's term starts after it.
+            ReadBank();
+            t3 = Stopwatch.GetTimestamp();
 
             // M9d, decision 1: the table-move sweep, after every pass that moves a level — the
             // hand-off, the drains, the pour — and before the collapse sweep, so a roof whose lake

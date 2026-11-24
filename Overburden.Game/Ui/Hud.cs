@@ -4,6 +4,7 @@ using Godot;
 using Overburden.Core.Building;
 using Overburden.Core.Content;
 using Overburden.Core.Inventory;
+using Overburden.Core.Machines;
 using Overburden.Game.Player;
 using Overburden.Game.Rendering;
 
@@ -88,6 +89,15 @@ public sealed partial class Hud : CanvasLayer
     private double _sinceMessageShown;
     private Label? _held;
 
+    // IM-6b: the bank line (decision 8), the fuse's top line (13) and the water gauge beside the row (12).
+    private Label _bank = null!;
+    private Label? _fuse;
+    private PanelContainer? _gauge;
+    private StyleBoxFlat? _gaugeStyle;
+    private Label? _gaugeAmount;
+    private BankView? _bankView;
+    private FuseWatch? _fuseWatch;
+
     /// <summary>What each slot showed last, so a rebuild only happens when the row changes.</summary>
     private readonly List<int> _shownMaterials = [];
 
@@ -102,6 +112,12 @@ public sealed partial class Hud : CanvasLayer
     private static readonly Color IdleBorder = new(0.28f, 0.29f, 0.32f);
     private static readonly Color PanelFill = new(0.08f, 0.08f, 0.10f, 0.78f);
     private static readonly Color DimText = new(0.68f, 0.70f, 0.74f);
+
+    // IM-6b: the runway's colours (decision 2: amber under ten minutes, red under sixty seconds), and the
+    // entanglement's cyan (decision 29) for the fuse's line and the lit gauge.
+    private static readonly Color AmberText = new(1.00f, 0.72f, 0.25f);
+    private static readonly Color RedText = new(1.00f, 0.36f, 0.30f);
+    private static readonly Color EntangledCyan = new(0.35f, 0.95f, 1.00f);
 
     public override void _Ready()
     {
@@ -121,7 +137,74 @@ public sealed partial class Hud : CanvasLayer
         BuildVersion(root);
         BuildMessage(root);
         BuildHeld(root);
+        BuildFuse(root);
     }
+
+    /// <summary>
+    /// The fuse's top line (IM-6's pass, decision 13): <c>VAULT LOSING CONTAINMENT — 14 s</c> for the soonest lit fuse
+    /// among the vaults in the loaded box and on the backpack's channel, with <c>(paused)</c> while it waits on a paid
+    /// bill. Cyan, the entanglement's colour, under the held-water line.
+    /// </summary>
+    private void BuildFuse(Control root)
+    {
+        _fuse = new Label
+        {
+            Name = "Fuse",
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            AnchorLeft = 0f,
+            AnchorRight = 1f,
+            AnchorTop = 0f,
+            AnchorBottom = 0f,
+            OffsetLeft = 20f,
+            OffsetRight = -20f,
+            OffsetTop = 74f,
+            OffsetBottom = 106f,
+            Visible = false,
+        };
+
+        _fuse.AddThemeColorOverride("font_color", EntangledCyan);
+        _fuse.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));
+        _fuse.AddThemeConstantOverride("outline_size", 6);
+        _fuse.AddThemeFontSizeOverride("font_size", 22);
+        root.AddChild(_fuse);
+    }
+
+    /// <summary>
+    /// The bank as the last boundary left it (decision 8), while the quantum backpack is worn; null hides the line and
+    /// the gauge, and the pack line comes back for a lead-acid or lithium-ion pack. Main hands it over at each boundary:
+    /// the HUD is told, never asked.
+    /// </summary>
+    public void ShowBank(BankView? view)
+    {
+        _bankView = view;
+        if (_gauge is not null && _gauge.Visible != view.HasValue)
+        {
+            _gauge.Visible = view.HasValue;
+        }
+    }
+
+    /// <summary>The soonest lit fuse (decision 13), or null for none. Main hands it over at each boundary.</summary>
+    public void ShowFuse(FuseWatch? fuse)
+    {
+        _fuseWatch = fuse;
+        if (_fuse is null)
+        {
+            return;
+        }
+
+        _fuse.Visible = fuse.HasValue;
+        if (fuse is { } watch)
+        {
+            _fuse.Text = BankLine.FuseText(watch);
+        }
+    }
+
+    /// <summary>What the bank line says now, empty while none shows — the log's account of a screenshot, and headless's.</summary>
+    public string BankText => _bank is { Visible: true } ? _bank.Text : string.Empty;
+
+    /// <summary>What the fuse's top line says now, empty while none shows.</summary>
+    public string FuseLineText => _fuse is { Visible: true } ? _fuse.Text : string.Empty;
 
     /// <summary>
     /// The message line (ALPHA-PLAN B9): one short-lived sentence centred above the hotbar, saying
@@ -152,8 +235,8 @@ public sealed partial class Hud : CanvasLayer
             AnchorBottom = 1f,
             OffsetLeft = 20f,
             OffsetRight = -20f,
-            OffsetTop = -196f,
-            OffsetBottom = -160f,
+            OffsetTop = -226f,
+            OffsetBottom = -190f,
             Visible = false,
         };
 
@@ -387,7 +470,8 @@ public sealed partial class Hud : CanvasLayer
         column.AnchorRight = 1f;
         column.AnchorTop = 1f;
         column.AnchorBottom = 1f;
-        column.OffsetTop = -150f;
+        // IM-6b: thirty more for the bank line, and the message line moved up by as much (BuildMessage).
+        column.OffsetTop = -180f;
         column.OffsetBottom = -18f;
         column.GrowVertical = Control.GrowDirection.Begin;
         column.AddThemeConstantOverride("separation", 6);
@@ -404,6 +488,19 @@ public sealed partial class Hud : CanvasLayer
         _where.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
         _where.AddThemeConstantOverride("outline_size", 4);
         column.AddChild(_where);
+
+        // IM-6b, decision 8: the bank line, its own label so the runway can colour it — amber under ten minutes,
+        // red under sixty seconds — and hidden unless the quantum backpack is worn.
+        _bank = new Label
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Visible = false,
+        };
+        _bank.AddThemeColorOverride("font_color", DimText);
+        _bank.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
+        _bank.AddThemeConstantOverride("outline_size", 4);
+        column.AddChild(_bank);
 
         _status = new Label
         {
@@ -429,6 +526,95 @@ public sealed partial class Hud : CanvasLayer
             _slots.Add(BuildSlot(row, slot));
             _shownMaterials.Add(int.MinValue);
         }
+
+        BuildGauge(row);
+    }
+
+    /// <summary>
+    /// The water gauge (IM-6's pass, decision 12): a tenth cell right of the nine, showing the store's water while the
+    /// quantum backpack is worn, lit while a siphon is on T. It has no number, is never selected, takes none of the
+    /// nine slots and saves nothing — water lives in the store, never the pocket, so a slot would read the pocket's 0 L.
+    /// </summary>
+    private void BuildGauge(HBoxContainer row)
+    {
+        _gaugeStyle = new StyleBoxFlat
+        {
+            BgColor = PanelFill,
+            BorderColor = IdleBorder,
+            CornerRadiusTopLeft = 3,
+            CornerRadiusTopRight = 3,
+            CornerRadiusBottomLeft = 3,
+            CornerRadiusBottomRight = 3,
+            ContentMarginLeft = 6,
+            ContentMarginRight = 6,
+            ContentMarginTop = 4,
+            ContentMarginBottom = 4,
+        };
+        _gaugeStyle.SetBorderWidthAll(2);
+
+        // A gap before it, so it reads as beside the row and not as a tenth slot.
+        row.AddChild(new Control { CustomMinimumSize = new Vector2(10f, 0f), MouseFilter = Control.MouseFilterEnum.Ignore });
+
+        _gauge = new PanelContainer { Name = "WaterGauge", MouseFilter = Control.MouseFilterEnum.Ignore, Visible = false };
+        _gauge.AddThemeStyleboxOverride("panel", _gaugeStyle);
+        _gauge.CustomMinimumSize = new Vector2(84f, 0f);
+        row.AddChild(_gauge);
+
+        var box = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        box.AddThemeConstantOverride("separation", 2);
+        _gauge.AddChild(box);
+
+        var header = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        header.AddThemeConstantOverride("separation", 5);
+        box.AddChild(header);
+        header.AddChild(new ColorRect
+        {
+            Color = new Color(0.20f, 0.45f, 0.85f),
+            CustomMinimumSize = new Vector2(14f, 14f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        });
+
+        var label = new Label { Text = "store", MouseFilter = Control.MouseFilterEnum.Ignore };
+        label.AddThemeColorOverride("font_color", DimText);
+        header.AddChild(label);
+
+        box.AddChild(new Label { Text = "water", MouseFilter = Control.MouseFilterEnum.Ignore });
+
+        _gaugeAmount = new Label { MouseFilter = Control.MouseFilterEnum.Ignore };
+        _gaugeAmount.AddThemeColorOverride("font_color", DimText);
+        box.AddChild(_gaugeAmount);
+    }
+
+    /// <summary>The gauge's amount and its light: lit cyan while a siphon is on T, dim otherwise.</summary>
+    private void FillGauge(bool siphonOnT)
+    {
+        if (_gauge is not { Visible: true } || _gaugeAmount is null || _gaugeStyle is null || _bankView is not { } bank)
+        {
+            return;
+        }
+
+        _gaugeAmount.Text = VolumeText.OfMillilitres(bank.StoredWaterMillilitres);
+        _gaugeStyle.BorderColor = siphonOnT ? EntangledCyan : IdleBorder;
+        _gauge.Modulate = siphonOnT ? Colors.White : new Color(1f, 1f, 1f, 0.7f);
+    }
+
+    /// <summary>The bank line from the last boundary's view, coloured by the runway's level.</summary>
+    private void FillBank()
+    {
+        if (_bankView is not { } view)
+        {
+            if (_bank.Visible) _bank.Visible = false;
+            return;
+        }
+
+        _bank.Text = BankLine.Text(view);
+        _bank.AddThemeColorOverride("font_color", view.Runway.Level switch
+        {
+            RunwayLevel.Red => RedText,
+            RunwayLevel.Amber => AmberText,
+            _ => DimText,
+        });
+        if (!_bank.Visible) _bank.Visible = true;
     }
 
     private static SlotView BuildSlot(HBoxContainer row, int slot)
@@ -548,8 +734,12 @@ public sealed partial class Hud : CanvasLayer
             // The adaptive radius, when it is on, is the play's oracle for the whole feature —
             // fly, sprint, watch the number fall and the world stay drawn; stop, watch it climb —
             // and it costs nothing to show, so it rides on the status line's own refresh.
-            string text = StatusText(place, mining, precise, pack, carriedPackMillijoules);
+            string text = StatusText(place, mining, precise, pack, carriedPackMillijoules, _bankView);
             _status.Text = radius is null ? text : $"{text}   ·   view {radius}";
+
+            // IM-6b: the bank line and the gauge ride the same refresh, from the last boundary's view.
+            FillBank();
+            FillGauge(SiphonClicks.IsWaterTool(mining?.Tool));
         }
     }
 
@@ -661,9 +851,13 @@ public sealed partial class Hud : CanvasLayer
     /// <b>Revisit trigger: the first material whose ID is not a sensible label, or the first
     /// request to run the game in another language.</b> Shared with <see cref="MachinePanel"/>'s
     /// title since M10b-2, so there is one definition of what a material is called.
+    /// <para>
+    /// <b>Since IM-6b a path <c>a/b</c> reads "a (b)"</b>, so the vault's grades read in his brackets — "quantum
+    /// vault (god)" — through Core's <see cref="ContentLabel"/>, which is tested.
+    /// </para>
     /// </remarks>
     internal static string DisplayName(Registry<MaterialDefinition> definitions, int materialId) =>
-        definitions.GetIdentifier(materialId).Path.Replace('_', ' ');
+        ContentLabel.Of(definitions.GetIdentifier(materialId));
 
     /// <summary>Where the player is, which way they face, and what kind of country they are in.</summary>
     /// <remarks>
@@ -710,21 +904,40 @@ public sealed partial class Hud : CanvasLayer
     /// </remarks>
     internal static string ClockText() => System.DateTime.Now.ToShortTimeString();
 
-    private static string StatusText(PlaceController place, MiningController? mining, bool precise, Overburden.Core.Machines.EquippedPack? pack, long carriedPackMillijoules)
+    private static string StatusText(PlaceController place, MiningController? mining, bool precise, Overburden.Core.Machines.EquippedPack? pack, long carriedPackMillijoules, BankView? bank)
     {
         // M10c-3: the pack on every line while one is equipped — the charge is what the bite
         // spends, so it belongs beside whatever the next click does — and the gate's refusal
         // named under Q with none: swung and took nothing is a thing a player has to be told.
-        string packLine = pack is null
+        // IM-6b, decision 8: a window holds nothing, so its pack line read "0 mJ / 0 mJ"; the bank line
+        // above replaces it while the quantum backpack is worn.
+        string packLine = pack is null || pack.IsWindow
             ? string.Empty
             : $"   ·   pack {MachinePanel.Joules(pack.ChargeMillijoules)} / {MachinePanel.Joules(pack.CapacityMillijoules)} ({MachinePanel.Share(pack.ChargeMillijoules, pack.CapacityMillijoules)})";
-        return Line(place, mining, precise, pack, carriedPackMillijoules) + packLine;
+        return Line(place, mining, precise, pack, carriedPackMillijoules, bank) + packLine;
     }
 
-    private static string Line(PlaceController place, MiningController? mining, bool precise, Overburden.Core.Machines.EquippedPack? pack, long carriedPackMillijoules)
+    /// <summary>
+    /// IM-6b (decision 11): the status line on a water tier — the siphon named, its size, both verbs and their price,
+    /// and the store's water, or why it takes nothing.
+    /// </summary>
+    private static string SiphonLine(MiningController mining, string tier, Overburden.Core.Machines.EquippedPack? pack, BankView? bank)
+    {
+        (string shape, string litres) = mining.TakesWholeChunk ? ("8 M CHUNK", "512,000 L")
+            : mining.TakesTunnel ? ("2 M CUBE", "8,000 L")
+            : ("1 M CUBE", "1,000 L");
+        string water = pack is not { IsWindow: true }
+            ? "TAKES NOTHING — wear the quantum backpack (P seeds one)"
+            : bank is { } view
+                ? $"store water {VolumeText.OfMillilitres(view.StoredWaterMillilitres)}"
+                : "store water —";
+        return $"SIPHON  ({shape}, up to {litres} a click)   ·   {tier}  (T)   ·   left / hold Q: take, 1,000 J a litre   ·   right: pour, free   ·   {water}";
+    }
+
+    private static string Line(PlaceController place, MiningController? mining, bool precise, Overburden.Core.Machines.EquippedPack? pack, long carriedPackMillijoules, BankView? bank)
     {
         string brush = place.Brush.ToString().ToLowerInvariant();
-        string tier = mining is null ? "no tool" : mining.Tool.Id.Path.Replace('_', ' ');
+        string tier = mining is null ? "no tool" : ContentLabel.Of(mining.Tool.Id);
 
         // An item in the hand never places (M10b): the line says what the click does instead.
         if (place.SelectedIsPack)
@@ -749,6 +962,12 @@ public sealed partial class Hud : CanvasLayer
             return pack is null
                 ? $"COMPUTER  (in hand)   ·   right-click a machine to open it   ·   {tier}  (T)   ·   1-9 material, V cycle, V held + 1-9 pin"
                 : $"COMPUTER  (in hand)   ·   right-click a machine to open it, or nothing for the pack   ·   {tier}  (T)   ·   1-9 material, V cycle, V held + 1-9 pin";
+        }
+
+        // IM-6b: a water tier's line, before the rock lines — its clicks never reach the carve or the fill.
+        if (mining is not null && SiphonClicks.IsWaterTool(mining.Tool))
+        {
+            return SiphonLine(mining, tier, pack, bank);
         }
 
         // The gate with nothing to pay it (M10c-3): the tier in hand costs and no pack is

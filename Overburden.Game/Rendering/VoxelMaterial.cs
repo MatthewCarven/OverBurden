@@ -95,6 +95,20 @@ public static class VoxelMaterial
         // only, in lithium's crimson (its flame test), so it reads apart from the lead-acid pack's grey
         // and the backpack's cyan. Unscreenshotted; a look call for his next play.
         new Color(0.62f, 0.10f, 0.18f),
+
+        // The five vault grades (IM-6b, IM-6's pass decision 6), layers 15 to 19: the entanglement's cyan
+        // (decision 29) on a dark body, brighter by grade — low a dark teal, god near-white cyan — so the five
+        // tell apart on the row and in a wall. Each a step off the backpack's cyan at 13. Unscreenshotted;
+        // look calls for his play of 6b.
+        new Color(0.07f, 0.20f, 0.22f),
+        new Color(0.08f, 0.30f, 0.34f),
+        new Color(0.10f, 0.42f, 0.48f),
+        new Color(0.22f, 0.62f, 0.70f),
+        new Color(0.55f, 0.90f, 0.94f),
+
+        // The crate (IM-6b, decision 22, "the ladder's bottom rung"), layer 20: a timber brown, warmer and
+        // lighter than dirt, so a box of planks reads apart from the ground it sits on. Unscreenshotted.
+        new Color(0.58f, 0.40f, 0.21f),
     ];
 
     /// <summary>The colour for a layer, or a flat grey for one this build has no texture for.</summary>
@@ -127,7 +141,8 @@ public static class VoxelMaterial
         // The relay pair (M10a-2) is smoother than rock — a cast body, not a face of it — and
         // the table is asserted against the colours so a sixth colour cannot ship without a sixth
         // jitter: the r6 control threw an IndexOutOfRange from here on the night the pair was added.
-        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f, 0.03f, 0.03f, 0.02f, 0.02f, 0.02f, 0.03f, 0.06f, 0.01f, 0.02f, 0.02f];
+        // IM-6b: the vaults are cast bodies like the cell (0.02), and the crate's planks carry grain (0.10).
+        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f, 0.03f, 0.03f, 0.02f, 0.02f, 0.02f, 0.03f, 0.06f, 0.01f, 0.02f, 0.02f, 0.02f, 0.02f, 0.02f, 0.02f, 0.02f, 0.10f];
         if (jitter.Length != LayerColour.Length)
         {
             GD.PushError($"Overburden: {LayerColour.Length} layer colours but {jitter.Length} jitters; the two tables have drifted");

@@ -1,0 +1,8 @@
+{
+  "$comment": "The siphon in the quantum excavator's 8 m chunk (IDEAL-MACHINES-PLAN decisions 24–26; IM-4's pass; IM-6's pass, decision 11): his \"fluid capture gun that can take out chunks of water at sizes to match the quantum miner/tunneler/excavator\". The left click (or Q held) takes up to 512,000 L of water at the crosshair into the store, 1,000 J a litre from the bank; the right click pours up to 512,000 L back, free. It needs the quantum backpack worn. Sorted after every rock tool on T.",
+  "id": "quantum_siphon_chunk",
+  "bite": "chunk",
+  "takes": "water",
+  "cooldownSeconds": 0.25,
+  "power": { "via": "channel", "joulesPerLitre": 1000 }
+}

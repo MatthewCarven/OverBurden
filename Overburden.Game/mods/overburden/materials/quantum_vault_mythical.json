@@ -1,0 +1,24 @@
+{
+  "$comment": "A quantum vault, grade mythical (IDEAL-MACHINES-PLAN decisions 14–18, the grade table; IM-6's pass, decision 6). One 1 m body holding 100,000 m³ of blocks and water together, on its channel's store. Its hold bill follows what it holds: 1.6 W a cubic metre of water and 0.16 W of blocks, paid from the channel's pool each boundary, or from its own minute (ownChargeSeconds) when the pool falls short. A bill unpaid once that minute is spent lights a 10–20 s fuse, and a burnt fuse dumps everything it holds. Every number is an estimate for his tuning. Its name on screen comes from the ID: quantum vault (mythical).",
+  "id": "quantum_vault/mythical",
+  "hardness": 3.0,
+  "supportDistance": 8,
+  "permeability": 0.0,
+  "density": 7800,
+  "textureLayer": 18,
+  "unit": "cells",
+  "machine": {
+    "kind": "vault",
+    "insideCubicMetres": 100000,
+    "holdWattsPerCubicMetre": { "water": 1.6, "blocks": 0.16 },
+    "holdsWater": true,
+    "ownChargeSeconds": 60,
+    "links": {
+      "power": { "carries": "power", "role": "sink", "via": "channel", "port": "channel" }
+    },
+    "ports": {
+      "channel": { "default": 0, "min": 0, "max": 15 },
+      "enabled": { "default": 1, "min": 0, "max": 1 }
+    }
+  }
+}

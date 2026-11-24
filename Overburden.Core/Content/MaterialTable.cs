@@ -118,6 +118,22 @@ public sealed class MaterialTable
         }
     }
 
+    /// <summary>
+    /// Every material that takes a hotbar slot only by a pin (IM-6's pass, decision 7): the <see cref="Items"/>, and the
+    /// containers — every vault-kind body, the five vaults and the crate — so P's kit still fills an empty row with
+    /// blocks and machines and leaves slot 9 for the first stone. A container is a V away, as the computer is.
+    /// </summary>
+    public IEnumerable<int> OffTheRow()
+    {
+        for (int id = 1; id < _isPlaceable.Length; id++)
+        {
+            if (!_isPlaceable[id] || _machine[id] is { Kind: MachineKind.Vault }) yield return id;
+        }
+    }
+
+    /// <summary>Whether <paramref name="materialId"/> is a container: a vault-kind body, a vault on a channel or a crate.</summary>
+    public bool IsContainer(int materialId) => _machine[materialId] is { Kind: MachineKind.Vault };
+
     public int TextureLayer(int materialId) => _textureLayer[materialId];
 
     /// <summary>Relative effort to mine. A carve removes a voxel only when a tool's

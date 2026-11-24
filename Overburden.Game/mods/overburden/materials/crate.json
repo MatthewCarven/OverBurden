@@ -1,0 +1,11 @@
+{
+  "$comment": "The crate (IDEAL-MACHINES-PLAN decision 22, the ladder's bottom rung; IM-6's pass, decision 6): his \"the ability at lower levels to construct storage containers for your stuff\". A vault with no links: 1 m³ of blocks, no channel, no store, no bill, no fuse, no water. Opened with the computer.",
+  "id": "crate",
+  "hardness": 1.0,
+  "supportDistance": 4,
+  "permeability": 0.0,
+  "density": 700,
+  "textureLayer": 20,
+  "unit": "cells",
+  "machine": { "kind": "vault", "insideCubicMetres": 1 }
+}

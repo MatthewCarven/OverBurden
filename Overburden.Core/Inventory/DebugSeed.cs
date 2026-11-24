@@ -59,12 +59,19 @@ public static class DebugSeed
     /// <summary>The pack <c>Ctrl+P</c> gives.</summary>
     public static readonly Identifier OnePack = Identifier.Parse("overburden:lithium_ion_pack");
 
+    /// <summary>The quantum backpack, P's since IM-6b: the store's window, now the HUD has a bank line to show it by.</summary>
+    public static readonly Identifier QuantumBackpack = Identifier.Parse("overburden:quantum_backpack");
+
     /// <summary>
     /// The items, in the order they land on the hotbar's empty slots — the blocks and machines; the
-    /// computer and the packs take a slot only by a pin (alpha session C, decision C3). So on the
-    /// alpha's path, after the hand pick's grass and dirt, P fills slots 3 to 8 and leaves 9 for
-    /// the first stone.
+    /// computer and the packs take a slot only by a pin (alpha session C, decision C3), and since IM-6b
+    /// the containers too (its pass, decision 7). So on the alpha's path, after the hand pick's grass and
+    /// dirt, P fills slots 3 to 8 and leaves 9 for the first stone.
     /// </summary>
+    /// <remarks>
+    /// <b>IM-6b adds the store</b> (decision 52's <i>"in sandbox, P also seeds the new machines"</i>): the quantum
+    /// backpack, the crate and the five vault grades, a hundred each like everything else.
+    /// </remarks>
     public static readonly IReadOnlyList<Identifier> Materials =
     [
         Identifier.Parse("overburden:relay_pump"),
@@ -76,6 +83,13 @@ public static class DebugSeed
         Identifier.Parse("overburden:computer"),
         Identifier.Parse("overburden:lead_acid_pack"),
         OnePack,
+        QuantumBackpack,
+        Identifier.Parse("overburden:crate"),
+        Identifier.Parse("overburden:quantum_vault/low"),
+        Identifier.Parse("overburden:quantum_vault/medium"),
+        Identifier.Parse("overburden:quantum_vault/high"),
+        Identifier.Parse("overburden:quantum_vault/mythical"),
+        Identifier.Parse("overburden:quantum_vault/god"),
     ];
 
     /// <summary>Voxels in one of the hotbar's units: a piece, a body, or a cubic metre.</summary>
