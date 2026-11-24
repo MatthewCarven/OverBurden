@@ -35,7 +35,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md) | The tick's near/far order, the field, and the tick as a worker job. **Built** (slices 1–3c). Read before touching the tick's order or its home. |
 | [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md) | Water that spreads sideways faster: `--frontadvance=` (4), fed by volume (`--fedshare=`), streams level their tip band (`--fedadvance=`, `--fedband=` 6). **Built and played 2026-09-24**; his load test is still owed. |
 | [docs/M9-PLAN.md](docs/M9-PLAN.md) | M9, the mine kills you: the support field, the tint, the fall, the keystone. **M9a–M9d built and played.** Read its "two facts" first: there is no bedrock, and a literal distance rule opens a shaft to the surface over a 2 × 2 bite. |
-| [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md), [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md) | **The slow-then-fast collapse, "Tetris gone bad"** (2026-09-26). **Parts a–c and e built and played; pieces are the default (2026-09-27)**, drawn falling with the cyan glitch, the phonk and a 10–20 s fuse. Open: d (the chimney), f (the sensor), decision 11. Read the notes' "What exists", then the plan's "c-2 — built", "Part c — played" and "Part e — built". |
+| [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md), [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md) | **The slow-then-fast collapse, "Tetris gone bad"** (2026-09-26). **Parts a–c and e built and played; pieces are the default (2026-09-27)**, drawn falling with the cyan glitch, the phonk and a 10–20 s fuse. **f-1, the sensor's Core, built 2026-11-24.** Open: d (the chimney), f-2 and f-3 (the sensor's wire and play), decision 11. Read the notes' "What exists", then the plan's "c-2 — built", "Part c — played" and "Part e — built". |
 | [docs/M10-NOTES.md](docs/M10-NOTES.md), [docs/M10-PLAN.md](docs/M10-PLAN.md) | The quantum machine family and M10's first plan. Read before planning any machine. |
 | [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder** — hand → steam → DC → AC → quantum and the crafting under it; twenty-three decisions, parts M10a–M10j. **M10a–M10c built; M10d is the play (his) and d-1/d-3 built; M10e (the conductor index) is next after the play.** The lithium-ion pack (14.4 MJ, 2 kW) shipped early, 2026-10-12, through `P`. Its one idea: connection is membership, movement a ledger transfer at the boundary. |
 | [docs/UNDO-PLAN.md](docs/UNDO-PLAN.md) | Ctrl+Z, three steps. **Built and played 2026-09-22.** A fall clears the stack; the journal hangs off `SetVoxel` and `MachineSet`; an undo must not journal its own writes. |
@@ -214,46 +214,40 @@ version. A worktree has neither beside it, so give the script `-Godot <exe>` the
 
 ## Where things stand
 
-**2026-10-26 — alpha session D is built and on main: going public's files** (`d4acd59`;
-[docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), "Session D — built"). **All four alpha sessions are built.** The README is
-written for a visitor (his pitch, the download on the Releases page with his Drive links kept as 0.1.1 and 0.1.2,
-both machines by part, building from source with `start.cmd` named as his launcher). `CONTRIBUTING.md` opens with
-his rule in his words, then four checks naming the identities and the tests that hold them. `CLA.md` is Harmony's
-individual CLA, outbound Option Five, New South Wales law, word-diffed against the template's source, CC BY 3.0
-attribution kept; agreeing is the tick box in `.github/pull_request_template.md`. `.gitattributes` is `* text=auto`
-(a real renormalise staged nothing). The notices name .NET 8.0.32 and SQLite 3.53.3, and **`make-alpha.ps1` refuses
-a zip whose notices name another runtime than the export's `runtimeconfig.json`**, proved red then green in a
-worktree; main's `build/` is untouched, so 0.1.3 goes up as built and D's player text rides the next zip.
-- **Pushed and released, the same day**: he pushed `5720f42` and made `v0.1.3-alpha`, a pre-release whose zip is
-  byte-identical to the build (sha256 `41af625f…4966cdd`); its tag sits at `4be4426`, which holds the zip's stamp
-  `e786e07`. Checked: GitHub's main and every one of D's files match, and GitHub recognises CONTRIBUTING and the
-  template. **`releases/latest` never resolves to a pre-release** (GitHub's "latest" skips them), so the README
-  links to `/releases` now, pushed 2026-11-04 with his YouTube link merged (`651a188`).
-- **His, now** (MATTHEW-TODO, "Yours to run"): the repo description's "It's"; the release notes GitHub generated,
-  his to replace if he likes; his looks at 0.1.2 and 0.1.3; the folder rename whenever suits.
-- **Kept from the build**: a fresh tree's export rewrites `Overburden.Game/icon.svg.import` with LF endings (no
-  content change), so `make-alpha.ps1` warns of uncommitted changes in a new worktree; and two worktree exports
-  left his `godot.log` rotation alone.
-
-**2026-11-04 — `Ctrl+P` puts one lithium-ion pack in your hand**, unless the worn pack already is one (his ask;
-`DebugSeed.PressOnePack`, the worklog says why it needs no term). P while sprinting is now that too, because Ctrl is
-sprint. It rides the next zip, and his one check is in MATTHEW-TODO.
-
-Suite **2,345** (2,335 at D, plus Ctrl+P's ten), r6 `2601 / 325 / 3446 at 411` on Ctrl+P's build.
+**2026-11-24 — the build warnings are cleared and collapse f-1 is built, both on main**
+([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "f-1 — the re-read against today's code" and "f-1 — built").
+- **Zero warnings** from `start.cmd`'s build and the solution's. Fifteen were counted: the ten recorded and five in
+  the tests that nobody had counted, because an incremental build reprints nothing. All were fixed, none suppressed.
+- **f-1, the sensor's Core**: `"kind": "sensor"` with `"senses": "collapse"` and `channel`/`radius` ports. The tick
+  reads every sensor through `ICollapseSense` at the start of a boundary and signals its channel until the next. The
+  relay pump and the vacuum cell follow `onsignal` (0 / 1 / 2) through the `sense` extra, served now. **A held cell
+  pays the vaults' bills and leaves the pool after them**, so a signal never unpays a vault: the rule IM-6 leans on.
+  It is out of the window's and the siphon's bank, takes no generation, and doesn't refill a vault's minute, so a
+  lit fuse stays paused under a signal and is never put out. No save change.
+- **Nothing signals in a played game yet**: the tick has no sense until f-2 hands it one. His pump and cell panels
+  show an `onsignal` box from this build (0; 2 holds the machine off and says so).
+- **Checked**: suite **2,396**; a battery of 45 recipes, 45 red; r6 `2601 / 325 / 3446 at 411`.
+- **Standing from the alpha** (its hand-overs are in STATUS-HISTORY): 0.1.3-alpha is the latest release, a GitHub
+  pre-release, and `releases/latest` skips pre-releases, so the README links to `/releases`. **The next zip carries**
+  D's player text, Ctrl+P (2026-11-04) and f-1's `onsignal` box; none is scheduled. A fresh worktree's export
+  rewrites `Overburden.Game/icon.svg.import` with LF endings, so `make-alpha.ps1` warns of uncommitted changes there.
 
 **Next session, in order:**
-1. **IM-6's code-level pass, at header v9**, behind the ten build warnings (TODO's "Order and collisions", 1) and
-   ideally collapse f-1 (2). Its pass carries: the vault's panel (his warranty line, a lock on the channel box,
-   power auto-scaled), water in the hotbar through `VolumeText` (a slot may name any material the table has, water
-   included), the pile's cyan glitch (decision 16), and the windowed read of a real dump; his E-screen design means
-   the panel's stock section is built so the screen can reuse its moves. The v9 bump starts with a v8 capture.
-2. **From D, later** (TODO's "The public repo"): a page for mod authors; a lawyer's read of CLA.md before the
+1. **IM-6's code-level pass, at header v9**, with nothing in front of it now (TODO's "Order and collisions"). Its pass
+   carries: the vault's panel (his warranty line, a lock on the channel box, power auto-scaled), water in the hotbar
+   through `VolumeText` (a slot may name any material the table has, water included), the pile's cyan glitch
+   (decision 16), the windowed read of a real dump, and f-1's finding that a signal pauses a lit fuse without
+   putting it out; his E-screen design means the panel's stock section is built so the screen can reuse its moves.
+   The v9 bump starts with a v8 capture.
+2. **Collapse f-2, the wire**, alongside whenever suits (TODO's "Collapse part f"): a sense over the scheduler and
+   the director, the `M10:` terms, `P` seeding a sensor and its texture, `--placeat=`, and the headless oracle.
+3. **From D, later** (TODO's "The public repo"): a page for mod authors; a lawyer's read of CLA.md before the
    first outside merge, if the game is ever to earn; CLA Assistant past a handful of outside PRs.
 
 The ideal machines plan: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to IM-3b,
 IM-4a (thirty-six mutations red), IM-4b, IM-4c (reduced at his word), **IM-5a, the dump's water** (2026-10-10,
 twenty-eight red) and **IM-5b, the pile** (2026-10-11, forty-two red; its seven build choices taken
-2026-10-12). **Taken and not built:** IM-6 onward. Suite **2,302**.
+2026-10-12). **Taken and not built:** IM-6 onward.
 
 **The lake plan is taken (2026-10-01): [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), all seven decisions
 as recommended; his last question closed 2026-10-12** (the walled area beneath TajMahal2 was two areas he
@@ -274,7 +268,7 @@ machine with a shared budget, only where you are; water is an inventory item thr
 header byte and a kit. Each slice has a "code-level pass" and a "built" section in the plan; the previous
 hand-over, slice by slice, is in [docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md).
 
-**From TODO's "Order and collisions"**, at the top of TODO: before IM-6, the build warnings; before IM-7, the
+**From TODO's "Order and collisions"**, at the top of TODO: nothing before IM-6 now; before IM-7, the
 engine-wide pin (TODO's Levers), and the quarry's pass reads the `--pile` bench (its cost is chunks touched, not
 the field's clone).
 
@@ -290,13 +284,9 @@ writing the recipes found six holes, and a recipe that survives can be one a fal
 
 IM-6's panel owes his warranty line, a lock on the channel box, and power auto-scaled on screen.
 
-**Buildable alongside: collapse part f, slice f-1** (Core and tests), thirteen decisions taken
-([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). The ideal-machines plan's three amendments there are
-taken too; none changes f-1. **IM-1 landed first** (its pass's decision 1, taken), so f-1 gives its two
-readers `"extras": { "sense": {} }` beside `onsignal` and switches `Sense` on in `MachineExtras.Served`.
-**Build in a worktree if he is playing or may start**, because `start.cmd` builds whatever the main folder
-holds, half-edited or not. On 2026-09-29 he launched mid-IM-1 and his build caught the tree before the loader
-change, harmlessly; a tree that compiled halfway through a change would have put half of it in his hands.
+**Collapse f-2 is buildable alongside**, the sensor's wire ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "f-1 —
+built" names what it carries). **Build in a worktree if he is playing or may start**, because `start.cmd` builds
+whatever the main folder holds, half-edited or not.
 
 **TajMahal is retired** (2026-09-29, his word: *"I borked the supports so want to restart"*): moved to
 `retired-TajMahal-2026-09-29`. **TajMahal2 is retired too** (2026-10-01, his word: *"you can delete or retire
@@ -333,7 +323,7 @@ deliberately untracked.
 - Also built: the cyan glitch (*"like it"*), black pieces kept on his word, the phonk from `media/`
   (gitignored; his ear, 2026-09-30: *"sounds good an want to leave it as is"*), and the 10–20 s fuse
   leaning with the deficit.
-- Open: part d (the chimney); **part f (the sensor): thirteen decisions taken 2026-09-29, f-1 next**; decision 11 (lifts off a reservation, up to 4.5 m) on his "fix it".
+- Open: part d (the chimney); **part f (the sensor): f-1 built 2026-11-24, f-2 (the wire) next**; decision 11 (lifts off a reservation, up to 4.5 m) on his "fix it".
 - **The keystone oracle is a race**: read `at risk 0` and lifted == returned, not its falls.
 
 **Waiting on him** (all in MATTHEW-TODO): the fed-advance
@@ -373,6 +363,8 @@ folder and the memory key are still to go, his, whenever suits.
 - **In an open fixture the tick's wake cascade repairs an unwoken seam from its ends** — close the
   corridor and put the water down asleep, or a missing wake reads as correct.
 - **A debug door into a conserved quantity is a term**, or the identity lies from then on.
+- **An incremental build reprints no warnings** (2026-11-24): count them with `--no-incremental` and a warnings-only
+  file log (`"-flp:logfile=<path>;warningsonly"`), on `start.cmd`'s build and the solution's both.
 - **Check `git worktree list` at a session's start.** Alpha session B sat built and uncommitted in
   `.claude/worktrees/alpha-b` for six days while the hand-over said it was next (found 2026-10-19).
 - **A chord's modifier must not act on its own press** (2026-10-19, alpha C): V cycled on key-down, so V held

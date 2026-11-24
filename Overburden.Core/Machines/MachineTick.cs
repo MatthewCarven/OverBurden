@@ -36,6 +36,13 @@ public enum PumpStall : byte
 
     /// <summary>Water, room and an outlet, and not a litre's worth of joules on its channel (M10c). <c>no water</c> beats it: a dry pump is not a starved one.</summary>
     Unpowered,
+
+    /// <summary>
+    /// Held off by its channel's signal (COLLAPSE-PLAN part f, decision 5): <c>onsignal</c> 1 while the
+    /// channel is signalled, 2 while it is not. The first reason, read before the intake (f-1's re-read,
+    /// build choice 4), so a held pump reads no water and owes no litres.
+    /// </summary>
+    Signalled,
 }
 
 /// <summary>What one <see cref="MachineTick.Run"/> did.</summary>
@@ -49,6 +56,12 @@ public enum PumpStall : byte
 /// <param name="OwnReturnedMillijoules">What own charges over a minute of their bills gave back to the pools, before the bills.</param>
 /// <param name="VaultedMillilitres">What pumps put into vaults in their rings this boundary (IM-4b): neither tier's, so not emitted.</param>
 /// <param name="Vaults">Vaults that hold water in the rings, beside <paramref name="Outlets"/>.</param>
+/// <param name="Signalled">Pumps held off by their channel's signal this boundary (collapse f-1).</param>
+/// <param name="ChannelsSignalled">Channels a sensor tripped on this boundary.</param>
+/// <param name="SensorsTripped">Sensors that tripped this boundary: <paramref name="TrippedByFuse"/> plus <paramref name="TrippedByEvent"/>.</param>
+/// <param name="TrippedByFuse">Of those, sensors whose reading was a fuse.</param>
+/// <param name="TrippedByEvent">Of those, sensors whose reading was an event.</param>
+/// <param name="CellsSignalledOff">Placed cells held out of their pool by the signal this boundary, after the holds.</param>
 public readonly record struct MachineTickReport(
     int Pumps,
     int Outlets,
@@ -72,7 +85,13 @@ public readonly record struct MachineTickReport(
     long OwnGivenMillijoules = 0,
     long OwnReturnedMillijoules = 0,
     long VaultedMillilitres = 0,
-    int Vaults = 0)
+    int Vaults = 0,
+    int Signalled = 0,
+    int ChannelsSignalled = 0,
+    int SensorsTripped = 0,
+    int TrippedByFuse = 0,
+    int TrippedByEvent = 0,
+    int CellsSignalledOff = 0)
 {
     /// <summary>Everything a pump took this boundary, in millilitres, both tiers.</summary>
     public long PumpedInAll => PumpedMillilitres + (PumpedLitres * FluidConstants.MillilitresPerLitre);
@@ -86,7 +105,9 @@ public readonly record struct MachineTickReport(
     public override string ToString() =>
         $"{Pumps} pump(s) over {Outlets} outlet(s) and {Vaults} vault(s), {Moved} moved; pumped {PumpedMillilitres:N0} mL + {PumpedLitres:N0} L, "
         + $"emitted {EmittedMillilitres:N0} mL + {EmittedLitres:N0} L, vaulted {VaultedMillilitres:N0} mL ({(Exact ? "exact" : "*** NOT EXACT ***")}); "
-        + $"stalled: {NoOutlet} no outlet, {NoWater} no water, {NoRoom} no room, {Unloaded} unloaded, {Unanalysed} unanalysed, {Unpowered} unpowered; "
+        + $"stalled: {NoOutlet} no outlet, {NoWater} no water, {NoRoom} no room, {Unloaded} unloaded, {Unanalysed} unanalysed, {Unpowered} unpowered, {Signalled} signalled; "
+        + $"signal: {ChannelsSignalled} channel(s) raised, {SensorsTripped} sensor(s) tripped ({TrippedByFuse} by a fuse, {TrippedByEvent} by an event), "
+        + $"{CellsSignalledOff} cell(s) and {Signalled} pump(s) held off; "
         + $"power: generated {GeneratedMillijoules:N0} mJ, drawn {DrawnMillijoules:N0}, clamped {ClampedMillijoules:N0}, pack given {PackGivenMillijoules:N0}, held {HeldMillijoules:N0} ({HeldFromOwnMillijoules:N0} from own charges), own given {OwnGivenMillijoules:N0}, own returned {OwnReturnedMillijoules:N0}";
 }
 
@@ -169,6 +190,18 @@ public readonly record struct MachineTickReport(
 /// pauses a lit fuse, and only an own charge that is whole again puts it out, so a fuse follows the
 /// channel's average and not its best boundary: under IM-3's rule a cell holding the unpaid pool paid
 /// one boundary in twenty and held a vault on a twentieth of its bill for ever.
+/// </para>
+/// <para>
+/// <b>A sensor raises its channel's signal, and the readers follow it</b> (COLLAPSE-PLAN part f, f-1).
+/// At the start of a boundary every sensor asks <see cref="CollapseSense"/> about the chunks within its
+/// radius; a fuse or an event there signals its channel until the next boundary, in memory and never
+/// saved. A reader is a pump or a placed cell with the <c>sense</c> extra, and its <c>onsignal</c> port
+/// says how it follows: 0 ignores, 1 is off while signalled, 2 is on only while signalled. A held pump
+/// stalls <see cref="PumpStall.Signalled"/> before it reads its intake. A held cell is in the pool for the
+/// vaults' bills and leaves it straight after (the ideal-machines decision 10), taking back as much of its
+/// own charge as the bills left, so a signal can never unpay a vault; it is out of the window's and the
+/// siphon's bank between boundaries, as an <c>enabled</c> 0 cell is. Nothing is rebuilt and no version
+/// moves: each consumer reads the channel's boolean where it reads the row.
 /// </para>
 /// <para>
 /// <b>Weights are the ring, not a second rule</b> (M10b, decision 5). A channel's ring is its
@@ -265,6 +298,14 @@ public sealed class MachineTick : IChannelBank
     // IM-3: each channel's vaults in fill order, whose bills are paid before any consumer (decision 9).
     private readonly List<(MachineRow Row, MachineDefinition Definition)>?[] _vaults = new List<(MachineRow, MachineDefinition)>?[Channels];
 
+    // Collapse f-1: the sensors in origin order, each channel's signal as the last boundary left it, and
+    // this boundary's held cells with their charge per channel and what of it they took back after the bills.
+    private readonly List<(MachineRow Row, MachineDefinition Definition, int Channel)> _sensors = [];
+    private readonly bool[] _signalled = new bool[Channels];
+    private readonly HashSet<MachineRow> _heldCells = [];
+    private readonly long[] _heldCharge = new long[Channels];
+    private readonly long[] _heldKept = new long[Channels];
+
     /// <param name="machines">The rows; the tick reads them and never writes a row.</param>
     /// <param name="materials">Which rows are pumps and outlets, and at what rate.</param>
     /// <param name="fluid">Tier B, at a boundary — the grid is the caller's.</param>
@@ -316,6 +357,45 @@ public sealed class MachineTick : IChannelBank
 
     /// <summary>What a solar converter asks at the boundary; null makes every panel generate from its last sample (dark, if it never had one).</summary>
     public ISolarSky? Sky { get; set; }
+
+    /// <summary>
+    /// What a sensor asks about the collapse (COLLAPSE-PLAN part f): the game hands one over the scheduler
+    /// and the director (f-2). Null makes every sensor quiet, so no channel is ever signalled.
+    /// </summary>
+    public ICollapseSense? CollapseSense { get; set; }
+
+    /// <summary>The port a reader follows its channel's signal by (collapse f-1): 0 ignore, 1 off while signalled, 2 on only while signalled.</summary>
+    public const string OnSignalPort = MachineExtras.OnSignalPort;
+
+    /// <summary>Whether <paramref name="channel"/> was signalled at the last boundary — a sensor on it tripped. False before the first.</summary>
+    public bool IsSignalled(int channel) => _signalled[Math.Clamp(channel, 0, Channels - 1)];
+
+    /// <summary>
+    /// Whether the row is held off by its channel's signal as the last boundary left it: a reader (its
+    /// material has the <c>sense</c> extra) with <c>onsignal</c> 1 while signalled, or 2 while not. Any
+    /// other value, or a row that is not a reader, follows nothing. The panel's question too.
+    /// </summary>
+    public bool IsSignalledOff(MachineRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        return _materials.Machine(row.MaterialId) is { } definition && IsSignalledOff(row, definition);
+    }
+
+    private bool IsSignalledOff(MachineRow row, MachineDefinition definition)
+    {
+        if (!definition.Has(MachineExtra.Sense) || !row.TryGetPort(OnSignalPort, out long onSignal))
+        {
+            return false;
+        }
+
+        bool signalled = _signalled[ChannelOf(row)];
+        return onSignal switch
+        {
+            1 => signalled,
+            2 => !signalled,
+            _ => false,
+        };
+    }
 
     /// <summary>The overcast as a byte, 0 clear to 255, taken once a boundary by the caller — the one site the float enters the pool (decision 10).</summary>
     public byte OvercastByte { get; set; }
@@ -497,6 +577,41 @@ public sealed class MachineTick : IChannelBank
 
     /// <summary>Pump-boundaries that stalled for want of a litre's worth of joules.</summary>
     public long StalledUnpowered { get; private set; }
+
+    /// <summary>Pump-boundaries held off by their channel's signal (collapse f-1).</summary>
+    public long StalledSignalled { get; private set; }
+
+    /// <summary>Sensors as the last rebuild left them.</summary>
+    public int Sensors => _sensors.Count;
+
+    /// <summary>Sensor-boundaries read, over the lifetime — the denominator of the two below.</summary>
+    public long SensorReads { get; private set; }
+
+    /// <summary>Sensor-boundaries that tripped on a fuse, and on an event, over the lifetime.</summary>
+    public long SensorTripsByFuse { get; private set; }
+
+    public long SensorTripsByEvent { get; private set; }
+
+    /// <summary>Chunks the sensors asked about, over the lifetime: (2r + 1)³ a sensor a boundary with a sense, none without.</summary>
+    public long SenseLookups { get; private set; }
+
+    /// <summary>Channels signalled at the last boundary.</summary>
+    public int ChannelsSignalled
+    {
+        get
+        {
+            int n = 0;
+            foreach (bool signalled in _signalled)
+            {
+                if (signalled) n++;
+            }
+
+            return n;
+        }
+    }
+
+    /// <summary>Placed cells held out of their pool by the signal at the last boundary, counted with the pool (none under <see cref="PowerOff"/>).</summary>
+    public int CellsSignalledOff { get; private set; }
 
     /// <summary>Converter-boundaries whose openness was sampled off the sky, and those that used the row's last sample.</summary>
     public long SolarSampled { get; private set; }
@@ -708,7 +823,11 @@ public sealed class MachineTick : IChannelBank
 
         int moved = 0;
         long pumpedB = 0, pumpedA = 0, emittedB = 0, emittedA = 0, vaulted = 0;
-        int noOutlet = 0, noWater = 0, noRoom = 0, unloaded = 0, unanalysed = 0, unpowered = 0;
+        int noOutlet = 0, noWater = 0, noRoom = 0, unloaded = 0, unanalysed = 0, unpowered = 0, signalled = 0;
+
+        // Collapse f-1: every sensor reads the collapse around it, so each channel's signal is this
+        // boundary's before anything reads a reader.
+        (int tripped, int byFuse, int byEvent) = Sense();
 
         // M10c: the pool before the pumps — what every channel can pay this boundary.
         long generated = PowerOff ? 0 : BeginPower();
@@ -716,6 +835,13 @@ public sealed class MachineTick : IChannelBank
         // IM-3: every vault's hold before any consumer, in fill order, each all or nothing (decision 9);
         // IM-3b: an own charge over a minute of its bill back to the pool first.
         long held = PowerOff ? 0 : PayHolds();
+
+        // Collapse f-1: the bills saw every enabled cell; the held ones leave the pool now, with what of
+        // their charge the bills left (the ideal-machines decision 10), before the first consumer.
+        if (!PowerOff)
+        {
+            WithdrawHeldCells();
+        }
 
         foreach ((MachineRow row, MachineDefinition definition) in _pumps)
         {
@@ -761,6 +887,10 @@ public sealed class MachineTick : IChannelBank
                     unpowered++;
                     StalledUnpowered++;
                     break;
+                case PumpStall.Signalled:
+                    signalled++;
+                    StalledSignalled++;
+                    break;
             }
         }
 
@@ -779,7 +909,8 @@ public sealed class MachineTick : IChannelBank
             pumps, outlets, moved, pumpedB, pumpedA, emittedB, emittedA,
             noOutlet, noWater, noRoom, unloaded, unanalysed, unpowered,
             generated, drawn, clamped, packGiven, held, _heldFromOwnThisBoundary, ownGiven, _ownReturnedThisBoundary,
-            vaulted, _ringVaults.Count);
+            vaulted, _ringVaults.Count,
+            signalled, ChannelsSignalled, tripped, byFuse, byEvent, PowerOff ? 0 : CellsSignalledOff);
         return Last;
     }
 
@@ -805,6 +936,12 @@ public sealed class MachineTick : IChannelBank
 
         GeneratedMillijoules += generated;
 
+        // Collapse f-1: a held cell is in the pool for the bills (the ideal-machines decision 10), so it is
+        // summed like any other, and noted with its charge for the cut after them.
+        _heldCells.Clear();
+        Array.Clear(_heldCharge);
+        Array.Clear(_heldKept);
+        CellsSignalledOff = 0;
         for (int channel = 0; channel < Channels; channel++)
         {
             List<(MachineRow Row, MachineDefinition Definition)>? rows = _storage[channel];
@@ -813,14 +950,115 @@ public sealed class MachineTick : IChannelBank
                 continue;
             }
 
-            foreach ((MachineRow row, _) in rows)
+            foreach ((MachineRow row, MachineDefinition definition) in rows)
             {
-                _available[channel] += StorageState.Read(row);
+                long charge = StorageState.Read(row);
+                _available[channel] += charge;
+                if (IsSignalledOff(row, definition))
+                {
+                    _heldCells.Add(row);
+                    _heldCharge[channel] += charge;
+                    CellsSignalledOff++;
+                }
             }
         }
 
         return generated;
     }
+
+    /// <summary>
+    /// Collapse f-1's cut (f-1's re-read, build choice 1): after the bills, each channel's held cells take
+    /// back the smaller of what they held and what the pool has left, so a bill reached them only after
+    /// the sun and the cells still on. The rest is what the consumers, the vaults' minutes and the pack
+    /// can have; <see cref="WriteBack"/> returns what was taken back to the cells it came from.
+    /// </summary>
+    private void WithdrawHeldCells()
+    {
+        for (int channel = 0; channel < Channels; channel++)
+        {
+            long kept = Math.Min(_heldCharge[channel], _available[channel]);
+            _heldKept[channel] = kept;
+            _available[channel] -= kept;
+        }
+    }
+
+    /// <summary>
+    /// Collapse f-1: every sensor reads the collapse within its radius, and the channel of any that
+    /// tripped is signalled until the next boundary. With no sense, every sensor reads quiet. Returns the
+    /// sensors that tripped, and of them those on a fuse and those on an event.
+    /// </summary>
+    private (int Tripped, int ByFuse, int ByEvent) Sense()
+    {
+        Array.Clear(_signalled);
+        int byFuse = 0, byEvent = 0;
+        foreach ((MachineRow row, MachineDefinition definition, int channel) in _sensors)
+        {
+            SensorReads++;
+            SensorReading reading = CollapseSense is { } sense ? Read(sense, row.Chunk, RadiusOf(row)) : default;
+            row.LastSensed = reading;
+            switch (reading.Trip)
+            {
+                case SensorTrip.Fuse:
+                    byFuse++;
+                    _signalled[channel] = true;
+                    break;
+                case SensorTrip.Event:
+                    byEvent++;
+                    _signalled[channel] = true;
+                    break;
+            }
+        }
+
+        SensorTripsByFuse += byFuse;
+        SensorTripsByEvent += byEvent;
+        return (byFuse + byEvent, byFuse, byEvent);
+    }
+
+    /// <summary>
+    /// One sensor's reading (decisions 1, 2 and 7): every chunk within <paramref name="radius"/> of its
+    /// own, 3D Chebyshev, asked whether it is a member and whether its fuse burns. An event anywhere in
+    /// reach beats a fuse; the reading keeps the nearest member, or the soonest fuse, with its distance.
+    /// </summary>
+    private SensorReading Read(ICollapseSense sense, ChunkPos centre, int radius)
+    {
+        int memberAt = int.MaxValue, fuseAt = 0;
+        long? soonest = null;
+        for (int dz = -radius; dz <= radius; dz++)
+        for (int dy = -radius; dy <= radius; dy++)
+        for (int dx = -radius; dx <= radius; dx++)
+        {
+            var chunk = new ChunkPos(centre.X + dx, centre.Y + dy, centre.Z + dz);
+            int distance = Math.Max(Math.Abs(dx), Math.Max(Math.Abs(dy), Math.Abs(dz)));
+            SenseLookups++;
+            if (distance < memberAt && sense.Member(chunk))
+            {
+                memberAt = distance;
+            }
+
+            if (sense.Armed(chunk))
+            {
+                long left = Math.Max(0, sense.FuseLeft(chunk) ?? 0);
+                if (soonest is not { } best || left < best || (left == best && distance < fuseAt))
+                {
+                    soonest = left;
+                    fuseAt = distance;
+                }
+            }
+        }
+
+        if (memberAt != int.MaxValue)
+        {
+            return new SensorReading(SensorTrip.Event, memberAt, soonest);
+        }
+
+        return soonest is not null ? new SensorReading(SensorTrip.Fuse, fuseAt, soonest) : default;
+    }
+
+    /// <summary>A sensor's radius in chunks: its port clamped to 0..4, or one where it declares none (the validator requires it).</summary>
+    private static int RadiusOf(MachineRow row) =>
+        row.TryGetPort(MachineDefinition.RadiusPort, out long radius)
+            ? (int)Math.Clamp(radius, 0, MachineDefinition.MaxSensorRadiusChunks)
+            : 1;
 
     /// <summary>
     /// A panel's millijoules this boundary — decision 2's one integer product, the openness
@@ -1104,17 +1342,31 @@ public sealed class MachineTick : IChannelBank
     /// What each channel still has goes back into its storage rows in origin order, each to its
     /// capacity; what no row holds is clamped. Returns the boundary's clamp.
     /// </summary>
+    /// <remarks>
+    /// Collapse f-1: a held cell gets back, in the same order, what its channel's held cells kept after the
+    /// bills, each up to what it held (its bytes are untouched inside the run), so a bill that reached them
+    /// came out of the last; it takes nothing of the rest.
+    /// </remarks>
     private long WriteBack()
     {
         long clamped = 0;
         for (int channel = 0; channel < Channels; channel++)
         {
             long remaining = _available[channel];
+            long kept = _heldKept[channel];
             List<(MachineRow Row, MachineDefinition Definition)>? rows = _storage[channel];
             if (rows is not null)
             {
                 foreach ((MachineRow row, MachineDefinition definition) in rows)
                 {
+                    if (_heldCells.Contains(row))
+                    {
+                        long back = Math.Min(kept, StorageState.Read(row));
+                        StorageState.Write(row, back);
+                        kept -= back;
+                        continue;
+                    }
+
                     long put = Math.Min(remaining, definition.CapacityMillijoules);
                     StorageState.Write(row, put);
                     remaining -= put;
@@ -1141,8 +1393,14 @@ public sealed class MachineTick : IChannelBank
         List<(MachineRow Row, MachineDefinition Definition)>? rows = _storage[Math.Clamp(channel, 0, Channels - 1)];
         if (rows is not null)
         {
-            foreach ((MachineRow row, _) in rows)
+            foreach ((MachineRow row, MachineDefinition definition) in rows)
             {
+                // Collapse f-1: a held cell is out of the bank, as an enabled 0 one is (decision 5).
+                if (IsSignalledOff(row, definition))
+                {
+                    continue;
+                }
+
                 bank += StorageState.Read(row);
             }
         }
@@ -1190,7 +1448,12 @@ public sealed class MachineTick : IChannelBank
         long remaining = millijoules;
         for (int i = rows.Count - 1; i >= 0 && remaining > 0; i--)
         {
-            MachineRow row = rows[i].Row;
+            (MachineRow row, MachineDefinition definition) = rows[i];
+            if (IsSignalledOff(row, definition))
+            {
+                continue;
+            }
+
             long held = StorageState.Read(row);
             long take = Math.Min(held, remaining);
             if (take <= 0)
@@ -1241,6 +1504,7 @@ public sealed class MachineTick : IChannelBank
         Array.Clear(_storage);
         Array.Clear(_vaults);
         _ringVaults.Clear();
+        _sensors.Clear();
 
         foreach (MachineRow row in _machines.Rows)
         {
@@ -1294,6 +1558,9 @@ public sealed class MachineTick : IChannelBank
                     }
 
                     break;
+                case MachineKind.Sensor:
+                    _sensors.Add((row, definition, ChannelOf(row)));
+                    break;
             }
         }
 
@@ -1314,6 +1581,7 @@ public sealed class MachineTick : IChannelBank
             return byPriority != 0 ? byPriority : CompareOrigin(a.Row, b.Row);
         });
         _converters.Sort(static (a, b) => CompareOrigin(a.Row, b.Row));
+        _sensors.Sort(static (a, b) => CompareOrigin(a.Row, b.Row));
         foreach (List<(MachineRow Row, MachineDefinition Definition)>? rows in _storage)
         {
             rows?.Sort(static (a, b) => CompareOrigin(a.Row, b.Row));
@@ -1399,6 +1667,14 @@ public sealed class MachineTick : IChannelBank
     private PumpStall TickPump(MachineRow row, MachineDefinition definition)
     {
         int channel = ChannelOf(row);
+
+        // Collapse f-1, decision 5: held off by the channel's signal, first — before the intake is read
+        // or a lake pump owes a litre.
+        if (IsSignalledOff(row, definition))
+        {
+            return PumpStall.Signalled;
+        }
+
         List<MachineRow>? outlets = _outlets[channel];
         if (outlets is null || outlets.Count == 0)
         {

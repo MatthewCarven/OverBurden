@@ -30,6 +30,13 @@ public enum MachineKind : byte
     /// (decision 22). A home for a conserved quantity, so a kind and not an extra (decision 1).
     /// </summary>
     Vault,
+
+    /// <summary>
+    /// Watches something and raises its channel's signal while it sees it — the collapse sensor
+    /// (COLLAPSE-PLAN part f, decision 6), which reads a fuse or an event within its radius. What it
+    /// watches is <see cref="MachineDefinition.Senses"/>, so a later sensor is a new word, not a new kind.
+    /// </summary>
+    Sensor,
 }
 
 /// <summary>What a link carries.</summary>
@@ -150,6 +157,21 @@ public sealed class MachineDefinition
     /// </summary>
     public const long MaxOwnChargeSeconds = 3_600;
 
+    /// <summary>What the collapse sensor senses (COLLAPSE-PLAN part f, decision 6): a fuse or an event within its radius.</summary>
+    public const string SensesCollapse = "collapse";
+
+    /// <summary>The power sensor's word (IDEAL-MACHINES-PLAN decision 38), refused until IM-9 reads it.</summary>
+    public const string SensesPower = "power";
+
+    /// <summary>The port a sensor's radius is read from, in chunks (decision 2).</summary>
+    public const string RadiusPort = "radius";
+
+    /// <summary>
+    /// The widest radius a sensor may declare, in chunks, 3D Chebyshev (decision 2): (2r + 1)³ chunks
+    /// asked twice each a boundary, 729 at four. A bound on cost, so a mod may declare a narrower one.
+    /// </summary>
+    public const int MaxSensorRadiusChunks = 4;
+
     public required MachineKind Kind { get; init; }
 
     /// <summary>A converter's output at full input, in watts. Zero for a kind that has none.</summary>
@@ -208,6 +230,12 @@ public sealed class MachineDefinition
     /// multiplies its bill by. Zero for anything but a vault on a channel.
     /// </summary>
     public long OwnChargeMillis => IsChannelVault ? (OwnChargeSeconds ?? DefaultOwnChargeSeconds) * 1000 : 0;
+
+    /// <summary>
+    /// What a sensor watches (COLLAPSE-PLAN part f, decision 6): <see cref="SensesCollapse"/> in this
+    /// build. Null on every other kind.
+    /// </summary>
+    public string? Senses { get; init; }
 
     public IReadOnlyList<MachineLink> Links { get; init; } = [];
 
@@ -340,6 +368,17 @@ public sealed class MachineDefinition
         if (Kind != MachineKind.Vault && OwnChargeSeconds is not null)
         {
             error = "ownChargeSeconds belongs to a vault on a channel: it is the vault's own charge, a share of its bill.";
+            return false;
+        }
+
+        if (Kind != MachineKind.Sensor && Senses is not null)
+        {
+            error = "senses belongs to a sensor: it is what the sensor watches.";
+            return false;
+        }
+
+        if (Kind == MachineKind.Sensor && !TryValidateSensor(out error))
+        {
             return false;
         }
 
@@ -551,6 +590,55 @@ public sealed class MachineDefinition
     }
 
     /// <summary>
+    /// The sensor's rules (COLLAPSE-PLAN part f, decisions 2 and 6; f-1's re-read, build choice 5): it
+    /// watches the collapse, it takes no links because it neither draws nor gives power in this build
+    /// (decision 8), and it declares a <c>channel</c> port to signal on and a <c>radius</c> port inside
+    /// 0..<see cref="MaxSensorRadiusChunks"/>.
+    /// </summary>
+    private bool TryValidateSensor(out string? error)
+    {
+        if (Senses is null)
+        {
+            error = $"a sensor names what it senses: \"senses\": \"{SensesCollapse}\".";
+            return false;
+        }
+
+        if (Senses == SensesPower)
+        {
+            error = $"senses '{SensesPower}' is the power sensor, which IM-9 reads; the one this build serves is '{SensesCollapse}'.";
+            return false;
+        }
+
+        if (Senses != SensesCollapse)
+        {
+            string near = StrictJson.Suggest(Senses, [SensesCollapse]);
+            error = $"senses '{Senses}' is not a sense; the one this build serves is '{SensesCollapse}'" + (near.Length > 0 ? near : ".");
+            return false;
+        }
+
+        if (Links.Count > 0)
+        {
+            error = "a sensor takes no links: it neither draws nor gives power in this build, and its channel is a port.";
+            return false;
+        }
+
+        if (Port(MachineLink.ChannelVia) is null)
+        {
+            error = $"a sensor declares a '{MachineLink.ChannelVia}' port: the channel it signals on.";
+            return false;
+        }
+
+        if (Port(RadiusPort) is not { } radius || radius.Min < 0 || radius.Max > MaxSensorRadiusChunks)
+        {
+            error = $"a sensor declares a '{RadiusPort}' port inside 0..{MaxSensorRadiusChunks}, in chunks.";
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    /// <summary>
     /// The vault's rules (IM-3's pass, decisions 1 and 2): an inside within the engine's maximum;
     /// holds never negative and never over the maximum; a vault on a channel has exactly one power
     /// link, a sink, the pool its bill is paid from; a crate has no links, no bill and no water.
@@ -647,6 +735,14 @@ public sealed class MachineDefinition
                 error = Carried
                     ? $"extra '{name}' is a placed machine's, and a carried storage has no body, no row and no pin."
                     : $"extra '{name}' is a carried storage's; a placed machine is not a window.";
+                return false;
+            }
+
+            // f-1's re-read, build choice 6: a reader the tick doesn't read would load and do nothing.
+            if (extra == MachineExtra.Sense && Kind is not (MachineKind.Pump or MachineKind.Storage))
+            {
+                error = $"extra '{name}' is read on a pump or a placed storage in this build (collapse f-1's readers); "
+                        + $"on a {Kind.ToString().ToLowerInvariant()} it would load and do nothing.";
                 return false;
             }
 

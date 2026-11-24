@@ -73,9 +73,10 @@ public static class MachineExtras
     /// <summary>
     /// The extras this build serves on a machine (IM-1's pass, decision 2): each is switched on
     /// here by the slice that reads it — IM-2 <c>Charge</c> (the window) and <c>Priority</c> (the
-    /// consumers' order); collapse f-1 <c>Sense</c>; IM-9 the other three.
+    /// consumers' order); collapse f-1 <c>Sense</c> (2026-11-24, the tick's signal override); IM-9
+    /// the other three.
     /// </summary>
-    public const MachineExtra Served = MachineExtra.Charge | MachineExtra.Priority;
+    public const MachineExtra Served = MachineExtra.Charge | MachineExtra.Priority | MachineExtra.Sense;
 
     /// <summary>The port <c>sense</c> needs: collapse f-1's <c>onsignal</c>, 0 ignore, 1 off while signalled, 2 on only while signalled.</summary>
     public const string OnSignalPort = "onsignal";

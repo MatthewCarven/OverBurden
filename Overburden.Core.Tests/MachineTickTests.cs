@@ -59,6 +59,9 @@ public class MachineTickTests(ITestOutputHelper output)
     // IM-4b: the small vault with a weight port, and a channel vault that holds blocks only.
     private const int WeightedVault = 15, DryVault = 16;
 
+    // Collapse f-1: the billed relay and the big cell as readers (the sense extra and onsignal), and a sensor.
+    private const int ReaderPump = 17, ReaderCell = 18, SensorMaterial = 19;
+
     /// <summary>The relay's rate: 100 L/s is 50,000 mL a boundary, 3.2 cells.</summary>
     private const long RelayMillilitresPerBoundary = 50_000;
 
@@ -160,12 +163,25 @@ public class MachineTickTests(ITestOutputHelper output)
         };
     }
 
+    /// <summary>A definition with the sense extra and its onsignal port beside its own (collapse f-1).</summary>
+    private static MachineDefinition AsReader(MachineDefinition plain) => new()
+    {
+        Kind = plain.Kind,
+        MillilitresPerSecond = plain.MillilitresPerSecond,
+        JoulesPerLitre = plain.JoulesPerLitre,
+        IntakeRadiusCells = plain.IntakeRadiusCells,
+        CapacityMillijoules = plain.CapacityMillijoules,
+        Links = plain.Links,
+        Ports = [.. plain.Ports, new PortDefinition(MachineTick.OnSignalPort, 0, 0, 2)],
+        ExtraForms = new Dictionary<MachineExtra, ExtraForm> { [MachineExtra.Sense] = ExtraForm.Switch },
+    };
+
     internal static readonly MaterialTable Materials = MaterialTable.ForTesting(
-        //             air    stone  pump   outlet slow   wide   panel  dim    big    small  billed pack   prio   window vault  weighed dry
-        isOpaque: [false, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true],
-        isFluid: [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false],
-        textureLayer: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-        hardness: [0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 1.0f, 1.0f, 3.0f, 3.0f, 3.0f, 1.0f, 3.0f, 1.0f, 3.0f, 3.0f, 3.0f],
+        //             air    stone  pump   outlet slow   wide   panel  dim    big    small  billed pack   prio   window vault  weighed dry    rpump  rcell  sensor
+        isOpaque: [false, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true],
+        isFluid: [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false],
+        textureLayer: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+        hardness: [0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 1.0f, 1.0f, 3.0f, 3.0f, 3.0f, 1.0f, 3.0f, 1.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f],
         machine:
         [
             null, null, PumpAt(100_000), OutletDefinition, PumpAt(470), PumpAt(100_000, radius: 2),
@@ -173,14 +189,16 @@ public class MachineTickTests(ITestOutputHelper output)
             PumpAt(100_000, joulesPerLitre: RelayBill), CellOf(PackCapacity, carried: true, rechargeWatts: 1000),
             PriorityPumpAt(100_000, RelayBill), WindowTests.WindowDefinition, SmallVaultDefinition,
             WeightedVaultDefinition, DryVaultDefinition,
+            AsReader(PumpAt(100_000, joulesPerLitre: RelayBill)), AsReader(CellOf(BigCellCapacity)), CollapseSensorTests.SensorDefinition,
         ],
         unit:
         [
             default, default, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells,
             MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Count,
             MaterialUnit.Cells, MaterialUnit.Count, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells,
+            MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells,
         ],
-        placeable: [true, true, true, true, true, true, true, true, true, true, true, false, true, false, true, true, true]);
+        placeable: [true, true, true, true, true, true, true, true, true, true, true, false, true, false, true, true, true, true, true, true]);
 
     /// <summary>The sky a test dictates: a cell's open columns, or nothing loaded over it.</summary>
     private sealed class DictatedSky : ISolarSky
@@ -732,6 +750,101 @@ public class MachineTickTests(ITestOutputHelper output)
 
         Assert.Equal(0, report.Moved);
         Assert.Equal(PumpStall.Unpowered, pump.LastStall);
+        Assert.Equal(BigCellCapacity, ChargeOf(cell));
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
+    }
+
+    // ---------------------------------------------------------------- collapse f-1: the signal on the water
+
+    /// <summary>A sensor away from the room, on channel 0, with a sense the test drives; a fuse on its own chunk raises the signal.</summary>
+    private static (FakeCollapseSense Sense, ChunkPos Home) SenseFor(Twin twin)
+    {
+        var sense = new FakeCollapseSense();
+        twin.Tick.CollapseSense = sense;
+        MachineRow sensor = twin.Place(new BrushCell(22, 2, 22), SensorMaterial);
+        return (sense, sensor.Chunk);
+    }
+
+    [Fact]
+    public void APumpHeldBySignalMovesNothingReadsNoIntakeAndRunsWhenItClears()
+    {
+        var twin = new Twin();
+        (FakeCollapseSense sense, ChunkPos home) = SenseFor(twin);
+        MachineRow pump = twin.Place(Twin.PumpCell, ReaderPump);
+        twin.Machines.SetPort(pump.Cell, MachineTick.OnSignalPort, 1);
+        twin.Place(Twin.RimOutlet, Outlet);
+        MachineRow cell = twin.Place(Twin.RoomOutlet, BigCell, charge: BigCellCapacity);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+        sense.Fuses[home] = 12_000;
+        long read = twin.Tick.IntakeVoxelsRead;
+
+        MachineTickReport held = twin.Boundary(step: false);
+
+        Assert.Equal(0, held.Moved);
+        Assert.Equal(1, held.Signalled);
+        Assert.Equal(PumpStall.Signalled, pump.LastStall);
+        Assert.Equal(read, twin.Tick.IntakeVoxelsRead);
+        Assert.Equal(0L, held.PumpedInAll);
+        Assert.Equal(BigCellCapacity, ChargeOf(cell));
+
+        sense.Fuses.Clear();
+        MachineTickReport clear = twin.Boundary(step: false);
+
+        Assert.Equal(1, clear.Moved);
+        Assert.Equal(RelayMillilitresPerBoundary, pump.LastMovedMillilitres);
+        Assert.Equal(BigCellCapacity - (RelayMillilitresPerBoundary * RelayBill), ChargeOf(cell));
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void AnOnSignalTwoPumpRunsOnlyWhileItsChannelIsSignalled()
+    {
+        var twin = new Twin();
+        (FakeCollapseSense sense, ChunkPos home) = SenseFor(twin);
+        MachineRow pump = twin.Place(Twin.PumpCell, ReaderPump);
+        twin.Machines.SetPort(pump.Cell, MachineTick.OnSignalPort, 2);
+        twin.Place(Twin.RimOutlet, Outlet);
+        twin.Place(Twin.RoomOutlet, BigCell, charge: BigCellCapacity);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+
+        // Nothing signals the channel yet, so onsignal 2 holds it off.
+        MachineTickReport quiet = twin.Boundary(step: false);
+        Assert.Equal(0, quiet.Moved);
+        Assert.Equal(PumpStall.Signalled, pump.LastStall);
+
+        sense.Fuses[home] = 12_000;
+        MachineTickReport signalled = twin.Boundary(step: false);
+
+        Assert.Equal(1, signalled.Moved);
+        Assert.Equal(RelayMillilitresPerBoundary, pump.LastMovedMillilitres);
+        Assert.Equal(1L, twin.Tick.StalledSignalled);
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void APumpCannotDrawOnACellHeldOffBySignal()
+    {
+        // The enabled-0 test's shape, through the signal: the same stall, the same charge standing.
+        var twin = new Twin();
+        (FakeCollapseSense sense, ChunkPos home) = SenseFor(twin);
+        MachineRow pump = twin.Place(Twin.PumpCell, BilledPump);
+        twin.Place(Twin.RimOutlet, Outlet);
+        MachineRow cell = twin.Place(Twin.RoomOutlet, ReaderCell, charge: BigCellCapacity);
+        twin.Machines.SetPort(cell.Cell, MachineTick.OnSignalPort, 1);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+        sense.Fuses[home] = 12_000;
+
+        MachineTickReport report = twin.Boundary(step: false);
+
+        Assert.Equal(0, report.Moved);
+        Assert.Equal(PumpStall.Unpowered, pump.LastStall);
+        Assert.Equal(1, report.CellsSignalledOff);
         Assert.Equal(BigCellCapacity, ChargeOf(cell));
         Assert.True(twin.Tick.PowerExact);
         twin.AssertIdentity();

@@ -12,14 +12,15 @@
     "headMetres": null,
     "joulesPerLitre": 1000,
     "intakeRadiusCells": 1,
-    "extras": { "priority": {} },
+    "extras": { "priority": {}, "sense": {} },
     "links": {
       "power": { "carries": "power", "role": "sink",   "via": "channel", "port": "channel" },
       "water": { "carries": "fluid", "role": "source", "via": "channel", "port": "channel" }
     },
     "ports": {
       "channel": { "default": 0, "min": 0, "max": 15 },
-      "priority": { "default": 5, "min": 0, "max": 9 }
+      "priority": { "default": 5, "min": 0, "max": 9 },
+      "onsignal": { "default": 0, "min": 0, "max": 2 }
     }
   }
 }

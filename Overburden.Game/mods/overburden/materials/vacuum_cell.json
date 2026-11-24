@@ -9,12 +9,14 @@
   "machine": {
     "kind": "storage",
     "capacityJoules": 5000000000,
+    "extras": { "sense": {} },
     "links": {
       "charge": { "carries": "power", "role": "sink", "via": "channel", "port": "channel" }
     },
     "ports": {
       "channel": { "default": 0, "min": 0, "max": 15 },
-      "enabled": { "default": 1, "min": 0, "max": 1 }
+      "enabled": { "default": 1, "min": 0, "max": 1 },
+      "onsignal": { "default": 0, "min": 0, "max": 2 }
     }
   }
 }

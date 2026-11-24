@@ -74,7 +74,6 @@ public class MachineExtrasTests
 
     public static TheoryData<string, string, string> EveryUnservedExtraAndItsSlice => new()
     {
-        { "sense", "pump", "collapse f-1" },
         { "recall", "pump", "IM-9" },
         { "remote", "pump", "IM-9" },
         { "telemetry", "pump", "IM-9" },
@@ -103,8 +102,9 @@ public class MachineExtrasTests
     public void ChargeAndPriorityAreServedFromIM2()
     {
         // IM-2 read both, and switched them on: the window (decisions 7 and 8) and the consumers'
-        // order (decision 41). The game's own served set loads them.
-        Assert.Equal(MachineExtra.Charge | MachineExtra.Priority, MachineExtras.Served);
+        // order (decision 41). The game's own served set loads them. Collapse f-1 switched sense on
+        // beside them (CollapseSensorTests).
+        Assert.Equal(MachineExtra.Charge | MachineExtra.Priority | MachineExtra.Sense, MachineExtras.Served);
 
         (GameContent content, LoadResult result) = Load(
             MachineExtras.Served,

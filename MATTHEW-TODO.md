@@ -48,7 +48,8 @@ a step that reads wrong is the most useful kind. **★ marks what IM-6 builds on
 6. **The pack's recharge**: place a vacuum cell, `Alt+P`, drain the pack with Q, and watch it come back from the
    cell, a cube bite's worth every 1.6 s.
 7. ★ **The panel by hand**: computer in hand, right-click a pump, type 99 into a box capped at 15, press Esc once
-   with the field live. *One Esc or two?*
+   with the field live. *One Esc or two?* (The new `onsignal` box is the collapse sensor's; leave it at 0 until
+   the sensor itself is in the game.)
 8. **Ctrl+Z on a fill that's still waiting**: place a block right into water and press Ctrl+Z at once. *Nothing
    should land* (before, it came back half a second later). A shape half in water: the first press cancels the
    wet half, a second takes back the dry half.
@@ -401,7 +402,18 @@ Nothing is blocked on these; each is a small change once you have a view.
 Updated **2026-11-24**. **0.1.3-alpha is released on GitHub** (a pre-release, the zip byte-identical to the one
 built), going public's files and the README's Releases link are pushed, and **Ctrl+P** (one lithium-ion pack, in
 your hand) is on main for your next `start.cmd`. Your untested builds are one route at the top, "The retest, in
-one sitting"; development carries on alongside it, next the ten build warnings, then collapse f-1, then IM-6's pass.
+one sitting"; development carries on alongside it. The build warnings and the collapse sensor's first step landed
+today, so **IM-6's pass is next**.
+
+- **Two things landed on 2026-11-24, neither one yours to test**:
+  - **The ten warnings `start.cmd` printed are gone**: zero now, from every build. All were real fixes and none
+    was hidden, so a new warning will stand out.
+  - **The collapse sensor's first step** (f-1): the game's insides for a sensor that warns of a collapse 10–20 s
+    before it falls, and switches pumps and vacuum cells on its channel. **Nothing senses yet**: the sensor
+    itself, its texture and `P` are the next step. What you'll notice is a new `onsignal` box on a pump's and a
+    cell's panel. Leave it at 0: with no sensor, 2 just holds the machine off, and the panel says so. The rule
+    your vaults will need is in and tested: a cell switched off by a sensor still pays its vaults' bills, so a
+    sensor can never make a vault dump.
 
 - **Going public is built** (2026-10-26, the last of the four alpha sessions):
   - **The README** is written for a visitor: your pitch, the download (GitHub's Releases, your Drive links as the
@@ -461,8 +473,8 @@ one sitting"; development carries on alongside it, next the ten build warnings, 
 - **IM-5a is built: the dump's water** (2026-10-10). On the surface it goes into the lake that ground drains to,
   over about ten seconds; in the mine it pours out round the vault, a little each half second. An emptied vault
   works again; an emptied wreck disappears.
-- **Next: IM-6**, the first thing you can play with a vault. Before it: the ten build warnings, and ideally the
-  collapse sensor's first step.
+- **Next: IM-6**, the first thing you can play with a vault. Nothing stands before it now: the build warnings and
+  the collapse sensor's first step landed 2026-11-24.
 - **The clay leak is closed, not reproduced** (your word): your glass rain pool filled and held, and glass and
   clay are the same to the water. The 09-26 clay-roof drip closes with it; that day's look had already found the
   roof sound and the drip running off the eave outside your glass.
@@ -491,7 +503,7 @@ one sitting"; development carries on alongside it, next the ten build warnings, 
   playtest fresh. Your new test world is **`LakeTest2`** (seed `0xD8FF0AD`, as its world file reads), and `start.cmd` opens it. The old
   one stays because the lake-split numbers were measured on it. TajMahal2 is `retired-TajMahal2-2026-10-01`, and
   the first TajMahal `retired-TajMahal-2026-09-29`.
-- **The collapse sensor:** all thirteen decisions taken, the first build step is ready.
+- **The collapse sensor:** its first step is built (2026-11-24); the wire, with the sensor you can place, is next.
 - **The Tetris collapse** is the default, with the cyan glitch, your phonk (left as is, your word) and a
   10–20 s fuse.
 - **Far mode is on F10 now** (F11 is fullscreen, and Alt+Enter too): 6 → 8 → 10 chunks out; your six steps to

@@ -1,5 +1,34 @@
 ﻿# Overburden — Worklog
 
+## 2026-11-24 — Collapse f-1: the sensor's Core, the signal, and the vault's bill kept paid
+
+TODO's "Order and collisions" item 2, ideally before IM-6, whose playable vault leans on its rule that a
+signalled-off cell never unpays a bill. Built in a worktree, after the warnings.
+- **The re-read first** (COLLAPSE-PLAN, "f-1 — the re-read against today's code"). The pass is eight weeks old, so
+  every file and line it cites was checked against today's code. Its six facts hold, and nothing needs a save change,
+  so header v9 stays IM-6's. It couldn't see five things that landed after it. The pool is one sum per channel with
+  the holds paid out of it, so "leaves the pool" is a cut after `PayHolds`. IM-2's window and IM-4a's siphon spend
+  the same cells between boundaries. `sense` would load on any kind and do nothing. Ports restore by name with their
+  default. And the panel falls through to pump text. Each is built under a decision already taken, nine build choices
+  in all, so it built rather than stopping for him. The one he may want to see: **the relay's and the cell's panels
+  show an `onsignal` box from this build**, and with no sensor until f-2, 2 holds the machine off.
+- **What it is** (COLLAPSE-PLAN, "f-1 — built"): the `sensor` kind with `senses` and `channel`/`radius` ports;
+  `ICollapseSense`; the tick's per-channel signal, read at the start of a boundary and kept to the next; the two
+  readers through the `sense` extra, now served; `PumpStall.Signalled`; the held cell's cut and write-back; the bank
+  skipping it; counters; the shipped relay and cell; a minimal panel branch.
+- **A finding for IM-6**: a held cell pays the bills but doesn't refill a vault's own minute, which comes from the
+  spare after the consumers. So under a signal a lit fuse stays paused while the bills are paid and is never put out.
+  The vault never dumps for it, which is all the ideal-machines decision 10 asked. Tested both ways.
+- **Tests**: `CollapseSensorTests` (49 cases) on a fake sense, and three in `MachineTickTests` on real water. Suite
+  **2,396**.
+- **The battery**: 45 recipes, 45 red, all 45 recipes written before the first run, every file restored from its saved bytes
+  and compared byte for byte after each slice. One recipe matched twice at first (the intake box has the same loop),
+  so the harness stopped before mutating anything, and it was made unique and re-run. The recipes: `sense-null-quiet`, `fuse-ignored`, `member-ignored`, `event-not-beating-fuse`, `radius-short`, `radius-plus-one`, `radius-unclamped`, `distance-manhattan`, `first-member-kept`, `latest-fuse-kept`, `signal-not-cleared`, `fuse-signals-channel-zero`, `rebuild-no-sensors`, `sensor-channel-zero`, `onsignal-1-inverted`, `onsignal-2-inverted`, `extra-not-required`, `pump-not-held`, `cells-not-withdrawn`, `withdraw-unbounded`, `overrides-before-holds`, `held-treated-as-on-at-writeback`, `bank-includes-held`, `draw-includes-held`, `report-fuse-event-swapped`, `cells-count-gone`, `stall-count-gone`, `signal-written-to-port`, `senses-power-allowed`, `senses-any-allowed`, `sensor-links-allowed`, `sensor-channel-optional`, `radius-max-loose`, `radius-min-loose`, `radius-optional`, `senses-on-other-kinds`, `sense-on-any-kind`, `sensor-not-validated`, `sensor-kind-unparsed`, `senses-dropped`, `sense-unserved`, `cell-without-sense`, `pump-without-sense`, `pump-onsignal-default-1`, `restore-default-max`.
+  `restore-default-max` mutates existing code, to show the restore test bites.
+- **r6** `2601 / 325 / 3446 at 411` on the worktree's own build, no `ERROR` line. **Not tested**: the panel lines,
+  which are Game code that headless never draws.
+- **Next for the collapse is f-2, the wire**, which isn't in front of IM-6.
+
 ## 2026-11-24 — The build warnings, cleared: zero from both builds
 
 TODO's "Order and collisions" item 1, before IM-6, so a new warning stands out in the wire slice. Built in a worktree.

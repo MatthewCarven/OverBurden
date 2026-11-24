@@ -1156,7 +1156,7 @@ signal medium later, and nothing here would have to be undone for it.
 
 | Slice | What | Verified by |
 |---|---|---|
-| **f-1** | Core: the `sensor` kind (loader, validate), `onsignal` (its readers opt in through IM-1's `sense` extra, and f-1 switches it on), the per-channel signal and the override in `MachineTick`, stall reason `signalled`. A small `ICollapseSense` interface (`Armed(chunk)`, `Member(chunk)`, `FuseLeft(chunk)`) so the tick never holds the director. | Tests with a fake sense: a fuse trips it, an event trips it, out of radius does not, 0 / 1 / 2 on a cell and a pump, the pool identity exact through a signal, a signal never written to a port or the blob. A mutation battery. |
+| **f-1** (**built 2026-11-24**, below) | Core: the `sensor` kind (loader, validate), `onsignal` (its readers opt in through IM-1's `sense` extra, and f-1 switches it on), the per-channel signal and the override in `MachineTick`, stall reason `signalled`. A small `ICollapseSense` interface (`Armed(chunk)`, `Member(chunk)`, `FuseLeft(chunk)`) so the tick never holds the director. | Tests with a fake sense: a fuse trips it, an event trips it, out of radius does not, 0 / 1 / 2 on a cell and a pump, the pool identity exact through a signal, a signal never written to a port or the blob. A mutation battery. |
 | **f-2** | The wire: `Main` hands the tick a sense over the scheduler and director, the panel status, the `M10:` terms and one-off lines, `P` seeds a sensor, the texture, `--placeat=`. | **The oracle:** on a scratch world, `--bitechunks=2 --collapseafter=10,10`, a sensor and a cell (`onsignal=1`) beside the bite on channel 0. `M10:` reads the channel signalled while the fuse burns, the cell out of the pool, cleared after the event ends. Plus the r6 control to the digit. |
 | **f-3** | His play: a sensor by a failing roof, a cell on its channel set to go off. | His sentence. |
 
@@ -1186,6 +1186,111 @@ planned** ([IDEAL-MACHINES-PLAN.md](IDEAL-MACHINES-PLAN.md), decisions 10 and 38
   load-time half (`onsignal` 0..2 required), and **f-1 gives its two readers `"extras": { "sense": {} }`
   beside the port and switches `sense` on in the loader's served set.** Name, bounds and default are
   unchanged; the restore test is f-1's own.
+
+### f-1 — the re-read against today's code (2026-11-24)
+
+The pass is eight weeks old, and IM-1 to IM-5b, the alpha and header v8 have landed since. Every file and line it
+cites was re-read before building, as IM-5a's re-read did. **Nothing in it needs undoing and nothing needs a save
+change**, so f-1 builds, and header v9 stays IM-6's. The pass's six facts still hold: `TryGetTimer`
+(`CollapseScheduler.cs:217`) and `IsMember` (`CollapseDirector.cs:312`) are O(1); `ChannelOf` clamps
+(`MachineTick.cs:1396`); `enabled` is a saved port read at `Rebuild`; the tick still runs before `SweepCollapse`
+(`Main.cs:7755`, `:7789`), so the lag is one boundary; `MachineKind` is still a closed enum with a string switch in
+the loader (`ContentLoader.cs:826`); and nothing places a machine headless.
+
+**Five things the pass couldn't see, from the code that landed after it:**
+1. **The pool is one sum per channel, and the holds are paid out of it.** `BeginPower` (`MachineTick.cs:794`) adds
+   every pooled cell's charge to `_available`, `PayHolds` (`:915`) pays every vault's bill from it before the first
+   pump, and `WriteBack` (`:1107`) refills the cells in position order from what is left. So "a signalled-off cell
+   leaves the pool" can't be a filter at the start: the ideal-machines decision 10 wants the holds paid first. It
+   is a cut made after `PayHolds`.
+2. **IM-2's window and IM-4a's siphon spend the same cells between boundaries**, through `IChannelBank` over
+   `_storage` (`:1132`, `:1167`). An `enabled = 0` cell never enters `_storage` (`:1279-1289`), so it is out of
+   that bank too.
+3. **`sense` is checked for its port, its form and its medium, never its kind.** Served, it would load on an outlet,
+   a converter or a vault and do nothing: the lamp that didn't glow, which the loader refuses everywhere else.
+4. **Ports are saved by name, and `Restore` gives a missing one its default** (`MachineSet.cs:830-836`), counted
+   `defaulted`. A row saved before f-1 opens with `onsignal` 0, so there is no format change.
+5. **The panel's status falls through to pump text** (`MachinePanel.cs:542`) and prints an unknown stall by its enum
+   name (`:553`): IM-3's must-not-ship 14, again, for a sensor row, a held pump and a held cell.
+
+**How each is built, under a decision already taken** (none is new; each can be reversed on his word):
+1. **The cut.** The holds see every enabled cell, signalled or not (ideal-machines decision 10). Then each channel's
+   signalled-off cells take back as much of their own charge as the holds left: the smaller of what they held and
+   what remains. So a bill dips into them only after the sun and the cells still on, and their charge "stays"
+   (decision 5) except for what a bill took. `WriteBack` returns it to them in position order, each up to what it
+   held, and fills the cells still on from the rest. **A signalled-off cell never unpays a vault's bill**, and no
+   term moves: `PowerExact` holds by construction.
+2. **Out of the bank.** Between boundaries a signalled-off cell is out of the window's and the siphon's bank, because
+   decision 5 says "as `enabled = 0` does", and that cell is out of it. The last boundary's signal stands until the
+   next; before the first, no channel is signalled.
+3. **No rebuild.** Each consumer reads the channel's boolean where it reads the cell or the pump, so a signal never
+   touches `MachineSet.Version` (decision 4's point) and needs no rebuild of the tick either.
+4. **`signalled` is a pump's first stall**, read before its intake: a held pump reads no water and owes no litres.
+5. **The sensor** declares a `channel` port and a `radius` port, both required, the radius inside 0..4 (decision 2).
+   That is "inside", not exactly 0..4, so a mod can narrow it, since the bound is a cost and not a meaning. It takes
+   no links (decision 6). `senses` is `collapse`; `power` is refused naming IM-9; `senses` on another kind is refused.
+6. **`sense` is refused on a kind the tick doesn't read**, naming its readers (decision 5: the pump and the placed
+   cell). The quarry and IM-9 widen it when they read it.
+7. **A reading** is kept on the sensor's row for the session, never saved: an event within the radius beats a fuse
+   (decision 7's FALLING over ARMED), with the nearest member's distance, or the soonest fuse with its distance and
+   time left. f-2's panel and lines read it; the tick needs only the boolean.
+8. **A minimal panel branch**, as IM-3's decision 12 did: a held pump's line, a cell's `OFF BY SIGNAL`, and a
+   sensor's line, which says it is not connected while the tick has no sense. f-2 hands the tick its sense. Decision
+   7's full status stays f-2's.
+9. **The shipped readers get the port and the extra now**, as IM-1's decision 1 took. So from this build the relay
+   pump's and the vacuum cell's panels show an `onsignal` box, default 0. Until f-2 there is no sensor in the game:
+   1 does nothing, and 2 holds the machine off.
+
+## f-1 — built (2026-11-24)
+
+On the re-read above, which found nothing to undo and no save change. Core and tests, plus IM-3's kind of minimal
+panel branch. Built in a worktree, on main the same day.
+
+- **The kind.** `MachineKind.Sensor`; `"kind": "sensor"` in the loader with a `senses` key (`MachineDefinition.Senses`).
+  `TryValidateSensor` wants `senses` `collapse` (`power` is refused naming IM-9, a near miss gets a did-you-mean), no
+  links, a `channel` port, and a `radius` port inside 0..4. `senses` on any other kind is refused. **`sense` is now
+  served** (`MachineExtras.Served`), and refused on any kind but a pump or a placed storage.
+- **The signal.** `ICollapseSense` (`Armed`, `Member`, `FuseLeft`, in `Core/Machines/ICollapseSense.cs`) is the tick's
+  `CollapseSense`, null until f-2 hands it one. At the start of a boundary every sensor reads the (2r + 1)³ chunks
+  around its own, and a fuse or an event there signals its channel until the next boundary. The reading
+  (`SensorReading`: an event beats a fuse; the nearest member's distance, or the soonest fuse with its distance and
+  time left) is kept on the row for the session as `MachineRow.LastSensed`, never saved.
+- **The readers.** `MachineTick.IsSignalledOff(row)`: the `sense` extra and `onsignal` 1 while signalled, or 2 while
+  not; any other value follows nothing. A held pump stalls `PumpStall.Signalled` before it reads its intake. A held
+  cell is summed into the pool for the bills, then `WithdrawHeldCells` takes back the smaller of its channel's held
+  charge and what the bills left, and `WriteBack` returns that to the held cells in position order, each up to what
+  it held. Between boundaries `IChannelBank`'s bank and draw skip a held cell. Nothing is rebuilt and
+  `MachineSet.Version` never moves for a signal.
+- **What this means for IM-6**, which the tests pin: a held cell never unpays a bill, and a bill reaches it only after
+  the sun and the cells still on. But a held cell **doesn't refill a vault's own minute**, which comes from the spare
+  after the consumers. So under a signal a lit fuse is paused for as long as the bills are paid, and never put out.
+  The vault never dumps because of the signal, which is all decision 10 asked; IM-6's pass should know it.
+- **Counted** on the report (`Signalled`, `ChannelsSignalled`, `SensorsTripped`, `TrippedByFuse`, `TrippedByEvent`,
+  `CellsSignalledOff`, and the stall list's `signalled`) and over the lifetime (`StalledSignalled`, `SensorReads`,
+  `SensorTripsByFuse`, `SensorTripsByEvent`, `SenseLookups` as the denominator). The `M10:` line's terms are f-2's.
+- **Shipped**: the relay pump and the vacuum cell carry `"extras": { "sense": {} }` and `onsignal` 0..2 at 0, so their
+  panels show the box from this build. No sensor ships until f-2 (its texture and `P`).
+- **The panel** (`MachinePanel`): a held pump reads `stalled: held off — onsignal 1, off while channel N is
+  signalled` (or 2's line), a held cell `OFF BY SIGNAL — holding …`, and a sensor `SENSOR — not connected to the
+  collapse in this build` while the tick has no sense; with one, `QUIET`, `ARMED — fuse 12.0 s, 1 chunk(s) away` or
+  `FALLING — an event 2 chunk(s) away`. **Not tested**: Game code, and headless draws no panel. f-2's oracle or a
+  play sees it.
+- **Tests**: `CollapseSensorTests`, 49 cases on a fake sense and a light rig: a fuse trips it, an event trips it and
+  beats a fuse, out of radius doesn't and the corner at the radius does, a radius past 4 reads as 4, no sense is
+  quiet, the signal stands to the next boundary, 0 / 1 / 2 on a cell and on a pump, a row without the extra ignores
+  its port, the bill paid out of a held cell (and short is short, held or not), the last held cell pays first, a held
+  cell takes no generation, out of the window's and the siphon's bank, the pool identity exact over forty boundaries
+  of signals coming and going, a signal never written to a port or the blob and no version moved, rows saved before
+  f-1 restoring with `onsignal` 0 (`defaulted 2`), and the loader's sensor and its nine refusals. Three in
+  `MachineTickTests` on real water: a held pump moves nothing and reads no intake, `onsignal` 2 runs only while
+  signalled, and a plain pump can't draw on a held cell. Suite **2,396**.
+- **The battery**: 45 recipes, 45 red, recipes written first and listed in the worklog, every file restored from its saved
+  bytes and checked byte for byte after each slice.
+- **r6** `2601 / 325 / 3446 at 411` on the worktree's own build, no `ERROR` line.
+
+**f-2 is next for the collapse, not before IM-6**: a sense over the scheduler and the director (it can be a Godot-free
+adapter in Core, tested on its own), the `M10:` terms and one-off lines (decision 12), `P` seeding a sensor and its
+texture (decision 9), `--placeat=` (decision 13), decision 7's full panel status, and the headless oracle.
 
 ## What would reverse this
 

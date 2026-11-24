@@ -520,6 +520,12 @@ public sealed partial class MachinePanel : CanvasLayer
                 return ($"OFF — holding {ChargeOf(charge, capacity)}, out of channel {channel}'s pool", StallText, null);
             }
 
+            // Collapse f-1: held off by the channel's signal — out of the pool, its charge standing.
+            if (_tick?.IsSignalledOff(row) == true)
+            {
+                return ($"OFF BY SIGNAL — holding {ChargeOf(charge, capacity)}, out of channel {channel}'s pool ({OnSignalText(row, channel)})", StallText, null);
+            }
+
             return ($"charged {ChargeOf(charge, capacity)}   ·   pooled on channel {channel}", charge > 0 ? MovedText : DimText, null);
         }
 
@@ -528,6 +534,13 @@ public sealed partial class MachinePanel : CanvasLayer
         if (_kind == MachineKind.Vault)
         {
             return VaultStatus(row, channel);
+        }
+
+        // Collapse f-1's minimal branch (IM-3's decision 12 precedent): a sensor's line, never a pump's.
+        // Decision 7's full status, with the event and the panel's wording, is f-2's.
+        if (_kind == MachineKind.Sensor)
+        {
+            return SensorStatus(row, channel);
         }
 
         if (_kind == MachineKind.Converter)
@@ -550,7 +563,35 @@ public sealed partial class MachinePanel : CanvasLayer
             PumpStall.Unloaded => ("stalled: the intake or an outlet is not loaded", StallText, PumpStall.Unloaded),
             PumpStall.Unanalysed => ("stalled: off the analysed window — no ground to pour on", StallText, PumpStall.Unanalysed),
             PumpStall.Unpowered => ($"stalled: no power on channel {channel}", StallText, PumpStall.Unpowered),
+            PumpStall.Signalled => ($"stalled: held off — {OnSignalText(row, channel)}", StallText, PumpStall.Signalled),
             _ => (row.LastStall.ToString(), StallText, row.LastStall),
+        };
+    }
+
+    /// <summary>What a reader's <c>onsignal</c> asks of it, in words: off while its channel is signalled, or on only while it is.</summary>
+    private static string OnSignalText(MachineRow row, long channel) =>
+        row.TryGetPort(MachineTick.OnSignalPort, out long onSignal) && onSignal == 2
+            ? $"onsignal 2, runs only while channel {channel} is signalled"
+            : $"onsignal 1, off while channel {channel} is signalled";
+
+    /// <summary>
+    /// A sensor's line (collapse f-1): what its last reading saw, and the channel it signals; or that it
+    /// is not connected, while the tick has no sense to ask (f-2 hands it one).
+    /// </summary>
+    private (string Text, Color Colour, PumpStall? Stall) SensorStatus(MachineRow row, long channel)
+    {
+        long radius = row.TryGetPort(MachineDefinition.RadiusPort, out long r) ? r : 1;
+        if (_tick?.CollapseSense is null)
+        {
+            return ($"SENSOR — not connected to the collapse in this build   ·   would signal channel {channel}", DimText, null);
+        }
+
+        SensorReading reading = row.LastSensed;
+        return reading.Trip switch
+        {
+            SensorTrip.Event => ($"FALLING — an event {reading.DistanceChunks} chunk(s) away   ·   signalling channel {channel}", StallText, null),
+            SensorTrip.Fuse => ($"ARMED — fuse {(reading.FuseLeftMillis ?? 0) / 1000.0:N1} s, {reading.DistanceChunks} chunk(s) away   ·   signalling channel {channel}", StallText, null),
+            _ => ($"QUIET — no fuse or event within {radius} chunk(s)   ·   on channel {channel}", DimText, null),
         };
     }
 

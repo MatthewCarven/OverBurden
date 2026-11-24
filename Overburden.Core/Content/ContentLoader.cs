@@ -830,6 +830,7 @@ public sealed class ContentLoader
             case "converter": kind = MachineKind.Converter; break;
             case "storage": kind = MachineKind.Storage; break;
             case "vault": kind = MachineKind.Vault; break;
+            case "sensor": kind = MachineKind.Sensor; break;
             case "generator":
                 error = "kind 'generator' is not in this build — the burner and the crank are M10f.";
                 return false;
@@ -1041,6 +1042,7 @@ public sealed class ContentLoader
             BlockHoldMilliwattsPerCubicMetre = blockHold,
             HoldsWater = dto.HoldsWater ?? false,
             OwnChargeSeconds = dto.OwnChargeSeconds,
+            Senses = dto.Senses,
             Links = links,
             Ports = ports,
             ExtraForms = forms,
@@ -1123,6 +1125,7 @@ public sealed class ContentLoader
         public HoldJson? HoldWattsPerCubicMetre { get; set; }
         public bool? HoldsWater { get; set; }
         public long? OwnChargeSeconds { get; set; }
+        public string? Senses { get; set; }
     }
 
     /// <summary>A vault's hold, in watts a cubic metre: water and blocks apart (decision 16).</summary>

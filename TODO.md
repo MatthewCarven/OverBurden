@@ -27,14 +27,11 @@ and the notices' check in `make-alpha.ps1`; files only, riding the next zip. **P
 the same day.** What's left of it is his (MATTHEW-TODO): his play of 0.1.2 and 0.1.3. **IM-6 is next.**
 
 **Do first, before the slice named:**
-1. **Collapse f-1 — before IM-9, ideally before IM-6.** IM-9's power sensor needs the `sense` extra f-1
-   switches on, and f-1 carries the rule that a signalled-off cell never unpays a vault's bill (COLLAPSE-PLAN,
-   the ideal-machines amendments), which IM-6's playable vault relies on.
-2. **The engine-wide pin — before IM-7.** A chunk any door wrote stays loaded until the next autosave (IM-5's
+1. **The engine-wide pin — before IM-7.** A chunk any door wrote stays loaded until the next autosave (IM-5's
    decision 8, its lever). IM-5 accepted the crash duplicate for the dump, as for placement; the quarry writes
    every boundary across many chunks and would multiply it. Its own pass (Levers).
-3. **The quantum rate that reads low on a profile — before IM-7's bench** quotes a rate.
-4. **The quarry's pass reads the `--pile` bench — before IM-7.** The quarry writes every boundary across many
+2. **The quantum rate that reads low on a profile — before IM-7's bench** quotes a rate.
+3. **The quarry's pass reads the `--pile` bench — before IM-7.** The quarry writes every boundary across many
    chunks; the bench says a write's cost is the chunk columns it touches (light in the frames after: 3–5, 11–12
    and 35–39 ms a boundary at one, four and sixteen columns), not the field's clone. Its lever is the chunk
    count, as the pile's is (8 a boundary).
@@ -44,7 +41,9 @@ IM-0's windowed surface install (the 10 ML ceiling stands), the pond branch (mer
 (measured by `--pile`: the pile needs no bulk write). WORKLOG and the plans have each. Cleared 2026-10-12: the
 hotbar's unit (his answer: litres under a cubic metre, cubic metres from one up; built as `VolumeText`, which
 IM-6's water slot uses). Cleared 2026-11-24: the build warnings, fifteen counted (ten from `start.cmd`'s build,
-five more in the tests), all fixed, none suppressed; zero from both builds now (WORKLOG).
+five more in the tests), all fixed, none suppressed; zero from both builds now (WORKLOG). And collapse f-1, the
+sensor's Core, with the rule IM-6 leans on: a signalled-off cell never unpays a vault's bill (COLLAPSE-PLAN, "f-1 —
+built"). **Nothing stands before IM-6's pass now.**
 
 **Collisions, two planned works on one code path or one question:**
 1. **Water bodies part a and LAKE-EDIT's "hand back sooner at ~95%"** both change when Tier B hands back to
@@ -179,11 +178,11 @@ five more in the tests), all fixed, none suppressed; zero from both builds now (
 - [ ] **Collapse part d**, per the plan's split: the chimney, whichever arm he takes — a tunnel
       under a placed house, headless on a scratch world. (e, the phonk, is built and his ear is in:
       *"sounds good an want to leave it as is"*, 2026-09-30.)
-- [ ] **Collapse part f — thirteen decisions taken as recommended (2026-09-29); f-1 next**
-      ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f, the collapse sensor"). Thirteen
-      decisions; the sensor trips on a fuse, not only a fall, and its signal is an unsaved override,
-      never a write to `enabled`. Slices f-1 (Core and tests), f-2 (wire, `--placeat=`, the
-      oracle), f-3 (his play). Build f-1 in a worktree if he is playing.
+- [ ] **Collapse part f — f-1 built 2026-11-24; f-2 next, the wire**
+      ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "f-1 — built"): a sense over the scheduler and the
+      director (a Godot-free adapter can live in Core), the `M10:` terms and one-off lines, `P` seeding a
+      sensor and its texture, `--placeat=`, decision 7's full panel status, and the headless oracle. Then f-3,
+      his play. Not in front of IM-6. Build in a worktree if he is playing.
 - [ ] **M10e — the conductor index** (after the M10d play): `conductor` block, `ConductorTracker`
       marking a dirty set and nothing else in the hook, per-chunk summaries at schema 5 riding the
       batch write, `NetworkSet` with position-derived ids, `maxRunCells` as occupied brush cells,

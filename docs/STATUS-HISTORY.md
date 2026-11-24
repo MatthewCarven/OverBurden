@@ -13,6 +13,52 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md at the 2026-11-24 close (the build warnings and collapse f-1):**
+
+**2026-10-26 — alpha session D is built and on main: going public's files** (`d4acd59`;
+[docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md), "Session D — built"). **All four alpha sessions are built.** The README is
+written for a visitor (his pitch, the download on the Releases page with his Drive links kept as 0.1.1 and 0.1.2,
+both machines by part, building from source with `start.cmd` named as his launcher). `CONTRIBUTING.md` opens with
+his rule in his words, then four checks naming the identities and the tests that hold them. `CLA.md` is Harmony's
+individual CLA, outbound Option Five, New South Wales law, word-diffed against the template's source, CC BY 3.0
+attribution kept; agreeing is the tick box in `.github/pull_request_template.md`. `.gitattributes` is `* text=auto`
+(a real renormalise staged nothing). The notices name .NET 8.0.32 and SQLite 3.53.3, and **`make-alpha.ps1` refuses
+a zip whose notices name another runtime than the export's `runtimeconfig.json`**, proved red then green in a
+worktree; main's `build/` is untouched, so 0.1.3 goes up as built and D's player text rides the next zip.
+- **Pushed and released, the same day**: he pushed `5720f42` and made `v0.1.3-alpha`, a pre-release whose zip is
+  byte-identical to the build (sha256 `41af625f…4966cdd`); its tag sits at `4be4426`, which holds the zip's stamp
+  `e786e07`. Checked: GitHub's main and every one of D's files match, and GitHub recognises CONTRIBUTING and the
+  template. **`releases/latest` never resolves to a pre-release** (GitHub's "latest" skips them), so the README
+  links to `/releases` now, pushed 2026-11-04 with his YouTube link merged (`651a188`).
+- **His, now** (MATTHEW-TODO, "Yours to run"): the repo description's "It's"; the release notes GitHub generated,
+  his to replace if he likes; his looks at 0.1.2 and 0.1.3; the folder rename whenever suits.
+- **Kept from the build**: a fresh tree's export rewrites `Overburden.Game/icon.svg.import` with LF endings (no
+  content change), so `make-alpha.ps1` warns of uncommitted changes in a new worktree; and two worktree exports
+  left his `godot.log` rotation alone.
+
+**2026-11-04 — `Ctrl+P` puts one lithium-ion pack in your hand**, unless the worn pack already is one (his ask;
+`DebugSeed.PressOnePack`, the worklog says why it needs no term). P while sprinting is now that too, because Ctrl is
+sprint. It rides the next zip, and his one check is in MATTHEW-TODO.
+
+Suite **2,345** (2,335 at D, plus Ctrl+P's ten), r6 `2601 / 325 / 3446 at 411` on Ctrl+P's build.
+
+**Next session, in order:**
+1. **IM-6's code-level pass, at header v9**, behind the ten build warnings (TODO's "Order and collisions", 1) and
+   ideally collapse f-1 (2). Its pass carries: the vault's panel (his warranty line, a lock on the channel box,
+   power auto-scaled), water in the hotbar through `VolumeText` (a slot may name any material the table has, water
+   included), the pile's cyan glitch (decision 16), and the windowed read of a real dump; his E-screen design means
+   the panel's stock section is built so the screen can reuse its moves. The v9 bump starts with a v8 capture.
+2. **From D, later** (TODO's "The public repo"): a page for mod authors; a lawyer's read of CLA.md before the
+   first outside merge, if the game is ever to earn; CLA Assistant past a handful of outside PRs.
+
+**Buildable alongside: collapse part f, slice f-1** (Core and tests), thirteen decisions taken
+([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). The ideal-machines plan's three amendments there are
+taken too; none changes f-1. **IM-1 landed first** (its pass's decision 1, taken), so f-1 gives its two
+readers `"extras": { "sense": {} }` beside `onsignal` and switches `Sense` on in `MachineExtras.Served`.
+**Build in a worktree if he is playing or may start**, because `start.cmd` builds whatever the main folder
+holds, half-edited or not. On 2026-09-29 he launched mid-IM-1 and his build caught the tree before the loader
+change, harmlessly; a tree that compiled halfway through a change would have put half of it in his hands.
+
 **Moved from CLAUDE.md at the 2026-10-26 close of alpha session D** (the hand-over from session C's close,
 with the 2026-10-26 pass's changes to it):
 

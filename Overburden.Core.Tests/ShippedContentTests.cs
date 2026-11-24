@@ -348,7 +348,9 @@ public class ShippedContentTests
 
         int Id(string path) => content.Materials.GetNumericId(Identifier.Parse($"overburden:{path}"));
         Assert.Equal(MachineExtra.Charge, table.Machine(Id("quantum_backpack"))!.Extras);
-        Assert.Equal(MachineExtra.Priority, table.Machine(Id("relay_pump"))!.Extras);
+        // Collapse f-1 gave the relay the sense extra beside priority (and the cell the same, alone).
+        Assert.Equal(MachineExtra.Priority | MachineExtra.Sense, table.Machine(Id("relay_pump"))!.Extras);
+        Assert.Equal(MachineExtra.Sense, table.Machine(Id("vacuum_cell"))!.Extras);
     }
 
     [Fact]

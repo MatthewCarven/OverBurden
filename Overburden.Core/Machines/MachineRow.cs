@@ -116,6 +116,12 @@ public sealed class MachineRow
     /// </summary>
     public bool LastHoldPaid { get; internal set; }
 
+    /// <summary>
+    /// A sensor's reading at the last boundary (COLLAPSE-PLAN part f, f-1): what tripped it, how far, and
+    /// the soonest fuse. Session-only, like the signal it raises: a reopen reads quiet until the first boundary.
+    /// </summary>
+    public SensorReading LastSensed { get; internal set; }
+
     /// <summary>The port's value, or its absence.</summary>
     public bool TryGetPort(string name, out long value) => _ports.TryGetValue(name, out value);
 
