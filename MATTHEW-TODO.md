@@ -171,6 +171,8 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Yours to run
 
+- [ ] **Delete `C:\c\`**: a stray folder holding two empty log files, made by a path I got wrong on 2026-11-25.
+      Nothing else is in it; the safety check stopped me removing a top-level folder myself.
 - [ ] **The repo's description** on GitHub (the gear beside "About"): it reads *"Its voxel world based mining
       game…"*, which wants an apostrophe: "It's".
 - [ ] **0.1.3's release notes, if you like**: GitHub wrote them itself, listing your two September pull requests
