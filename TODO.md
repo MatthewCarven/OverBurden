@@ -24,7 +24,7 @@ makes the zip. B, the first ten minutes (committed 2026-10-19), zipped as 0.1.2-
 (2026-10-19, header v8, so IM-6's mode byte is v9), zipped as 0.1.3-alpha, which carries B too. **D, going public**
 (2026-10-26, the plan's "Session D — built"): the README, CONTRIBUTING, CLA.md, the PR template, `.gitattributes`,
 and the notices' check in `make-alpha.ps1`; files only, riding the next zip. **Pushed, and 0.1.3 released on GitHub
-the same day.** What's left of it is his (MATTHEW-TODO): his play of 0.1.2 and 0.1.3. **IM-6's pass is written and taken (2026-11-24); IM-6a is next.**
+the same day.** What's left of it is his (MATTHEW-TODO): his play of 0.1.2 and 0.1.3. **IM-6's pass is written and taken (2026-11-24), and IM-6a is built the same day; IM-6b is next.**
 
 **Do first, before the slice named:**
 1. **The engine-wide pin — before IM-7.** A chunk any door wrote stays loaded until the next autosave (IM-5's
@@ -44,7 +44,8 @@ IM-6's water slot uses). Cleared 2026-11-24: the build warnings, fifteen counted
 five more in the tests), all fixed, none suppressed; zero from both builds now (WORKLOG). And collapse f-1, the
 sensor's Core, with the rule IM-6 leans on: a signalled-off cell never unpays a vault's bill (COLLAPSE-PLAN, "f-1 —
 built"). **IM-6's pass is written and taken (2026-11-24)**: split into 6a, 6b and 6c, all twenty-six as recommended
-(IDEAL-MACHINES-PLAN, "IM-6 — the code-level pass").
+(IDEAL-MACHINES-PLAN, "IM-6 — the code-level pass"). **IM-6a, its Core, is built the same day** (the plan, "IM-6a —
+built").
 
 **Collisions, two planned works on one code path or one question:**
 1. **Water bodies part a and LAKE-EDIT's "hand back sooner at ~95%"** both change when Tier B hands back to
@@ -118,14 +119,16 @@ built"). **IM-6's pass is written and taken (2026-11-24)**: split into 6a, 6b an
       cost, so at most 8 a boundary), and the pile (the plan's "IM-5b — built"; suite 2,278). Seven choices the
       build made are listed there for his word. **IM-6's code-level pass is written** (2026-11-24; the plan, "IM-6 —
       the code-level pass"). It splits IM-6 into 6a (Core), 6b (the wire, with the vault playable in sandbox) and
-      6c (creative, header v9). **All twenty-six decisions taken as recommended, 2026-11-24; IM-6a is next.** Every "into IM-6" item has its place
-      there:
-      - the pile's cyan glitch (decision 14);
+      6c (creative, header v9). **All twenty-six decisions taken as recommended, 2026-11-24.** **IM-6a is built
+      the same day** (the plan, "IM-6a — built"): the runway from per-channel flows, `PowerText` and `EnergyText`,
+      `StoreMoves` with the withdraw guard and the store's fill, and the pile's positions; nothing changes in play,
+      and ten build choices are listed there for his word. **IM-6b is next.** Every "into IM-6" item still open has
+      its place there:
+      - the pile's cyan glitch, drawn from `PileVoxelsLast` (decision 14);
       - the in-game read of a real dump, a fuse burning out underground, and the `fluidsurf` install against about
         50 ms mean or 250 ms worst (17);
       - the grade files at `ownChargeSeconds` 60 (6);
-      - the runway counting the recharge and the return as transfers (2);
-      - his warranty line (9), the channel box's lock (10), and power auto-scaled (3).
+      - his warranty line (9), the channel box's lock (10), and power auto-scaled on the panel through `PowerText` (3).
 
       Plays after IM-6, IM-8 and IM-9. **Still owed elsewhere:** a bite under a lake (IM-7's bench); a dump
       underground headless (IM-5's).

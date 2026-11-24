@@ -13,6 +13,51 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md at the 2026-11-24 close (IM-6a, the Core):**
+
+**2026-11-24 — IM-6's code-level pass is written, and his word took all twenty-six decisions as recommended**
+([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-6 — the code-level pass"). Docs only, nothing built.
+The warnings and f-1, landed earlier the same day, are in STATUS-HISTORY. **Taken the same evening** (*"As
+recommended"*), with the amendments to decisions 23, 51 and 52 carried into the plan.
+- **The split recommended (decision 1, a fork):**
+  - **6a**, Core, with nothing changed in play: the runway from per-channel flows, power and energy text, the store's
+    moves with a withdraw guard, and the pile's positions.
+  - **6b**, the wire and content: the vault, crate and siphon files, P, the HUD's bank line, the stock section, the
+    siphon on T, the glitches, the lines, `--placeat=` and the owed windowed reads. **The vault plays in his sandbox
+    world, with no save change.**
+  - **6c**, creative: the v8 capture with its program kept, header v9's mode and flags bytes, `--mode=creative`, kits,
+    the first cell's 1 GJ, the keys, the card and the storm oracle.
+- **The other five forks:**
+  - 7: P seeds the containers, pinned only, so slot 9 stays stone's.
+  - 10: the channel box's lock lasts one panel opening.
+  - 12: water shows beside the row, not on it (amends decision 23).
+  - 23: the first cell's gift comes once, and an undo of its placement loses it.
+  - 24: creative turns the debug keys off whatever `--dev` says, with Ctrl+P and Alt+H added (amends 52).
+- **Found:**
+  - a worn backpack reads `pack 0 mJ / 0 mJ` on the HUD;
+  - nothing in the Game reads a tool's `Takes`;
+  - no runway figure is both per channel and public;
+  - the panel never logs a vault;
+  - a profile with `--world=` makes a world (amends 51);
+  - `--placeat=` is f-2's, and IM-6's oracle needs it, so it moves to 6b.
+- **f-1's finding, narrowed:** sun, and cells still on, refill a vault's minute. A fuse stays paused under a signal
+  only on a channel whose charged cells are all held, with no sun to spare. No rule change (decision 18).
+- **Standing from the alpha** (its hand-overs are in STATUS-HISTORY): 0.1.3-alpha is the latest release, a GitHub
+  pre-release, and `releases/latest` skips pre-releases, so the README links to `/releases`. **The next zip carries**
+  D's player text, Ctrl+P (2026-11-04) and f-1's `onsignal` box; none is scheduled. A fresh worktree's export
+  rewrites `Overburden.Game/icon.svg.import` with LF endings, so `make-alpha.ps1` warns of uncommitted changes there.
+
+**Next session, in order:**
+1. **IM-6a, the Core** (the pass's decisions 2–5): the runway's per-channel flows, power and energy text, the store's
+   moves with the withdraw guard, and the pile's positions, with their tests and battery (recipes written first).
+   Nothing changes in play. If `Overburden.Core/Machines` or `Main.cs` has moved since `4a2895c`, re-read the pass's
+   facts first. Build in a worktree if he is playing or may start. Then 6b, then 6c.
+2. **Collapse f-2, the wire**, alongside whenever suits (TODO's "Collapse part f"): a sense over the scheduler and
+   the director, the `M10:` terms, `P` seeding a sensor and its texture, and the headless oracle. `--placeat=` lands in
+   IM-6b (its decision 16), and f-2 reuses it.
+3. **From D, later** (TODO's "The public repo"): a page for mod authors; a lawyer's read of CLA.md before the
+   first outside merge, if the game is ever to earn; CLA Assistant past a handful of outside PRs.
+
 **Moved from CLAUDE.md at the 2026-11-24 close (IM-6's code-level pass):**
 
 **2026-11-24 — the build warnings are cleared and collapse f-1 is built, both on main**

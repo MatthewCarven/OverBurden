@@ -2225,7 +2225,7 @@ the window's terms and the sky's answers. The panel reads a cell as `charged 4,9
 5,000.0 MJ · pooled on channel 0`, a converter as `generating 125 J a boundary onto channel 0 ·
 16/16 open, overcast 128/256` through `MachineTick.SolarOutputOf` (one definition of the product),
 and a pump's sixth stall as `stalled: no power on channel N`. `MachinePanel.Joules` is the one
-formatter (mJ, J, kJ, MJ, GJ). Three JSON files: `solar_panel` (500 W, `efficiency` 1.0, layer 8),
+formatter (mJ, J, kJ, MJ, GJ); since IM-6a (2026-11-24) it forwards to Core's `EnergyText`, the same output. Three JSON files: `solar_panel` (500 W, `efficiency` 1.0, layer 8),
 `vacuum_cell` (5 GJ, layer 9), `lead_acid_pack` (3.6 MJ, 1 kW — 250 W since 2026-09-18, `carried`, `placeable: false`,
 `unit: count`, layer 10 — a swatch only); three colours and jitters, asserted; the bench's `--pump`
 gains a powered row and a powered loop.

@@ -51,7 +51,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. Today a block in a lake is a pier. |
 | [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) | **Walls that split a lake, the code-level pass (2026-10-01): all seven decisions taken as recommended; L-1, L-2 and E-1 built the same day; his play passed 2026-10-09, and all of it is on main since the pond branch merged.** His Tier B conversion can't separate (the hand-back rejoins the one lake); the pond branch's raise divides a lake but gives every litre to the old pit's side (fact 10). Recommended: share by the water over each cell (L-1, L-2 on the branch), and make the enclosure's answer independent of who asks first (E-1, main). |
 | [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md) | **The public alpha** (2026-10-12, his ask: a public zip, extract and run). Twenty-one facts from three read-only searches (there is no export; content is found relative to the working directory; no menu, no quit key, no help; the phonk can't ship; personal data if the repo goes public) and **twenty-three decisions, his**, split into four sessions: the export, the first ten minutes, the hotbar's slots, going public. **All four built: C is 0.1.3-alpha (2026-10-19); D, going public's files (CONTRIBUTING, CLA.md, the README), 2026-10-26.** |
-| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30); IM-5a built (2026-10-10, after a re-read against the merged watershed), IM-5b built (2026-10-11: the pile, a cone at his word, its bench `--pile`), IM-6 next; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
+| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30); IM-5a built (2026-10-10, after a re-read against the merged watershed), IM-5b built (2026-10-11: the pile, a cone at his word, its bench `--pile`), IM-6's pass taken and IM-6a built (2026-11-24), IM-6b next; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
 
@@ -214,43 +214,43 @@ version. A worktree has neither beside it, so give the script `-Godot <exe>` the
 
 ## Where things stand
 
-**2026-11-24 — IM-6's code-level pass is written, and his word took all twenty-six decisions as recommended**
-([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-6 — the code-level pass"). Docs only, nothing built.
-The warnings and f-1, landed earlier the same day, are in STATUS-HISTORY. **Taken the same evening** (*"As
-recommended"*), with the amendments to decisions 23, 51 and 52 carried into the plan.
-- **The split recommended (decision 1, a fork):**
-  - **6a**, Core, with nothing changed in play: the runway from per-channel flows, power and energy text, the store's
-    moves with a withdraw guard, and the pile's positions.
-  - **6b**, the wire and content: the vault, crate and siphon files, P, the HUD's bank line, the stock section, the
-    siphon on T, the glitches, the lines, `--placeat=` and the owed windowed reads. **The vault plays in his sandbox
-    world, with no save change.**
-  - **6c**, creative: the v8 capture with its program kept, header v9's mode and flags bytes, `--mode=creative`, kits,
-    the first cell's 1 GJ, the keys, the card and the storm oracle.
-- **The other five forks:**
-  - 7: P seeds the containers, pinned only, so slot 9 stays stone's.
-  - 10: the channel box's lock lasts one panel opening.
-  - 12: water shows beside the row, not on it (amends decision 23).
-  - 23: the first cell's gift comes once, and an undo of its placement loses it.
-  - 24: creative turns the debug keys off whatever `--dev` says, with Ctrl+P and Alt+H added (amends 52).
-- **Found:**
-  - a worn backpack reads `pack 0 mJ / 0 mJ` on the HUD;
-  - nothing in the Game reads a tool's `Takes`;
-  - no runway figure is both per channel and public;
-  - the panel never logs a vault;
-  - a profile with `--world=` makes a world (amends 51);
-  - `--placeat=` is f-2's, and IM-6's oracle needs it, so it moves to 6b.
-- **f-1's finding, narrowed:** sun, and cells still on, refill a vault's minute. A fuse stays paused under a signal
-  only on a channel whose charged cells are all held, with no sun to spare. No rule change (decision 18).
+**2026-11-24 — IM-6a, the Core, is built and on main** ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md),
+"IM-6a — built"). Decisions 2–5 of IM-6's pass, taken earlier the same day; that hand-over is in STATUS-HISTORY.
+**Nothing changes in play**: no Game code calls any of it yet.
+- **The runway's ledger.** `MachineTick.FlowsOn(channel)` gives each boundary's generation, pool bills, own-charge
+  bills, pumps, and own charges given and returned, counted where the global terms are, plus the draws since the last
+  boundary, counted inside `IChannelBank.Draw` itself. `BankOf` is public now. `Runway` keeps twenty boundaries a
+  channel: in is the generation, out is pool bills + pumps + draws. The runway is `bank × window ÷ (out − in)`, amber
+  under 10 minutes and red under 60 s.
+- **`PowerText`** beside `VolumeText`, floored, W to GW. **`EnergyText`** is the panel's `Joules` moved, and
+  `MachinePanel.Joules` forwards to it.
+- **`StoreMoves`**: `ToStore` and `ToPocket` on the backpack's channel, `IntoBox` and `OutOfBox` on one box, and
+  `OutOfCombined`, the pocket first, then the store, vault to vault and never from the aimed box.
+  `MachineSet.ClosedReason` is the one definition of a closed box. `Withdraw` and `WithdrawFrom` now refuse a material
+  the pocket refuses. `StoreFillOf(channel)` gives the store's fill.
+- **`VaultDump.PileVoxelsLast`**: the voxels the piles wrote each boundary, at most 512.
+- **Ten build choices** are listed in the plan for his word; none shows in play.
+- **Checked:** suite **2,475**; a battery of 61 recipes, 61 red; zero warnings from both builds from scratch; r6
+  `2601 / 325 / 3446 at 411`.
 - **Standing from the alpha** (its hand-overs are in STATUS-HISTORY): 0.1.3-alpha is the latest release, a GitHub
   pre-release, and `releases/latest` skips pre-releases, so the README links to `/releases`. **The next zip carries**
   D's player text, Ctrl+P (2026-11-04) and f-1's `onsignal` box; none is scheduled. A fresh worktree's export
   rewrites `Overburden.Game/icon.svg.import` with LF endings, so `make-alpha.ps1` warns of uncommitted changes there.
 
 **Next session, in order:**
-1. **IM-6a, the Core** (the pass's decisions 2–5): the runway's per-channel flows, power and energy text, the store's
-   moves with the withdraw guard, and the pile's positions, with their tests and battery (recipes written first).
-   Nothing changes in play. If `Overburden.Core/Machines` or `Main.cs` has moved since `4a2895c`, re-read the pass's
-   facts first. Build in a worktree if he is playing or may start. Then 6b, then 6c.
+1. **IM-6b, the wire and content** (the pass's decisions 6–18). The pieces:
+   - the vault, crate and siphon files, with textures at layers 15–20;
+   - P seeding the containers, pinned only;
+   - the HUD's bank line off `Runway` and `StoreFillOf`, and the stock section's verbs through `StoreMoves`;
+   - the channel box's lock;
+   - the siphon on T, **with the clicks' water branch before its files** (fact 13: a water tool on T without it digs
+     for free);
+   - the fuse's glitch, and the pile's from `PileVoxelsLast`;
+   - the `M10:` lines, `--placeat=` and `--deposit=`;
+   - the windowed reads at the close, on his yes.
+
+   Re-read the pass's facts against `Main.cs`, `Hud.cs` and `MachinePanel.cs` first. Build in a worktree if he is
+   playing or may start. **It's the playable step, and his play is its test.** Then 6c.
 2. **Collapse f-2, the wire**, alongside whenever suits (TODO's "Collapse part f"): a sense over the scheduler and
    the director, the `M10:` terms, `P` seeding a sensor and its texture, and the headless oracle. `--placeat=` lands in
    IM-6b (its decision 16), and f-2 reuses it.
@@ -260,8 +260,8 @@ recommended"*), with the amendments to decisions 23, 51 and 52 carried into the 
 The ideal machines plan: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to IM-3b,
 IM-4a (thirty-six mutations red), IM-4b, IM-4c (reduced at his word), **IM-5a, the dump's water** (2026-10-10,
 twenty-eight red) and **IM-5b, the pile** (2026-10-11, forty-two red; its seven build choices taken
-2026-10-12). **IM-6's pass is written and taken** (2026-11-24, all twenty-six as recommended). **Taken and not built:** IM-7
-onward.
+2026-10-12). **IM-6's pass is written and taken** (2026-11-24, all twenty-six as recommended), and **IM-6a, the
+Core, is built** (2026-11-24, sixty-one mutations red). **Taken and not built:** IM-6b, IM-6c, and IM-7 onward.
 
 **The lake plan is taken (2026-10-01): [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), all seven decisions
 as recommended; his last question closed 2026-10-12** (the walled area beneath TajMahal2 was two areas he

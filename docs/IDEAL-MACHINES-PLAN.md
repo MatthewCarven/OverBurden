@@ -10,8 +10,8 @@ journalled"). It is wider than the split's row: the reconcile's four branches we
 the rule is that only a pick's dismantle is journalled. **IM-0 is measured** (the same night, "IM-0 —
 measured" below), and he took the 2 m quarry bite. **IM-1 is built** ("IM-1 — the code-level pass" and
 "IM-1 — built" below; its eight decisions taken as recommended). **IM-2 is built** ("IM-2 — built"
-below): the backpack is a window and consumers are paid by priority. **IM-3's code-level pass is written**
-("IM-3 — the code-level pass" below): twelve decisions wait on his word.
+below): the backpack is a window and consumers are paid by priority. **IM-3 to IM-5b are built, IM-6's pass is
+taken, and IM-6a is built (2026-11-24)**: each slice has its row in "The split" and its own sections below.
 
 **How it was made.** As a design panel (the ladder's method):
 - five readers mapped the machine code, the plans, the inventory and the store, the creative-mode
@@ -660,7 +660,7 @@ name, bounds or default.
 | **IM-3** Core (amended by its pass, below) | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
 | **IM-4** Core (its pass, 2026-09-30, splits it into 4a–4c, twelve decisions taken; **4a, 4b and 4c built**; 4c kept today's lake rule at his word, displacement is its own pass) | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; ~~the pump stalls `full` only when every ring entry refuses~~ a full vault reads `NoRoom`, the first refusal met (the pass's decision 11). Mutation: drop `vaulted`, red. |
 | **IM-5** Core (its pass, 2026-09-30, splits it into 5a, the water, and 5b, the pile; sixteen decisions taken as recommended) | The dump: the pile writer, the Tier A release, the Tier B ball with its twin sized to the budget, the ceilings and decoherence, the global budgets, owed while unloaded, the unload batch's session, the dead state; a heap-writer bench arm. | A fixture room receives every voxel once; a pile into a chunk that unloads, then a kill with no session save, then a reopen, counts every voxel once; the unloaded arm releases at arrival; N vaults dumping share the budget exactly; the Tier B ceiling decoheres the excess; power returning after the fuse does nothing; Ctrl+Z cannot touch the pile; Tier B exact, Tier A's counters seam-checked. Mutation: route the dump through `Add`, and the seam goes red. |
-| **IM-6** Wire (its pass, 2026-11-24, splits it into 6a, Core; 6b, the wire and the vault in sandbox; and 6c, creative; twenty-six decisions taken as recommended 2026-11-24) | Header v9, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v8 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
+| **IM-6** Wire (its pass, 2026-11-24, splits it into 6a, Core; 6b, the wire and the vault in sandbox; and 6c, creative; twenty-six decisions taken as recommended 2026-11-24; **6a built 2026-11-24**) | Header v9, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v8 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
 | **IM-7** Core | The `quarry` kind: the box, `Facing`, the cursor, the skips, the scan cap, the stalls, the allotment and the carve's draw (`dug`), recording off with the chunk forget. | Digs a fixture box once, top down; never a machine or a full vault; pays exactly the voxels removed × 50 J; `OFF SITE` on an unloaded chunk; `flooded`; the cursor survives a save; Ctrl+Z on a hand dig in a chunk the quarry wrote is dropped, and in an untouched chunk still works; a Release bench arm at 1, 4 and 16 quarries. Mutation: quarry writes with recording on, red. |
 | **IM-8** Wire | Quarry wiring: the `quarry` bracket, the panel, the pins, the README's OH&S line. | Headless on the fixed seed: bites, and `quarry` against the 1 ms line; r6. **Playable: quarries.** |
 | **IM-9** Core+wire | Recall, the board, pin states, the power sensor, the unloaded-sensor guard. | `released == landed + in flight + lost + recalled` in both collapse modes and under `--bitechunks`; a part-picked machine credits `cleared + Recalled`, not 64; a bankrupt channel recalls nothing; a recalled pump is 64 in the pocket and none of it rubble; after the drain, Ctrl+Z re-adds nothing and the next arrival rebuilds nothing. Mutation: credit 64, red. A sensors × radius arm against `machines`. |
@@ -2810,7 +2810,124 @@ crosses. In 6b it is the clicks' water branch, the one place a free tool could s
 
 **Taken as recommended, all twenty-six, 2026-11-24** (*"As recommended"*), the same evening. The three amendments
 are carried into decisions 23, 51 and 52 and the fork list above. Decision 16 moves `--placeat=` into IM-6b, and
-COLLAPSE-PLAN's decision 13 and its f-2 row say so. **IM-6a is next.**
+COLLAPSE-PLAN's decision 13 and its f-2 row say so. **IM-6a is built (2026-11-24, below); IM-6b is next.**
+
+## IM-6a — built (2026-11-24)
+
+Decisions 2–5 of the pass above, in a worktree, Core only. **Nothing changes in play**: no Game code calls any of it
+yet, and the one Game line touched (`MachinePanel.Joules`) prints what it printed. Re-read first: nothing under
+`Overburden.Core/Machines`, `Overburden.Core/Inventory` or `Main.cs` had moved since `4a2895c`, so facts 6, 7, 8, 10,
+11 and 16 stood as written.
+
+**What it is:**
+- **Decision 2, the runway's ledger.** The tick keeps each boundary's flows for each channel, counted on the line where
+  each global term is counted: generation, bills paid from the pool, bills paid from own charges, the pumps' draw, own
+  charges given and returned. `IChannelBank.Draw` counts every draw on its channel between boundaries, and the next
+  boundary takes them over, so a new drawer (the quarry's `dug`, recall's) is outflow without a line of its own.
+  - **Public reads:** `MachineTick.BankOf(channel)` (was internal), `FlowsOn(channel)`, a `ChannelFlows` record, and
+    `BankDrawnMillijoules`, the draws' lifetime sum (`windows' taken + siphonPaid` while every pack worn is a window).
+    The draw stays internal.
+  - **`ChannelFlows.In`** is the generation. **`Out`** is pool bills + pumps + draws. Own charges given, returned and
+    spent are left out, and so are `entering`, `leaving` and Alt+P, which are not in the record at all.
+  - **`Runway`** (Core) keeps twenty boundaries of in and out for each channel, and the bank at the last. A reading is
+    the bank, in and out as milliwatts over the window, and `bank × window ÷ (out − in)` while out > in. Its level is
+    red under 60 s, amber under 10 minutes, plain from there, and none while not draining. It averages what it has
+    before twenty boundaries. `Record(tick)` refuses a tick whose boundary isn't the runway's.
+- **Decision 3.** `PowerText` beside `VolumeText`: `OfMilliwatts`, `OfWatts`, `OfMillijoulesPerBoundary` (500 ms by
+  default). `EnergyText.Of` is the panel's `Joules`, moved verbatim with its stray summary.
+- **Decision 4, the store's moves.** `StoreMoves` has five moves over the set's own doors, each returning a
+  `StoreMove(voxels, refusal)`:
+  - `ToStore` and `ToPocket` on the worn backpack's channel;
+  - `IntoBox` and `OutOfBox` on one vault or crate;
+  - `OutOfCombined` into an aimed box: the pocket first, then the store.
+
+  `MachineSet.ClosedReason(cell)` says why a box is closed, and the set's own `IsOpenBox` now reads it.
+  `MachineSet.StoreFillOf(channel)` gives used and inside, blocks and water together, over the vaults `StoreOf` lists.
+  **The guard:** `Withdraw` and `WithdrawFrom` refuse a material the pocket refuses and count the voxels asked in
+  `WithdrawRefusedVoxels`. Every move refuses it as `PocketRefuses`.
+- **Decision 5.** `VaultDump.PileVoxelsLast`: the voxels the piles wrote at the last boundary, in the order written,
+  at most 512, cleared with `PileChunksLast`.
+
+**Ten build choices the pass left open**, each under a taken decision, listed for his word:
+1. **`MachinePanel.Joules` stays, as a one-line forwarder** to `EnergyText.Of`. Its fifty-odd callers move with 6b's
+   panel, so 6a touches one Game line.
+2. **Power is floored**, as a volume is, in integer milliwatts: 99.96 kW reads `99.9 kW`, never `100.0`. A non-zero
+   power under a tenth of a watt reads `<0.1 W`, as the panel's share reads `<0.1%`, because a god vault holding one
+   cubic metre of blocks bills 64 mW. Zero reads `0 W`. One decimal is always shown under 100 (`1.0 kW`), as the energy
+   text does.
+3. **The store's moves take the worn pack.** No quantum backpack, or a lead-acid or lithium-ion one, refuses
+   `NoBackpack`, as the siphon refuses. Without one, `OutOfCombined` is the pocket alone, and refuses nothing for it.
+4. **The combined box's store half goes vault to vault** (`MachineSet.MoveFromStoreInto`, internal): last-filled
+   first, as a withdrawal is, up to the box's room, never out of the aimed box. It never passes through the pocket,
+   which would offer the material a hotbar slot. It is held to held, so it moves no term of `StoreExact`, and it is
+   counted in `VoxelsMovedBetweenBoxes`.
+5. **A closed box's reasons, first that holds:** not a box, unreadable, wreck, dumping, switched off. A wreck is
+   dumping too, and may be switched off; it reads `Wreck`.
+6. **The runway reads the bank at each boundary it records**, not live. Decision 8 hands the HUD a record at each
+   boundary, so the bank and the runway on the line agree with each other.
+7. **The packs' recharge isn't in the runway's out.** A lead-acid or lithium-ion pack draws from its channel's pool,
+   but decision 8 shows the runway only while a window is worn, and a window and a recharging pack are never worn
+   together.
+8. **Eight arrays of sixteen, not six:** the six terms, the draws handed to the boundary, and the draws since it.
+9. **An out-of-range channel is clamped** by `FlowsOn` and `Read`, as the bank's read clamps one.
+10. **Under `PowerOff` only the draws are flows**, since nothing else is counted then.
+
+**Tests** (new: `RunwayTests`, `PowerTextTests`, `StoreMovesTests`; one each in `MachineTickTests`, `SiphonTests` and
+`VaultPileTests`; the per-channel identity added to two random runs in `MachineTickTests`):
+- the per-channel terms sum to the report's over 400 random boundaries on four channels, with the window, the
+  siphon, deposits, withdrawals and Alt+P between them, and land on their own channel: each channel's generation
+  from its panel, its paid bills from its vaults, and its draws from what was drawn on it;
+- a draw counts at the next boundary only, on its own channel;
+- Alt+P, a picked cell and a cell placed leave the flows and the rates alone;
+- a deposit's recharge isn't out, and a withdrawal's return isn't in;
+- a bill paid from the vault's own minute isn't out;
+- under `PowerOff`, only draws;
+- the pumps' term on channel 4, and the real siphon's draw on the backpack's channel 3;
+- the twenty-boundary window, the thresholds at both edges, no runway at level or rising flows, the rates as power
+  (his line's `3.8 kW` and `104 kW`), and `Record(tick)`;
+- power and energy against tables, the culture, the extremes;
+- each move in its order, a closed box refused with its reason by all three box moves, the backpack's refusal, the
+  combined box pocket first and never the box itself, last-filled first, a refused material by every door, the
+  fill, and 2,000 random moves with no voxel made or lost and `StoreExact` exact;
+- the pile's positions against its writes, its budget and its chunks, and empty at the boundary after.
+
+Planning the battery found two holes before it ran, and each got its test first: a bill paid from the own minute
+counted as out, and the combined box's store half taking the first-filled vault first.
+
+**The battery: 61 recipes, 61 red.** Sixty were written before any ran, and ran in three chunks of twenty. Each
+mutated file was restored from its saved bytes and compared byte for byte at each chunk's end.
+- **The pass's six**, each red on the tests written for it:
+  - a draw left off the ledger (`draw-off-ledger`);
+  - own charges given counted as out (`given-as-outflow`);
+  - `entering` counted (`entering-counted`);
+  - the combined order reversed;
+  - the guard removed;
+  - the positions never cleared.
+- **`entering-counted` was first caught at the first boundary**, where a bank recorded from nothing reads as a rise,
+  not at Alt+P. So a sixty-first, written after the run, counts only rises after the first boundary
+  (`entering-counted-after-first`). It went red on the Alt+P test alone.
+- **`pumps-on-channel-zero` was caught by one test only**, the pumps on channel 4: every sum identity stays exact
+  when a term lands on the wrong channel. That is why the random run asserts each channel's own terms.
+- **The rest**, by area:
+  - the ledger: each term uncounted, left uncleared, or on channel 0; the whole bill counted from the pool; own paid
+    into the pool's term; draws read live;
+  - the runway: each of out's three terms left out; own paid as out; returned as in; the bank's-change arm; the bank
+    not recorded; a window of forty; a ring that never wraps; both thresholds moved; amber inclusive; a runway at
+    level flows; the runway and the rates over one boundary;
+  - the text: power rounded, kW late, a decimal to 1,000, GW late, a trickle reading zero, the sign dropped, the
+    boundary fixed; energy's kJ early, GJ to one place, its sign dropped;
+  - the moves: both of `StoreMoves`' guards removed; a wreck reported as dumping; off checked before wreck; off not
+    closed; the combined half taking the box itself, ignoring the room, or first-filled first; `ToPocket` on channel
+    0; a lead-acid pack reaching the store, or the combined store;
+  - the fill without water, or over closed vaults;
+  - the positions one voxel up, or not recorded.
+
+**Checked:** suite **2,475** (2,396 + 79). Zero warnings from the Game's build and the solution's, both from scratch.
+The r6 control on the worktree's own build reads `2601 / 325 / 3446 at 411`, with no `ERROR` line.
+
+**What 6b reads off it:** `Runway` for the bank line (decision 8), `PowerText` for the bill, a panel's output, a pack's
+recharge and a pump's draw (3), `StoreMoves` for the stock section's verbs (9), `StoreFillOf` for `store 68%`, and
+`PileVoxelsLast` for the pile's glitch (14).
 
 ## Must not ship
 

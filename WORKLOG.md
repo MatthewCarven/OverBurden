@@ -1,5 +1,60 @@
 ﻿# Overburden — Worklog
 
+## 2026-11-24 — IM-6a, the Core: the runway's ledger, power text, the store's moves, the pile's positions
+
+IM-6's pass, decisions 2–5, built in the worktree `im6a` the evening the pass was taken. Core only; nothing changes in
+play. The plan's "IM-6a — built" has the whole account and the ten build choices.
+- **Re-read first.** Nothing under `Overburden.Core/Machines`, `Overburden.Core/Inventory` or `Main.cs` had moved since
+  `4a2895c`, so the pass's facts stood. `git worktree list` showed only main.
+- **The ledger.** Each term is counted on the line where its global twin is, into sixteen-slot arrays cleared at the
+  boundary's start. The draws are counted inside the bank's `Draw` and handed to the next boundary, so the window, the
+  siphon, and later the quarry and recall, are outflow without a line of their own. `Runway` reads in (generation)
+  and out (pool bills, pumps, draws) over twenty boundaries. `BankOf` went public.
+- **The store's moves** are one class over the set's doors. Making the closed box's reason the set's own definition
+  meant `IsOpenBox` now reads `ClosedReason`, the same boolean in a new order. The combined box's store half moves
+  vault to vault, because going through the pocket would offer the material a hotbar slot.
+- **Three expectations of mine were wrong, the code right**, all in the first run of the new tests:
+  - 500 mJ over 500 ms is one watt, not a kilowatt;
+  - a 500 W panel at one open column still out-earns a full low vault, so two fixtures needed overcast to drain;
+  - the siphon's vault bills for the water it just took, so the channel's out is the draw plus the bill.
+- **Planning the battery found two holes before it ran**, and each got its test first: nothing checked that a bill
+  paid from a vault's own minute stays out of the outflow, and nothing checked that the combined box's store half takes
+  the last-filled vault first. **Also worth keeping: a per-channel term misattributed to channel 0 keeps every sum
+  identity exact.** The sum test alone can't see it, so the random run also asserts each channel's own generation,
+  paid bills and draws, and the pumps have a test on channel 4.
+- **The battery: 61 recipes, 61 red**, sixty written before any ran, in three chunks of twenty. Each file was
+  restored from its saved bytes and compared byte for byte after each chunk. The harness is f-1's `run.py` and
+  `check.py`, retargeted.
+  - The pass's six were each red on their own tests.
+  - `entering-counted` was first caught by the bank's jump from nothing at the first boundary, so a sixty-first,
+    counting only later rises, was run after. It went red on the Alt+P test alone.
+  - The recipes: `draw-off-ledger`, `draw-not-counted-at-all`, `draw-on-channel-zero`, `drawn-between-not-cleared`,
+    `flows-read-live-draws`, `generated-not-cleared`, `pool-held-not-cleared`, `generated-on-channel-zero`,
+    `held-pool-on-channel-zero`, `held-own-into-pool`, `held-whole-bill-from-pool`, `pumps-on-channel-zero`,
+    `pumps-uncounted`, `given-on-channel-zero`, `returned-uncounted`, `given-as-outflow`, `returned-as-inflow`,
+    `own-paid-as-outflow`, `pool-bills-left-out`, `pumps-left-out`, `draws-left-out`, `entering-counted`,
+    `entering-counted-after-first`, `bank-change-arm`, `bank-not-recorded`, `window-forty`, `ring-never-wraps`,
+    `amber-five-minutes`, `red-thirty-seconds`, `amber-inclusive`, `runway-at-level-flows`,
+    `runway-over-one-boundary`, `rates-over-one-boundary`, `power-rounds`, `power-kilowatts-late`,
+    `power-decimal-to-1000`, `power-gigawatts-late`, `power-tiny-reads-zero`, `power-sign-dropped`,
+    `power-boundary-fixed`, `energy-kilojoules-early`, `energy-gigajoules-one-place`, `energy-sign-dropped`,
+    `combined-order-reversed`, `guard-removed`, `box-guard-removed`, `store-guard-removed`,
+    `wreck-reported-dumping`, `off-before-wreck`, `off-not-closed`, `combined-store-includes-box`,
+    `combined-ignores-room`, `combined-first-filled-first`, `to-pocket-channel-zero`, `lead-acid-reaches-store`,
+    `combined-lead-acid-uses-store`, `fill-excludes-water`, `fill-includes-closed`, `positions-never-cleared`,
+    `positions-one-up`, `positions-not-recorded`.
+- **Checked:**
+  - the suite: **2,475** (2,396 + 79);
+  - zero warnings from `dotnet build Overburden.Game` and the solution's build, both `--no-incremental`, counted in a
+    warnings-only file log;
+  - the r6 control on the worktree's own build: `2601 / 325 / 3446 at 411`, with no `ERROR` line. PowerShell's
+    `Select-String` counted one, but it matches without regard to case, and the match was the content line's `0
+    error(s)`.
+
+  The import wrote 31 `.uid` files and rewrote `icon.svg.import`, as the notebook says. The `.import` was restored, and
+  the `.uid` files went with the worktree. The only Godot processes running were Sandrail's, and his play logs were
+  already kept as dated copies, so the run rotated nothing of his.
+
 ## 2026-11-24 — IM-6: the code-level pass (the bank, the vault, water and the dump)
 
 The hand-over's next, with nothing left in front of it once the warnings and f-1 landed. Docs only: the game wasn't

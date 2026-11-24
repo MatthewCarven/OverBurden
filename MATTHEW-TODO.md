@@ -410,7 +410,23 @@ Updated **2026-11-24**. **0.1.3-alpha is released on GitHub** (a pre-release, th
 built), going public's files and the README's Releases link are pushed, and **Ctrl+P** (one lithium-ion pack, in
 your hand) is on main for your next `start.cmd`. Your untested builds are one route at the top, "The retest, in
 one sitting"; development carries on alongside it. The build warnings and the collapse sensor's first step landed
-today, and **IM-6's plan is written and taken as you recommended**: its first step, the insides, is next.
+today, **IM-6's plan is written and taken as you recommended**, and **its first step, the insides, is built**. The
+second, the vault in your LakeTest2, is next.
+
+- **IM-6's first step, the insides, is built** (2026-11-24). Nothing you play changes. It's the parts the next step
+  puts on screen:
+  - **The runway.** How long a channel's cells last at the rate they're going. It's worked out from what comes in
+    (the sun) and what goes out (vault bills, pumps, your tools and the siphon). It is never worked out from the cells
+    going up and down, so Alt+P or picking up a cell won't make it jump. It looks at the last ten seconds, and turns
+    amber under ten minutes and red under one.
+  - **Power in watts**, ready for the HUD and the panels: `3.8 kW`, `104 kW`.
+  - **Moving blocks between your pocket, the store and a vault or crate**, ready for the vault's panel and, later,
+    the inventory screen. A closed vault says why: switched off, dumping, or a wreck.
+  - **Where the dump's heap put each block**, so the cyan glitch can appear on it.
+  - Ten small choices the build made are listed in the plan, for your word whenever you look. None changes anything
+    you'd see yet.
+  - Checked: all 2,475 tests pass, I broke the new code 61 deliberate ways and every one was caught, and the game's
+    quick check reads exactly as recorded.
 
 - **Two things landed on 2026-11-24, neither one yours to test**:
   - **The ten warnings `start.cmd` printed are gone**: zero now, from every build. All were real fixes and none
@@ -481,7 +497,8 @@ today, and **IM-6's plan is written and taken as you recommended**: its first st
   over about ten seconds; in the mine it pours out round the vault, a little each half second. An emptied vault
   works again; an emptied wreck disappears.
 - **IM-6's plan is taken** (2026-11-24, *"As recommended"*), the first thing you can play with a vault. It comes in
-  three steps, with the vault in your own world before creative mode; the first, the insides, is next.
+  three steps, with the vault in your own world before creative mode. The first, the insides, is built (above), and
+  the vault in your world is next.
 - **The clay leak is closed, not reproduced** (your word): your glass rain pool filled and held, and glass and
   clay are the same to the water. The 09-26 clay-roof drip closes with it; that day's look had already found the
   roof sound and the drip running off the eave outside your glass.
