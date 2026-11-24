@@ -1,5 +1,33 @@
 ﻿# Overburden — Worklog
 
+## 2026-11-24 — The build warnings, cleared: zero from both builds
+
+TODO's "Order and collisions" item 1, before IM-6, so a new warning stands out in the wire slice. Built in a worktree.
+- **Recounted first.** `start.cmd`'s build (`dotnet build Overburden.Game`) printed the ten recorded on 2026-09-30,
+  unchanged. **The solution build printed fifteen**: those ten and five in the tests nobody had counted, because an
+  incremental build reprints nothing and `start.cmd` never builds the tests. Counted with `--no-incremental` and a
+  warnings-only file log.
+- **Every one is a real fix; nothing is suppressed.**
+  - `Main.UpdateFluid` returns at its top when `_fluid` is null, and a second `&& _fluid is not null` further down
+    made the analyser forget it. Removing that one test cleared five CS8602.
+  - `RefreshHud` dereferenced `_camera` after only a pattern test, so the camera joins the guard; `MapOverlayNow`
+    read `_materials` for the pins, which now need both. Both were NREs waiting for a null nothing produces today.
+  - `_settings` (CS8618) is set only once `OpenWorld` succeeds, and `_Ready` quits when it fails. It is nullable now,
+    and its fifteen readers go through `WorldSettings`, which throws by name if one ever runs first. A `= null!`
+    would have promised the compiler what the code doesn't check.
+  - `MapPanel.Scale` (CS0108) was a private `const int` hiding Godot's `Control.Scale`, a `Vector2`. It is
+    `PixelScale`, at all three uses. A missed use would still have compiled (`int * Vector2`), so they were found by
+    grep, not by the compiler.
+  - CA2014: the `stackalloc` in `LightPropagator.ForEachCellAround` moved out of the face loop. Every pass writes
+    all three entries (axis, u and v are always 0, 1 and 2 in some order), so nothing carries between faces. It was
+    harmless as recorded; hoisting it was simpler than a scoped suppression.
+  - The tests: `Power!` on two reads the loop above had already asserted non-null; `Assert.Single` and
+    `Assert.Empty` for the two collection counts (xUnit2013); and the cancelled-job test is `async`, awaiting
+    `Assert.ThrowsAnyAsync` instead of blocking on `GetResult` (xUnit1031). Core has no thread-affinity check, so
+    the continuation's thread can't matter.
+- **Checked**: zero warnings from both builds, full rebuilds; suite **2,345**; r6 `2601 / 325 / 3446 at 411` on the
+  worktree's own build, no `ERROR` line.
+
 ## 2026-11-04 — Ctrl+P puts the pack in your hand
 
 His first press, the same day: *"Ok but the pack does not show up in the hotbar um how do i select it?"*. Packs stay

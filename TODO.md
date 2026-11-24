@@ -27,15 +27,14 @@ and the notices' check in `make-alpha.ps1`; files only, riding the next zip. **P
 the same day.** What's left of it is his (MATTHEW-TODO): his play of 0.1.2 and 0.1.3. **IM-6 is next.**
 
 **Do first, before the slice named:**
-1. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
-2. **Collapse f-1 — before IM-9, ideally before IM-6.** IM-9's power sensor needs the `sense` extra f-1
+1. **Collapse f-1 — before IM-9, ideally before IM-6.** IM-9's power sensor needs the `sense` extra f-1
    switches on, and f-1 carries the rule that a signalled-off cell never unpays a vault's bill (COLLAPSE-PLAN,
    the ideal-machines amendments), which IM-6's playable vault relies on.
-3. **The engine-wide pin — before IM-7.** A chunk any door wrote stays loaded until the next autosave (IM-5's
+2. **The engine-wide pin — before IM-7.** A chunk any door wrote stays loaded until the next autosave (IM-5's
    decision 8, its lever). IM-5 accepted the crash duplicate for the dump, as for placement; the quarry writes
    every boundary across many chunks and would multiply it. Its own pass (Levers).
-4. **The quantum rate that reads low on a profile — before IM-7's bench** quotes a rate.
-5. **The quarry's pass reads the `--pile` bench — before IM-7.** The quarry writes every boundary across many
+3. **The quantum rate that reads low on a profile — before IM-7's bench** quotes a rate.
+4. **The quarry's pass reads the `--pile` bench — before IM-7.** The quarry writes every boundary across many
    chunks; the bench says a write's cost is the chunk columns it touches (light in the frames after: 3–5, 11–12
    and 35–39 ms a boundary at one, four and sixteen columns), not the field's clone. Its lever is the chunk
    count, as the pile's is (8 a boundary).
@@ -44,7 +43,8 @@ Done and recorded, cleared 2026-10-11: the flaky scheduler test, the clay leak (
 IM-0's windowed surface install (the 10 ML ceiling stands), the pond branch (merged), and the field's clone
 (measured by `--pile`: the pile needs no bulk write). WORKLOG and the plans have each. Cleared 2026-10-12: the
 hotbar's unit (his answer: litres under a cubic metre, cubic metres from one up; built as `VolumeText`, which
-IM-6's water slot uses).
+IM-6's water slot uses). Cleared 2026-11-24: the build warnings, fifteen counted (ten from `start.cmd`'s build,
+five more in the tests), all fixed, none suppressed; zero from both builds now (WORKLOG).
 
 **Collisions, two planned works on one code path or one question:**
 1. **Water bodies part a and LAKE-EDIT's "hand back sooner at ~95%"** both change when Tier B hands back to
@@ -249,10 +249,6 @@ IM-6's water slot uses).
 - [ ] **What drained a paused cell is unproved.** If the `M6:` count of awake indexes dropped for
       holding nothing keeps climbing on a world written entirely after the fix, look at the
       hand-off taking from a cell the worker levelled on its captured view after the chunk left.
-- [ ] **The ten build warnings `start.cmd` prints** (his question, 2026-09-30; he took them for lint, and
-      they are): eight nullable ones in `Main.cs` (CS8618, CS8602), `MapPanel.Scale` hiding Godot's
-      `Control.Scale` (CS0108), and CA2014 on a `stackalloc` in a loop in `LightPropagator.ForEachCellAround`
-      — checked, six passes of 12 bytes, no risk. A small chore: clear them so a real warning stands out.
 
 ## Levers named and not built
 

@@ -260,7 +260,16 @@ public partial class Main : Node3D
     private System.Numerics.Vector3? _flyingEye;
 
     /// <summary>The settings this world regenerates unstored terrain from. Written back on save.</summary>
-    private WorldGenSettings _settings;
+    /// <remarks>
+    /// <b>Null until <c>_Ready</c> has opened the world, and <c>_Ready</c> quits when it cannot</b>, so
+    /// nothing reads it before then. Every reader goes through <see cref="WorldSettings"/>, which says
+    /// so by name if one ever does, where a non-null declaration would have promised it to the compiler.
+    /// </remarks>
+    private WorldGenSettings? _settings;
+
+    /// <summary>The open world's settings; throws, by name, if read before the world opened.</summary>
+    private WorldGenSettings WorldSettings =>
+        _settings ?? throw new InvalidOperationException("the world's settings were read before the world opened");
 
     private string _worldName = DefaultWorldName;
     private bool _worldNamed;
@@ -3190,12 +3199,12 @@ public partial class Main : Node3D
     /// </remarks>
     private void RefreshHud(double delta)
     {
-        if (_hud is null || _place is null || _materials is null)
+        if (_hud is null || _place is null || _materials is null || _camera is null)
         {
             return;
         }
 
-        bool precise = _camera is { MouseCaptured: true } && Input.IsKeyPressed(Key.Alt);
+        bool precise = _camera.MouseCaptured && Input.IsKeyPressed(Key.Alt);
 
         // The camera's own forward axis, not its yaw: Core's Compass turns a direction into a
         // bearing, and a direction needs no sign convention to be right.
@@ -3274,7 +3283,7 @@ public partial class Main : Node3D
         }
 
         var pins = new List<MapPin>();
-        if (_machines is not null)
+        if (_machines is not null && _materials is not null)
         {
             foreach (MachineRow row in _machines.Rows)
             {
@@ -3329,7 +3338,7 @@ public partial class Main : Node3D
 
         // After the world is open, so it says what was actually opened rather than what was
         // asked for. A run with no world file still shows one: its terrain reproduces too.
-        _hud.ShowSeed(_persist ? _worldName : "no world file", _settings.Seed, _newWorld);
+        _hud.ShowSeed(_persist ? _worldName : "no world file", WorldSettings.Seed, _newWorld);
 
         // The panel with it, for the same reason and one more: it is added after the camera, so
         // it sees unhandled input first — which is nothing, since its frame stops the clicks it
@@ -4296,8 +4305,8 @@ public partial class Main : Node3D
         UpdateFluid(delta);
 
         long now = _clock.ElapsedMillis;
-        float wetness = _forcedWeather ?? Weather.WetnessAt(_settings.Seed, now);
-        float overcast = _forcedWeather ?? Weather.OvercastAt(_settings.Seed, now);
+        float wetness = _forcedWeather ?? Weather.WetnessAt(WorldSettings.Seed, now);
+        float overcast = _forcedWeather ?? Weather.OvercastAt(WorldSettings.Seed, now);
 
         float dimming = 1f - (OvercastDimming * overcast);
 
@@ -4326,7 +4335,7 @@ public partial class Main : Node3D
         // Driving the particles off wetness would leave rain visibly falling out of a clear sky
         // for two minutes after every shower.
         float rate = _forcedWeather
-            ?? (Weather.RateAt(_settings.Seed, now)
+            ?? (Weather.RateAt(WorldSettings.Seed, now)
                 / (float)Weather.MaxRateNanometresPerMillisecond);
 
         if (_rain is not null && _camera is not null)
@@ -4441,7 +4450,7 @@ public partial class Main : Node3D
 
         _water = new WaterSystem(
             _generator,
-            _settings.Seed,
+            WorldSettings.Seed,
             ledger,
             _waterPitch,
             HeightField.DefaultCellVoxels,
@@ -4778,7 +4787,7 @@ public partial class Main : Node3D
                 Sky = _solarSky,
 
                 // IM-3: a vault's fuse is a property of the world and the boundary (decision 28).
-                FuseSeed = _settings.Seed,
+                FuseSeed = WorldSettings.Seed,
             };
 
             // IM-4a: the siphon — the miner's ray world, the lake bands it covers, the store and the bank.
@@ -4854,7 +4863,7 @@ public partial class Main : Node3D
 
         // M10c-2: the one site the overcast enters the pool (decision 10) — the same forced-or-
         // forecast expression the shader reads, once a boundary, as a byte; 1.0 is 255, a 256th.
-        float overcast = _forcedWeather ?? Weather.OvercastAt(_settings.Seed, _clock.ElapsedMillis);
+        float overcast = _forcedWeather ?? Weather.OvercastAt(WorldSettings.Seed, _clock.ElapsedMillis);
         _machineTick.OvercastByte = (byte)Math.Clamp((int)(overcast * 256f), 0, 255);
 
         long before = Stopwatch.GetTimestamp();
@@ -6813,7 +6822,7 @@ public partial class Main : Node3D
             return;
         }
 
-        _collapse = new CollapseScheduler(_support, _pipeline, _materials, rubble, _settings.Seed, _collapseWindow, _fluid)
+        _collapse = new CollapseScheduler(_support, _pipeline, _materials, rubble, WorldSettings.Seed, _collapseWindow, _fluid)
         {
             FireEnabled = _collapseOn,
         };
@@ -6822,7 +6831,7 @@ public partial class Main : Node3D
         {
             // Part b: the fuse hands a due chunk to the director. The cut runs on the pool (b-2's
             // first step); the gather, the releases and the landings are the sim thread's.
-            _collapseDirector = new CollapseDirector(_support, _pipeline, _materials, rubble, _settings.Seed, _fluid)
+            _collapseDirector = new CollapseDirector(_support, _pipeline, _materials, rubble, WorldSettings.Seed, _fluid)
             {
                 Pace = _collapsePace,
                 SpreadMetres = _collapseSpread,
@@ -7697,7 +7706,7 @@ public partial class Main : Node3D
                 _bodyProbeBase = _clock.ElapsedMillis;
             }
 
-            if (_bodyProbeSeconds >= 0 && _clock.ElapsedMillis - _bodyProbeBase >= _bodyProbeSeconds * 1000.0 && _fluid is not null)
+            if (_bodyProbeSeconds >= 0 && _clock.ElapsedMillis - _bodyProbeBase >= _bodyProbeSeconds * 1000.0)
             {
                 _bodyProbeSeconds = -1;
                 PrintBodyProbe();
@@ -8674,9 +8683,9 @@ public partial class Main : Node3D
             return;
         }
 
-        long depth = Weather.DepthNanometresOver(_settings.Seed, _rainDropsMillis, now) * _water.RainfallScale;
+        long depth = Weather.DepthNanometresOver(WorldSettings.Seed, _rainDropsMillis, now) * _water.RainfallScale;
         _rainDropsMillis = now;
-        _rainDropsRandom ??= new Random(unchecked((int)_settings.Seed));
+        _rainDropsRandom ??= new Random(unchecked((int)WorldSettings.Seed));
 
         // The rain over the player's material, first and whatever the share: every column whose
         // top is above its seed gets its own rain, on that top. Advanced at zero depth too, so a
@@ -10090,10 +10099,10 @@ public partial class Main : Node3D
     private string WeatherSummary()
     {
         long now = _clock.ElapsedMillis;
-        int rate = Weather.RateAt(_settings.Seed, now);
+        int rate = Weather.RateAt(WorldSettings.Seed, now);
 
-        float wetness = _forcedWeather ?? Weather.WetnessAt(_settings.Seed, now);
-        float overcast = _forcedWeather ?? Weather.OvercastAt(_settings.Seed, now);
+        float wetness = _forcedWeather ?? Weather.WetnessAt(WorldSettings.Seed, now);
+        float overcast = _forcedWeather ?? Weather.OvercastAt(WorldSettings.Seed, now);
 
         string forced = _forcedWeather is null ? string.Empty : " (forced)";
         string scaled = _clockScale == 1.0 ? string.Empty : $" at {_clockScale:F0}x";
@@ -10380,7 +10389,7 @@ public partial class Main : Node3D
     /// </remarks>
     private WorldHeader CurrentHeader() => new()
     {
-        Settings = _settings,
+        Settings = WorldSettings,
         MaterialIdTable = Content.Materials.ExportIdTable(),
         Inventory = [.. _inventory.Entries().Select(e => new InventoryEntry(e.MaterialId, e.Voxels))],
         ElapsedMillis = _clock.ElapsedMillis,

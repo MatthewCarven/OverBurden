@@ -203,7 +203,7 @@ public class FluidJobTests
     // ---------------------------------------------------------------- cancellation
 
     [Fact]
-    public void ACancelledJobReturnsItsUnvisitedCellsAndConserves()
+    public async Task ACancelledJobReturnsItsUnvisitedCellsAndConserves()
     {
         // A real worker: the job runs on a task, is cancelled once it has visited something, and
         // is collected as Dropped. Whatever the cursor had not reached is awake again, nothing is
@@ -225,7 +225,7 @@ public class FluidJobTests
         long visitsBefore = sim.CellVisits;
 
         var run = Task.Run(() => job.Run(cts.Token));
-        var caught = Assert.ThrowsAny<OperationCanceledException>(() => run.GetAwaiter().GetResult());
+        var caught = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
         Assert.NotNull(caught);
 
         long visited = sim.CellVisits - visitsBefore;

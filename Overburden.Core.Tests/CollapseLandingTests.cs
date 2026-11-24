@@ -356,7 +356,7 @@ public class CollapseLandingTests
         Assert.Same(flight, Assert.Single(due));
 
         // Due is not landed: it stays reserved until written.
-        Assert.Equal(1, ev.InFlight.Count);
+        Assert.Single(ev.InFlight);
         ev.Land(flight);
         Assert.Empty(ev.InFlight);
         Assert.Empty(ev.Reserved);

@@ -233,6 +233,10 @@ public sealed class LightPropagator
     {
         const int size = LightCellPos.CellsPerChunk;
 
+        // Once, outside the face loop (CA2014): every write below sets all three entries, since
+        // axis, uAxis and vAxis are always 0, 1 and 2 in some order, so nothing carries between faces.
+        Span<int> local = stackalloc int[3];
+
         for (int face = 0; face < VoxelFace.Count; face++)
         {
             int axis = VoxelFace.Axis[face];
@@ -240,8 +244,6 @@ public sealed class LightPropagator
 
             int uAxis = axis == 0 ? 1 : 0;
             int vAxis = axis == 2 ? 1 : 2;
-
-            Span<int> local = stackalloc int[3];
 
             for (int v = 0; v < size; v++)
             for (int u = 0; u < size; u++)

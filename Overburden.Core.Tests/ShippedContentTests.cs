@@ -195,9 +195,10 @@ public class ShippedContentTests
         // two-chunks-a-pack tool until M10i's battery, which is the ladder's "only once you have
         // the latest tier battery will it be as effective as it is now" as a number.
         MaterialDefinition pack = content.Materials.Get(Identifier.Parse("overburden:lead_acid_pack"));
-        long cubeMillijoules = miner.Power.MillijoulesPerVoxel * Overburden.Core.Mining.Carve.CubeVoxels
+        // Both powers were asserted non-null in the loop above, through its loop variable.
+        long cubeMillijoules = miner.Power!.MillijoulesPerVoxel * Overburden.Core.Mining.Carve.CubeVoxels
                                * Overburden.Core.Mining.Carve.CubeVoxels * Overburden.Core.Mining.Carve.CubeVoxels;
-        long chunkMillijoules = excavator.Power.MillijoulesPerVoxel * Overburden.Core.Voxels.VoxelConstants.ChunkVolume;
+        long chunkMillijoules = excavator.Power!.MillijoulesPerVoxel * Overburden.Core.Voxels.VoxelConstants.ChunkVolume;
         Assert.Equal(1125L, pack.Machine!.CapacityMillijoules / cubeMillijoules);
         Assert.Equal(2L, pack.Machine!.CapacityMillijoules / chunkMillijoules);
 

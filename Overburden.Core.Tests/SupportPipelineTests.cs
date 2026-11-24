@@ -40,7 +40,7 @@ public class SupportPipelineTests
         harness.Pipeline.Streamer.AddViewer(BiteOrigin, 2, 2);
         harness.Settle();
 
-        Assert.Equal(0, region.Analysed.Count);
+        Assert.Empty(region.Analysed);
         Assert.Equal(0, harness.Pipeline.SupportDerivesSubmitted);
 
         Bite(harness, TwoByTwo);

@@ -28,9 +28,10 @@ public sealed partial class MapPanel : Control
     /// <remarks>
     /// 128 real pixels is a postage stamp on a 1152-wide window. Three keeps the pixels crisp and
     /// deliberate rather than turning a pixel map into a blurry one, which is what any filtered
-    /// scale would do.
+    /// scale would do. Not <c>Scale</c>, which is Godot's own <c>Control.Scale</c> (a
+    /// <c>Vector2</c>): this name hid it until 2026-11-24.
     /// </remarks>
-    private const int Scale = 3;
+    private const int PixelScale = 3;
 
     /// <summary>
     /// How far the player must move, or turn, before the picture is worth building again.
@@ -115,8 +116,8 @@ public sealed partial class MapPanel : Control
 
         SetAnchorsPreset(LayoutPreset.Center);
         CustomMinimumSize = new Vector2(
-            (MapProjection.DefaultSize * Scale) + 16,
-            (MapProjection.DefaultSize * Scale) + 40);
+            (MapProjection.DefaultSize * PixelScale) + 16,
+            (MapProjection.DefaultSize * PixelScale) + 40);
 
         Size = CustomMinimumSize;
 
@@ -314,7 +315,7 @@ public sealed partial class MapPanel : Control
             return;
         }
 
-        float side = _shown.Size * Scale;
+        float side = _shown.Size * PixelScale;
         var origin = new Vector2(8f, 8f);
 
         DrawRect(new Rect2(Vector2.Zero, Size), Frame, filled: true);
