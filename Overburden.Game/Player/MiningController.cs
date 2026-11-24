@@ -489,7 +489,9 @@ public sealed class MiningController(
             pipeline, originMetres, direction, EffectiveReachMetres, out VoxelHit hit);
         Hit = hit;
 
-        if (!mining || _cooldown > 0.0 || Outcome != RayOutcome.Hit)
+        // IM-6b, the second guard behind Main's water branch (fact 13): a tool that takes water carves nothing,
+        // whoever asks. Its joulesPerVoxel is 0, so a carve would be free.
+        if (!mining || _cooldown > 0.0 || Outcome != RayOutcome.Hit || Tool.Takes == ToolTakes.Water)
         {
             return false;
         }

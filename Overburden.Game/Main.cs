@@ -894,9 +894,11 @@ public partial class Main : Node3D
     /// </summary>
     private MachineTick? _machineTick;
 
-    // IM-4a: the siphon's queue, drained in the boundary's window before the machine tick. Nothing
-    // enqueues yet: the siphon on T and its clicks are IM-6's.
+    // IM-4a: the siphon's queue, drained in the boundary's window before the machine tick. IM-6b: the
+    // clicks' water branch enqueues onto it (EnqueueSiphon), on a tier that takes water.
     private Siphon? _siphon;
+    private readonly SiphonClicks _siphonClicks = new();
+    private SiphonRefusal? _siphonRefusalPrinted;
     private VaultDump? _vaultDump;
     private long _dumpPrints;
 
@@ -3969,6 +3971,7 @@ public partial class Main : Node3D
                 ? _mining.BareCooldownSeconds
                 : MiningController.DefaultEntangledChunkCooldownSeconds;
             _place.EntangledMillijoulesPerVoxel = tier.Power?.MillijoulesPerVoxel ?? 0;
+            _place.WaterTier = SiphonClicks.IsWaterTool(tier);
         }
 
         if (!announce)
@@ -5897,6 +5900,20 @@ public partial class Main : Node3D
         Overburden.Core.Physics.Aabb? body =
             _player.Mode == PlayerMode.Walk && _player.Spawned ? _player.State.Box : null;
 
+        // IM-6b, the clicks' water branch (decision 11, fact 13): on a water tier the brush never fills. The
+        // right click's edge pours from the store instead, unless an item is in hand: the computer's panel and
+        // a pack's equip are the hand's verbs, and an item never places, so its click goes through untouched.
+        if (_mining is not null && SiphonClicks.IsWaterTool(_mining.Tool) && !_place.SelectedIsItem)
+        {
+            if (_siphonClicks.Pour(_mining.Tool, rightPressed, itemInHand: false) is SiphonVerb pour)
+            {
+                EnqueueSiphon(pour, origin, forward);
+            }
+
+            placing = false;
+            precise = false;
+        }
+
         long before = Stopwatch.GetTimestamp();
 
         bool placed = _place.Update(
@@ -6080,6 +6097,63 @@ public partial class Main : Node3D
     /// <summary>What the gate's lines call what the tool spends: the pack, or for a window its channel's bank (IM-2).</summary>
     private string PackNoun() => _pack is { IsWindow: true } window ? $"bank on channel {window.Channel}" : "pack";
 
+    /// <summary>
+    /// IM-6b: one click of the water branch onto the siphon's queue, at the tool's at-range reach, through the worn
+    /// pack's window. Nothing moves until the boundary (<see cref="RunSiphon"/>). A refusal is said on the message line
+    /// and printed once until the next op queues, since Q held asks every cooldown.
+    /// </summary>
+    private void EnqueueSiphon(SiphonVerb verb, Vector3 origin, Vector3 forward)
+    {
+        if (_mining is null)
+        {
+            return;
+        }
+
+        string tool = ToolName(_mining.Tool);
+        if (_siphon is null)
+        {
+            if (_siphonRefusalPrinted != SiphonRefusal.NotAWaterTool)
+            {
+                _siphonRefusalPrinted = SiphonRefusal.NotAWaterTool;
+                GD.Print($"M10: siphon — the {tool} has no water engine to act on in this run (--nowater)");
+            }
+
+            Tell("No water to siphon in this run.");
+            return;
+        }
+
+        SiphonRefusal refusal = _siphon.Enqueue(
+            verb,
+            new System.Numerics.Vector3(origin.X, origin.Y, origin.Z),
+            new System.Numerics.Vector3(forward.X, forward.Y, forward.Z),
+            MiningController.EntangledReachMetres,
+            _mining.Tool,
+            _pack);
+        if (refusal == SiphonRefusal.None)
+        {
+            if (_siphonRefusalPrinted is not null || _siphon.Enqueued == 1)
+            {
+                GD.Print($"M10: siphon — the {tool} queued a {(verb == SiphonVerb.Take ? "take" : "pour")} on channel {_pack!.Channel} ({_siphon.Enqueued:N0} queued this session)");
+            }
+
+            _siphonRefusalPrinted = null;
+            return;
+        }
+
+        string text = refusal switch
+        {
+            SiphonRefusal.NoBackpack => $"The {tool} needs the quantum backpack worn: the store is its channel's.",
+            SiphonRefusal.Busy => $"The {tool} is busy: a boundary's worth is already queued.",
+            _ => $"The {tool} can't do that ({refusal}).",
+        };
+        Tell(text);
+        if (_siphonRefusalPrinted != refusal)
+        {
+            _siphonRefusalPrinted = refusal;
+            GD.Print($"M10: siphon — {(verb == SiphonVerb.Take ? "take" : "pour")} refused: {refusal} ({_siphon.RefusedNoBackpack:N0} no backpack, {_siphon.RefusedBusy:N0} busy this session)");
+        }
+    }
+
     /// <summary>A tool as a sentence names it: <c>overburden:hand_pick</c> is "hand pick".</summary>
     private static string ToolName(ToolDefinition tool) => tool.Id.Path.Replace('_', ' ');
 
@@ -6142,6 +6216,22 @@ public partial class Main : Node3D
             // inside a frame — measures the sphere, which is the expensive shape. A profile
             // that quietly chipped would report a cheaper number under the same label and
             // read as an improvement.
+            precise = false;
+        }
+
+        // IM-6b, the clicks' water branch (its pass, decision 11, fact 13): a tool that takes water is never
+        // swung. Its left click, or Q held, queues a take on the siphon instead, and the miner only casts, so
+        // the outline still follows the crosshair. After the profile's overrides, so a --mine run on a water
+        // tier takes water and carves nothing.
+        _siphonClicks.Cool(delta);
+        if (SiphonClicks.IsWaterTool(_mining.Tool))
+        {
+            if (_siphonClicks.Take(_mining.Tool, leftPressed, running || mining) is SiphonVerb take)
+            {
+                EnqueueSiphon(take, origin, forward);
+            }
+
+            mining = false;
             precise = false;
         }
 

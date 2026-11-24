@@ -394,6 +394,13 @@ public sealed class PlaceController(
     /// </summary>
     public long EntangledMillijoulesPerVoxel { get; set; }
 
+    /// <summary>
+    /// IM-6b, the second guard behind Main's water branch (fact 13): the tier on T takes water, so the brush fills
+    /// nothing whoever asks — a siphon's <c>joulesPerVoxel</c> is 0, and a fill would be free. An item's right-click
+    /// verbs (the computer, a pack) still answer: they are the hand's, and never place.
+    /// </summary>
+    public bool WaterTier { get; set; }
+
     /// <summary>Whether the selected item is a pack — a carried storage — so a right-click equips it (decision 4).</summary>
     public bool SelectedIsPack =>
         SelectedIsItem && materials.Machine(MaterialId) is { Kind: MachineKind.Storage, Carried: true };
@@ -592,7 +599,7 @@ public sealed class PlaceController(
             return false;
         }
 
-        if (!placing || _cooldown > 0.0 || Outcome != RayOutcome.Hit || MaterialId < 0)
+        if (!placing || _cooldown > 0.0 || Outcome != RayOutcome.Hit || MaterialId < 0 || WaterTier)
         {
             return false;
         }
