@@ -1,5 +1,46 @@
 ﻿# Overburden — Worklog
 
+## 2026-11-25 — IM-6b, the wire and content: the vault, the bank, water and the dump in sandbox
+
+IM-6's pass, decisions 6–18, built in the worktree `im-6b` on IM-6a's Core. The plan's "IM-6b — built" has the whole
+account and ten build choices for his word. **The vault is playable in a sandbox world through P and Alt+P, with no
+save change**; his play is the test, and his route is on his list.
+- **Re-read first.** Since the pass's `4a2895c`, the Game had moved only by IM-6a's one-line `Joules` forwarder, and
+  every line the facts cite in `Main.cs`, `Hud.cs` and `MachinePanel.cs` still read as written. `git worktree list`
+  showed only main, level with origin at `dd1cbf7`.
+- **The water branch went first**, its own commit (`c85d76b`) with no water tool in the content, so the free tool
+  of fact 13 never existed on T. Core's `SiphonClicks` decides; Main asks it before each controller, after the
+  profile's overrides; each controller has its own guard too.
+- **Fact 3's counts moved as predicted but one**: the non-placeable count stays five, because vaults and crates are
+  placeable. The pass counted it among the six.
+- **Findings worth keeping:**
+  - **The profile's voxel line read `held 0 + owed 0 == … + deposited 6,400 − withdrawn 0: exact`**, true and
+    unreadable: the dump's two terms weren't printed. Fact 17 named it; the first vault oracle showed it.
+  - **A per-boundary scan after the dump reads a burnt fuse a pile late**: the first oracle's `fuse burnt` line said
+    `owes 5,888` of 6,400, since the dump ran its first 512 in the same boundary. The vault scan now sits between the
+    tick and the dump.
+  - **A plain headless run builds the HUD but no oracle could read it.** The periodic `M10:` line now ends with
+    `| hud:` and the bank and fuse lines while they show.
+  - **`grep -c` counts lines, not occurrences**: the `Joules` callers were 56 in 43 lines. Assert occurrences.
+  - **The Bash heredoc ate a backslash again** (`'\\'` in a Python one-liner). Every script went through Write after.
+- **The battery: 57 recipes, 57 red**, written before any ran, in three chunks, each file restored from its saved
+  bytes and compared byte for byte. One survived the first run, as its recipe predicted: `IsContainer` was read only
+  by its own test, so `OffTheRow` is now defined through it, and that recipe went red. **Eight Game-side recipes,
+  headless**: with both of a verb's guards gone the siphon carves (`mining`) or fills (`building`), caught; each
+  guard alone holds, by design; a branch that swallows the click, caught; the vault scan put back after the dump,
+  caught. The recipes are in the plan.
+- **The headless oracles**, all with no `ERROR` line: the vault (lit at 13.9 s, burnt owing 6,400, piled, ended,
+  `deposited 6,400 − dumped 6,400: exact`), the HUD in a plain run (`BANK 0 mJ ch 0 · +0 W sun · −0 W · hold 40.0 W ·
+  store 1% · VAULT LOSING CONTAINMENT — 13 s`), and the siphon through the branch (Tier B taken at 1,000 J a litre,
+  the miner never swinging, Tier B's, the store's and the pool's lines exact). Recipes verbatim in the plan and in
+  COMMANDS.md.
+- **Checked:** suite **2,558**; zero warnings from both builds from scratch; r6 `2601 / 325 / 3446 at 411`.
+- **His log of 2026-11-24 21:27** (a windowed play that made a world `LakeTest3`) is kept as
+  `play-LakeTest3-2026-11-24-2127.log` before the headless runs rotated it. No `ERROR` in it.
+- **Not checked, his play's:** every look (the bank line and its colours, the gauge, the fuse line, the stock section,
+  the padlock, both glitches, the swatches) and the pour, which no headless flag presses. Decision 17's windowed reads
+  are owed, on his yes.
+
 ## 2026-11-24 — IM-6a, the Core: the runway's ledger, power text, the store's moves, the pile's positions
 
 IM-6's pass, decisions 2–5, built in the worktree `im6a` the evening the pass was taken. Core only; nothing changes in

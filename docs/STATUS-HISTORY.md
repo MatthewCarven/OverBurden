@@ -13,6 +13,51 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md at the 2026-11-25 close (IM-6b, the wire and content):**
+
+**2026-11-24 — IM-6a, the Core, is built and on main** ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md),
+"IM-6a — built"). Decisions 2–5 of IM-6's pass, taken earlier the same day; that hand-over is in STATUS-HISTORY.
+**Nothing changes in play**: no Game code calls any of it yet.
+- **The runway's ledger.** `MachineTick.FlowsOn(channel)` gives each boundary's generation, pool bills, own-charge
+  bills, pumps, and own charges given and returned, counted where the global terms are, plus the draws since the last
+  boundary, counted inside `IChannelBank.Draw` itself. `BankOf` is public now. `Runway` keeps twenty boundaries a
+  channel: in is the generation, out is pool bills + pumps + draws. The runway is `bank × window ÷ (out − in)`, amber
+  under 10 minutes and red under 60 s.
+- **`PowerText`** beside `VolumeText`, floored, W to GW. **`EnergyText`** is the panel's `Joules` moved, and
+  `MachinePanel.Joules` forwards to it.
+- **`StoreMoves`**: `ToStore` and `ToPocket` on the backpack's channel, `IntoBox` and `OutOfBox` on one box, and
+  `OutOfCombined`, the pocket first, then the store, vault to vault and never from the aimed box.
+  `MachineSet.ClosedReason` is the one definition of a closed box. `Withdraw` and `WithdrawFrom` now refuse a material
+  the pocket refuses. `StoreFillOf(channel)` gives the store's fill.
+- **`VaultDump.PileVoxelsLast`**: the voxels the piles wrote each boundary, at most 512.
+- **Ten build choices** are listed in the plan for his word; none shows in play.
+- **Checked:** suite **2,475**; a battery of 61 recipes, 61 red; zero warnings from both builds from scratch; r6
+  `2601 / 325 / 3446 at 411`.
+- **Standing from the alpha** (its hand-overs are in STATUS-HISTORY): 0.1.3-alpha is the latest release, a GitHub
+  pre-release, and `releases/latest` skips pre-releases, so the README links to `/releases`. **The next zip carries**
+  D's player text, Ctrl+P (2026-11-04) and f-1's `onsignal` box; none is scheduled. A fresh worktree's export
+  rewrites `Overburden.Game/icon.svg.import` with LF endings, so `make-alpha.ps1` warns of uncommitted changes there.
+
+**Next session, in order:**
+1. **IM-6b, the wire and content** (the pass's decisions 6–18). The pieces:
+   - the vault, crate and siphon files, with textures at layers 15–20;
+   - P seeding the containers, pinned only;
+   - the HUD's bank line off `Runway` and `StoreFillOf`, and the stock section's verbs through `StoreMoves`;
+   - the channel box's lock;
+   - the siphon on T, **with the clicks' water branch before its files** (fact 13: a water tool on T without it digs
+     for free);
+   - the fuse's glitch, and the pile's from `PileVoxelsLast`;
+   - the `M10:` lines, `--placeat=` and `--deposit=`;
+   - the windowed reads at the close, on his yes.
+
+   Re-read the pass's facts against `Main.cs`, `Hud.cs` and `MachinePanel.cs` first. Build in a worktree if he is
+   playing or may start. **It's the playable step, and his play is its test.** Then 6c.
+2. **Collapse f-2, the wire**, alongside whenever suits (TODO's "Collapse part f"): a sense over the scheduler and
+   the director, the `M10:` terms, `P` seeding a sensor and its texture, and the headless oracle. `--placeat=` lands in
+   IM-6b (its decision 16), and f-2 reuses it.
+3. **From D, later** (TODO's "The public repo"): a page for mod authors; a lawyer's read of CLA.md before the
+   first outside merge, if the game is ever to earn; CLA Assistant past a handful of outside PRs.
+
 **Moved from CLAUDE.md at the 2026-11-24 close (IM-6a, the Core):**
 
 **2026-11-24 — IM-6's code-level pass is written, and his word took all twenty-six decisions as recommended**

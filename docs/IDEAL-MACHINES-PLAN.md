@@ -11,7 +11,7 @@ the rule is that only a pick's dismantle is journalled. **IM-0 is measured** (th
 measured" below), and he took the 2 m quarry bite. **IM-1 is built** ("IM-1 — the code-level pass" and
 "IM-1 — built" below; its eight decisions taken as recommended). **IM-2 is built** ("IM-2 — built"
 below): the backpack is a window and consumers are paid by priority. **IM-3 to IM-5b are built, IM-6's pass is
-taken, and IM-6a is built (2026-11-24)**: each slice has its row in "The split" and its own sections below.
+taken, IM-6a is built (2026-11-24), and IM-6b is built (2026-11-25)**: each slice has its row in "The split" and its own sections below.
 
 **How it was made.** As a design panel (the ladder's method):
 - five readers mapped the machine code, the plans, the inventory and the store, the creative-mode
@@ -660,7 +660,7 @@ name, bounds or default.
 | **IM-3** Core (amended by its pass, below) | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
 | **IM-4** Core (its pass, 2026-09-30, splits it into 4a–4c, twelve decisions taken; **4a, 4b and 4c built**; 4c kept today's lake rule at his word, displacement is its own pass) | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; ~~the pump stalls `full` only when every ring entry refuses~~ a full vault reads `NoRoom`, the first refusal met (the pass's decision 11). Mutation: drop `vaulted`, red. |
 | **IM-5** Core (its pass, 2026-09-30, splits it into 5a, the water, and 5b, the pile; sixteen decisions taken as recommended) | The dump: the pile writer, the Tier A release, the Tier B ball with its twin sized to the budget, the ceilings and decoherence, the global budgets, owed while unloaded, the unload batch's session, the dead state; a heap-writer bench arm. | A fixture room receives every voxel once; a pile into a chunk that unloads, then a kill with no session save, then a reopen, counts every voxel once; the unloaded arm releases at arrival; N vaults dumping share the budget exactly; the Tier B ceiling decoheres the excess; power returning after the fuse does nothing; Ctrl+Z cannot touch the pile; Tier B exact, Tier A's counters seam-checked. Mutation: route the dump through `Add`, and the seam goes red. |
-| **IM-6** Wire (its pass, 2026-11-24, splits it into 6a, Core; 6b, the wire and the vault in sandbox; and 6c, creative; twenty-six decisions taken as recommended 2026-11-24; **6a built 2026-11-24**) | Header v9, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v8 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
+| **IM-6** Wire (its pass, 2026-11-24, splits it into 6a, Core; 6b, the wire and the vault in sandbox; and 6c, creative; twenty-six decisions taken as recommended 2026-11-24; **6a built 2026-11-24, 6b built 2026-11-25**) | Header v9, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v8 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
 | **IM-7** Core | The `quarry` kind: the box, `Facing`, the cursor, the skips, the scan cap, the stalls, the allotment and the carve's draw (`dug`), recording off with the chunk forget. | Digs a fixture box once, top down; never a machine or a full vault; pays exactly the voxels removed × 50 J; `OFF SITE` on an unloaded chunk; `flooded`; the cursor survives a save; Ctrl+Z on a hand dig in a chunk the quarry wrote is dropped, and in an untouched chunk still works; a Release bench arm at 1, 4 and 16 quarries. Mutation: quarry writes with recording on, red. |
 | **IM-8** Wire | Quarry wiring: the `quarry` bracket, the panel, the pins, the README's OH&S line. | Headless on the fixed seed: bites, and `quarry` against the 1 ms line; r6. **Playable: quarries.** |
 | **IM-9** Core+wire | Recall, the board, pin states, the power sensor, the unloaded-sensor guard. | `released == landed + in flight + lost + recalled` in both collapse modes and under `--bitechunks`; a part-picked machine credits `cleared + Recalled`, not 64; a bankrupt channel recalls nothing; a recalled pump is 64 in the pocket and none of it rubble; after the drain, Ctrl+Z re-adds nothing and the next arrival rebuilds nothing. Mutation: credit 64, red. A sensors × radius arm against `machines`. |
@@ -2810,7 +2810,8 @@ crosses. In 6b it is the clicks' water branch, the one place a free tool could s
 
 **Taken as recommended, all twenty-six, 2026-11-24** (*"As recommended"*), the same evening. The three amendments
 are carried into decisions 23, 51 and 52 and the fork list above. Decision 16 moves `--placeat=` into IM-6b, and
-COLLAPSE-PLAN's decision 13 and its f-2 row say so. **IM-6a is built (2026-11-24, below); IM-6b is next.**
+COLLAPSE-PLAN's decision 13 and its f-2 row say so. **IM-6a is built (2026-11-24, below), and IM-6b (2026-11-25,
+below); IM-6c is next.**
 
 ## IM-6a — built (2026-11-24)
 
@@ -2928,6 +2929,167 @@ The r6 control on the worktree's own build reads `2601 / 325 / 3446 at 411`, wit
 **What 6b reads off it:** `Runway` for the bank line (decision 8), `PowerText` for the bill, a panel's output, a pack's
 recharge and a pump's draw (3), `StoreMoves` for the stock section's verbs (9), `StoreFillOf` for `store 68%`, and
 `PileVoxelsLast` for the pile's glitch (14).
+
+## IM-6b — built (2026-11-25)
+
+Decisions 6–18 of the pass above, in the worktree `im-6b`, on IM-6a's Core. **The vault, the bank, water and the dump
+are playable in a sandbox world through P and Alt+P, with no save change.** Re-read first, as CLAUDE.md asks: since
+the pass's `4a2895c`, the Game had moved only by IM-6a's one-line `MachinePanel.Joules` forwarder, and every line the
+facts cite in `Main.cs`, `Hud.cs` and `MachinePanel.cs` still read as written. Nothing changed a decision.
+
+**The order the plan asked for.** The clicks' water branch landed first, in its own commit (`c85d76b`), with no water
+tool in the content; the siphon files came in the next.
+
+**What it is:**
+- **The water branch (decision 11, fact 13).** Core's `SiphonClicks` decides what the buttons do on a water tier: the
+  left click's edge or Q held queues a take, the right click's edge a pour, one cooldown (the tool's) for both; a rock
+  tool never reaches it. Main asks it before each controller, after the profile's overrides, and forces the carve and
+  the fill off. `MiningController` and `PlaceController` each carry a second guard of their own (the miner refuses a
+  water tool's swing; the brush's `WaterTier` fills nothing), so a water tool carves and fills nothing whoever calls
+  them. A refusal (no quantum backpack, busy, `--nowater`) is told on the message line and printed once a streak.
+- **The content (decisions 6, 11).** `quantum_vault/low` to `/god` at the grade table over their volumes (water 25,
+  10, 4, 1.6 and 0.64 W/m³, blocks a tenth), `holdsWater`, `ownChargeSeconds` 60, a channel and an enabled port, no
+  weight; hardness 3.0 like the relay pair. The crate: 1 m³, no links, hardness 1.0 so the hand pick takes it back.
+  Three siphons, `quantum_siphon_cube`, `_tunnel` and `_chunk`, in the quantum tools' bites and cooldowns at 1,000 J a
+  litre. Textures at layers 15–20: the five vaults a dark teal up to near-white cyan, the crate a timber brown, all
+  unscreenshotted. **The name rule** is Core's `ContentLabel`: a path `a/b` reads "a (b)", so a grade reads
+  "quantum vault (god)" with no label key. T has seven stops.
+- **P (decision 7)** seeds the quantum backpack, the crate and the five vaults, a hundred each.
+  `MaterialTable.OffTheRow` (the items and every vault-kind body) is what Main keeps off the row, so the alpha's path
+  still leaves slot 9 for stone.
+- **The HUD (decisions 8, 12, 13).** The bank line replaces a window's `pack 0 mJ / 0 mJ` line: `BANK 612.0 MJ ch 0 ·
+  +3.8 kW sun · −104 kW · runway 1 h 38 m · hold 2.0 kW · store 68%`. It is a label of its own, amber or red with
+  the runway. Core's `BankLine` builds the view and the text, so what shows when is tested; Main records the runway
+  after each boundary's tick and hands the HUD the view. The fuse's top line names the soonest lit fuse in the loaded
+  box or on the backpack's channel, `(paused)` while it waits. The water gauge is a tenth cell right of the nine, with
+  a gap, showing the store's water through `VolumeText`, lit cyan while a siphon is on T. On a water tier the status
+  line names the siphon, its size, both verbs and their price, and the store's water.
+- **The panel (decisions 9, 10, 3, 18).** A vault's, a crate's and the quantum backpack's panel carry a stock section
+  (`MachinePanel.Stock.cs`): a capacity bar in `VolumeText`; the bill in watts with the vault's own minute; the state
+  — `HOLDING`, `FUSE 12.0 s`, `FUSE 12.0 s (paused)`, `DUMPING — owes …` or `WRECK — owes …`. One row a material with
+  its amounts in the box and in the pocket, `→ pocket` and `→ vault` / `→ crate` / `→ store`, a cubic metre (a piece)
+  a click and all of it with Shift, through `StoreMoves`. Two Core reads were added for it: `StockOfStore`,
+  `StockOfBox`. Water is a row with no verbs. His warranty line, verbatim, at the foot of a vault's. A vault's channel
+  box opens locked each time, a click on the padlock unlocks it until the panel closes (`--panelset=unlock=1`
+  headless), and moving a vault that holds anything is logged. Power through `PowerText`: the bill, a panel's
+  output, a pack's recharge, and a pump's draw, shown for the first time. A paused fuse whose bill is paid while the
+  channel's cells are held off by a signal adds *"paid by cells held off by a signal"*. The panel logs a vault's
+  state when its phase word changes (fact 9: it never logged one).
+- **The glitches (decisions 13, 14), windowed only.** `VaultGlitch`: one node a fusing vault, a 1 m shell with the
+  collapse's shader and a seed from its cell, on a rate-zero copy of the material while paused; the pile's blocks as
+  one `MultiMesh` with `PileGlitch.gdshader`, each instance's seed and fade in its custom data, a second each, at most
+  2,048 at once.
+- **The lines (decision 15).** The periodic `M10:` line carries the store, both lines and every term, each `exact`,
+  the fuses the one-offs told, and the HUD's bank and fuse lines while they show (`| hud:`), so headless can read
+  them. One-off `M10: vault —` lines: fuse lit, out, burnt, dump ended, read between the tick and the dump so a
+  burnt fuse's line says everything it owes. `M10: bank —` at each crossing of zero, both ways. The profile's voxel
+  line now prints `− dumped − decohered` (it read `held 0 + owed 0 == … deposited 6,400 − withdrawn 0: exact`), and
+  its power line the whole formula `PowerExact` checks. `VaultState`'s comment is IM-3b's rule. Three stacked doc
+  summaries in the machine code are mended (two in `Main.cs`, one in `MachineTick.cs`).
+- **The doors (decision 16).** `--placeat=<id>@x,y,z[,port=value…]` to collapse decision 13's grammar, a voxel in the
+  brush cell the body fills, once a profile warms or three seconds into a plain run, through `PlaceBody` (or a row
+  alone where the chunk isn't loaded) and the ports through `SetPort`. `--deposit=<id>:<voxels>[@x,y,z]` through
+  `StoreMoves.IntoBox`, the last `--placeat=` when no cell is named. `--tool=<id>` puts any tool on T at open. Both
+  parsers are Core's (`PlaceAt`, `DepositAt`), so f-2 reuses them.
+
+**Build choices the pass left open**, each under a taken decision, listed for his word:
+1. **The right click keeps the hand's item verbs on a water tier.** With the computer or a pack in hand, the right
+   click opens a panel or wears a pack, as on any tier; with a material in hand (or nothing) it pours. The pour is the
+   fill's twin, and the fill answers to the hand's material.
+2. **Two guards behind the branch.** Main's branch, and a guard inside each controller. A recipe that removes one
+   guard leaves the other holding, by design; the battery shows each alone, and both together, below.
+3. **The highlight still follows the rock cast on a water tier.** The miner only casts, so the outline sits on the
+   solid the crosshair meets; the siphon finds its own water along the same ray at the boundary.
+4. **The stock rows are what the box holds plus the pocket's blocks and machines.** The pocket's items (the computer,
+   the packs) are not offered, since a vault holds blocks and water (decision 15). Core's `StoreMoves` would move
+   them.
+5. **The hold on the bank line is every billing vault on the channel**, switched off or not (a vault switched off
+   still pays), and none that is dumping or a wreck. The store shows only while a vault is open to it.
+6. **A runway time reads in its two largest units, floored**: `45 s`, `12 m 05 s`, `1 h 38 m`, `3 d 04 h`. The store's
+   share is a whole percent, floored, `<1%` for a trickle.
+7. **The fuse line rounds its seconds up**, so it never reads `0 s` while the fuse still burns.
+8. **The gauge is beside the row with a 10 px gap**, labelled "store / water", dimmed when no siphon is on T.
+9. **`--placeat=` takes voxel coordinates**, collapse decision 13's "at a voxel", and fills the brush cell holding
+   it, carving it first, as `--pump` places its bodies.
+10. **The vault's window panel says what it is**: *"a window onto its channel's bank and store: it holds nothing itself
+    and is never recharged"*, and its status names the bank there.
+
+**Tests** (new: `SiphonClicksTests`, `StoreContentTests`, `BankLineTests`, `HeadlessDoorsTests`; added to
+`DebugSeedTests` and `StoreMovesTests`; fact 3's counts moved in `ShippedContentTests` and `CollapseTests`):
+- the branch: only a water tool is routed, a rock tool never queues an op whatever is pressed, the left click takes
+  and the right pours, Q held takes once a cooldown, one cooldown for both verbs, an item in hand keeps the right
+  click, and every shipped tool is routed by what it takes;
+- the content: each grade at the table (inside, both rates, blocks a tenth, the minute, the ports, no weight), ten
+  times more for four times the bill, the crate, the six layers each their own, each siphon at 1,000 J a litre in
+  its rock tool's bite and cooldown, the seven-stop cycle starting on the hand pick, and the label rule;
+- P: a hundred of the backpack, the crate and each grade, the containers kept off the row, a pin putting one on,
+  and the off-row set exactly the items and the containers;
+- the bank line: his line verbatim in the HUD's units, the runway only while draining, the backpack's channel and
+  no other, the hold (each grade's rates; switched off still bills; dumping, wrecks, crates and other channels not),
+  the hold matching the tick's own bill, the store and its water, the durations, the percentages, and the fuse line
+  (the box and the backpack's channel, the soonest, no wreck, seconds up);
+- the stock reads, and both headless parsers with their refusals.
+
+Fact 3's six counts moved as predicted but for one: the five materials that can't be placed stay five, since vaults
+and crates are placeable.
+
+**The battery: 57 recipes, 57 red**, all written before any ran, run in three chunks (20, 20, 17), each mutated file
+restored from its saved bytes and compared byte for byte.
+- **One survived the first run, as its recipe said it might**: `container-is-any-machine`, because `IsContainer` was
+  read only by its own test, and only for placeables. `OffTheRow` is now defined through it. That recipe, and the two
+  off-row recipes against the new text, then went red on the alpha's row.
+- **The recipes**, by area:
+  - the branch: `clicks-every-tool-water`, `clicks-no-tool-is-water`, `clicks-rock-takes`, `clicks-rock-pours`,
+    `clicks-q-ignored`, `clicks-take-no-cooldown`, `clicks-pour-ignores-cooldown`, `clicks-item-pours`,
+    `clicks-negative-frame`;
+  - the name rule: `label-slash-kept`, `label-empty-brackets`, `label-deep-slashes`;
+  - P and the row: `offrow-items-only`, `offrow-every-machine`, `container-is-any-machine`, `p-no-store`,
+    `p-no-backpack`, `p-no-god`;
+  - the files: `vault-high-rate`, `vault-low-blocks`, `vault-no-enabled`, `vault-weight-port`, `vault-own-90`,
+    `vault-inside-wrong`, `vault-layer-shared`, `crate-layer-backpack`, `crate-too-hard`, `siphon-free`,
+    `siphon-cheap`, `siphon-cooldown`, `siphon-bite`;
+  - the bank line: `hold-counts-owing`, `hold-any-channel`, `hold-water-dropped`, `runway-always`, `hold-always`,
+    `store-always`, `hasstore-any-vault`, `duration-rounds-up`, `duration-hours-late`, `percent-rounds`,
+    `percent-trickle-zero`, `read-no-clamp`;
+  - the fuse line: `fuse-intersection`, `fuse-box-only`, `fuse-wreck-shown`, `fuse-latest-wins`, `fuse-text-floor`,
+    `fuse-paused-dropped`;
+  - the stock reads: `stock-store-channel-zero`, `stock-box-hides-closed`, `click-always-metre`;
+  - the doors: `placeat-ports-skipped`, `placeat-two-coords`, `placeat-bad-port-ok`, `deposit-first-colon`,
+    `deposit-zero-ok`.
+
+**And eight Game-side recipes, which only a headless run can catch**, each built and run on the worktree's binary:
+- **the control**: the cube siphon on T under `--place --stock=64000 --pitch=-60` fills nothing (no `building` line);
+- **`both-fill-guards`** (Main's and the brush's `WaterTier`): the same run fills, free — **caught**;
+- **`both-take-guards`** (Main's and the miner's): the siphon oracle swings the miner (a `mining` block) — **caught**;
+- **`outer-fill-guard-only`**, **`outer-take-guard-only`** and **`inner-take-guard-only` survive, by design**: each
+  guard alone holds (build choice 2). That is the kind of fallback route that can hide a survivor, written down here
+  so it reads as chosen;
+- **`take-never-enqueued`** (the branch swallows the click): no `M10: siphon —` op — **caught**;
+- **`vault-scan-after-dump`** (the scan back after the dump): the burnt line no longer owes 6,400 — **caught**.
+
+**The headless oracles**, all on the worktree's own build, no `ERROR` line in any:
+- **The vault** (the pass's storm oracle without creative): `--profile --speed=0 --stock=64000
+  --placeat=quantum_vault/high@68,4,60 --deposit=stone:6400 --measure=40` reads the deposit `6,400 moved … exact`,
+  `M10: vault — fuse lit … FUSE 13.9 s; its bill of 40.0 W went unpaid with its minute spent (own 0 mJ of 2,400 J)`,
+  `fuse burnt … owes 6,400 voxel(s)`, the pile at 512 a boundary, `dump ended … a store again`, and the store line
+  `deposited 6,400 − withdrawn 0 − dumped 6,400 − decohered 0: exact`.
+- **The HUD**, the same vault in a plain headless run with the backpack worn (`--nosave --seed=84977241117251
+  --pack=overburden:quantum_backpack`, the profile's terrain): `| hud: BANK 0 mJ ch 0 · +0 W sun · −0 W · hold
+  40.0 W · store 1% · VAULT LOSING CONTAINMENT — 13 s`, the hold and the store gone while it dumps (a dumping vault
+  bills nothing and is out of the store), then `store 0%`.
+- **The siphon through the branch**: `--profile --speed=0 --pitch=-89 --injectlitres=200000 --fillbasin=2000000
+  --breach=3 --pump=100 --pack=overburden:quantum_backpack --tool=quantum_siphon_cube --mine
+  --placeat=quantum_vault/high@68,4,60 --measure=15`. The ball of Tier B water under the camera is taken into the
+  vault at 1,000 J a litre (`took 250,000 mL … paid 250,000,000 mJ`), the miner never swings (no mining block), and
+  every line is exact: Tier B's with `siphoned 8,606 L`, the store's water with `siphoned 8,605,642` mL, the pool's
+  with `siphon paid 8,605,642,000` mJ.
+
+**Checked:** suite **2,558**; zero warnings from both builds from scratch; r6 `2601 / 325 / 3446 at 411`.
+
+**Only his play can check** (headless draws no HUD, panel or glitch): the bank line's look and colour, the gauge, the
+fuse line, the stock section's layout and verbs, the padlock, the two glitches (and that `INSTANCE_CUSTOM` reaches the
+pile's shader, decision 14's unchecked point), the vaults' and crate's swatches, and the pour, which no headless flag
+presses. **Decision 17's windowed reads are still owed, on his yes.**
 
 ## Must not ship
 

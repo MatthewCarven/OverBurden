@@ -1086,7 +1086,8 @@ IDEAL-MACHINES-PLAN decisions 7–9 and 41).** `overburden:quantum_backpack` hol
 paying through it draws straight out of its channel's enabled cells, last-filled first, between
 boundaries. The recharge and `Alt+P` give it nothing, and the header saves its charge as 0. `P` does
 not seed one until IM-6 gives the HUD a bank line; **`--pack=overburden:quantum_backpack`** wears one
-at open, and `--stock=` carries one. The open line reads `a window onto channel 0's cells, … in the
+at open, and `--stock=` carries one (**since IM-6b, 2026-11-25, `P` seeds a hundred**, and the HUD shows the bank
+line). The open line reads `a window onto channel 0's cells, … in the
 bank`, the gate's lines say `the bank on channel 0`, and the `power:` term prints `pack initial` and
 ends `pool == entering − leaving + generated − drawn − clamped + initial − taken − stowed`. The relay
 pump's panel gains a **`priority`** box, 0–9 at 5, higher paid first and ties by position (X, then Y,
@@ -1111,8 +1112,9 @@ then, so Ctrl+P was the whole kit, and **P pressed while sprinting (Ctrl) is now
 **2026-10-12: the lithium-ion pack, `P`'s hundred, and the hotbar in cubic metres** (his asks).
 **`P` adds a hundred of each item on every press** (`DebugSeed`): relay pumps, relay outlets, solar panels
 and vacuum cells (100 bodies, `× 100`), 100 m³ of clay and of glass, and 100 computers, lead-acid packs and
-lithium-ion packs; a content missing any of them seeds nothing and names it. The quantum backpack is still
-not seeded (IM-6). **`overburden:lithium_ion_pack`** is a carried pack like lead-acid: 14.4 MJ, 2 kW,
+lithium-ion packs; a content missing any of them seeds nothing and names it. **Since IM-6b (2026-11-25) it
+also seeds the quantum backpack, the crate and the five vault grades**, a hundred each, the containers off the row
+(pinned only). **`overburden:lithium_ion_pack`** is a carried pack like lead-acid: 14.4 MJ, 2 kW,
 channel class. **A volume on the hotbar reads in litres under a cubic metre and in cubic metres from one
 up**, floored (`VolumeText`). Three probes, each read 2026-10-12 with no `ERROR`. Worn at open, an over-full
 `--charge` capped: `lithium ion pack equipped --pack: 14.4 MJ of 14.4 MJ (100.0%) on channel 0 — 288,000
@@ -1186,6 +1188,45 @@ world it leaves the world alone, as `--map` does. The card's developer heading s
 **Esc opens the menu since then** (Resume, Controls, Quit; it does not pause), **F1 the card**, and the
 camera no longer frees the mouse on Esc: the menu frees it. Esc still closes a machine's panel or the map
 first. An export shows the card once at a new world's first open; the editor binary never does.
+
+**IM-6b adds the vault's headless doors (2026-11-25, IDEAL-MACHINES-PLAN, "IM-6b — built").**
+**`--placeat=<id>@x,y,z[,port=value…]`** places a machine at a voxel with its ports set (collapse decision 13's
+grammar, so f-2 reuses it): the brush cell holding voxel (x, y, z), carved and placed from the pocket where its chunk
+is loaded, a row alone where it isn't, once a profile warms or three seconds into a plain run; each port through the
+set's one write, clamped and printed. Repeatable; a bare ID is the base game's. **`--deposit=<id>:<voxels>[@x,y,z]`**
+moves that many voxels from the pocket into a vault or crate through the store's own door (`StoreMoves.IntoBox`,
+counted `deposited`), after the restore, `--stock=` and every `--placeat=`; with no cell, the last `--placeat=`.
+**`--tool=<id>`** puts any tool on T at open (a siphon's seam, as `--entangle` is the miner's). **`--panelset=unlock=1`**
+clicks a vault's padlock before its channel box will take a value. The periodic `M10:` line now carries the store's two
+lines (`| store:`), and the HUD's bank and fuse lines while they show (`| hud:`), so a plain headless run reads them;
+`M10: vault —` prints each fuse lit, out, burnt and each dump ended, and `M10: bank —` each crossing of zero.
+
+The vault oracle (the pass's storm oracle without creative), read 2026-11-25 with no `ERROR`: `--deposit — 6,400
+voxel(s) of stone … 6,400 moved … exact`, `M10: vault — fuse lit … FUSE 13.9 s; its bill of 40.0 W went unpaid with its
+minute spent`, `fuse burnt … owes 6,400 voxel(s)`, the pile at 512 a boundary, `dump ended`, and the profile's `vaults`
+line `deposited 6,400 − withdrawn 0 − dumped 6,400 − decohered 0: exact`. Voxel (68, 4, 60) is just east of the
+profile's spawn, at ground level:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --stock=64000 --placeat=quantum_vault/high@68,4,60 --deposit=stone:6400 --measure=40
+```
+
+The same vault in a plain run with the backpack worn, on the profile's terrain (its seed in decimal), reads the HUD:
+`| hud: BANK 0 mJ ch 0 · +0 W sun · −0 W · hold 40.0 W · store 1% · VAULT LOSING CONTAINMENT — 13 s`, then the hold and
+the store gone while it dumps, then `store 0%`:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless --quit-after 4000 -- --nosave --seed=84977241117251 --stock=64000 --pack=overburden:quantum_backpack --placeat=quantum_vault/high@68,4,60 --deposit=stone:6400
+```
+
+The siphon through the clicks' water branch: a ball of Tier B water under the camera, `--pump`'s charged cell, a high
+vault for the store, the cube siphon held. It reads `M10: siphon — … took 250,000 mL … paid 250,000,000 mJ` (1,000 J a
+litre), no `mining` block (the miner never swings), and every line exact: Tier B's `siphoned 8,606 L`, the store's water
+`siphoned 8,605,642` mL, the pool's `siphon paid 8,605,642,000` mJ:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --pitch=-89 --injectlitres=200000 --fillbasin=2000000 --breach=3 --pump=100 --pack=overburden:quantum_backpack --tool=quantum_siphon_cube --mine --placeat=quantum_vault/high@68,4,60 --measure=15
+```
 
 **The world file lives at `user://worlds/<name>/world.db`** — on Windows,
 `%APPDATA%/Godot/app_userdata/Overburden/worlds/`. `--world=<name>` picks one, `--nosave` opens

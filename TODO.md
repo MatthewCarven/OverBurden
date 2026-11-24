@@ -24,7 +24,7 @@ makes the zip. B, the first ten minutes (committed 2026-10-19), zipped as 0.1.2-
 (2026-10-19, header v8, so IM-6's mode byte is v9), zipped as 0.1.3-alpha, which carries B too. **D, going public**
 (2026-10-26, the plan's "Session D — built"): the README, CONTRIBUTING, CLA.md, the PR template, `.gitattributes`,
 and the notices' check in `make-alpha.ps1`; files only, riding the next zip. **Pushed, and 0.1.3 released on GitHub
-the same day.** What's left of it is his (MATTHEW-TODO): his play of 0.1.2 and 0.1.3. **IM-6's pass is written and taken (2026-11-24), and IM-6a is built the same day; IM-6b is next.**
+the same day.** What's left of it is his (MATTHEW-TODO): his play of 0.1.2 and 0.1.3. **IM-6's pass is written and taken (2026-11-24), IM-6a is built the same day, and IM-6b on 2026-11-25; IM-6c is next.**
 
 **Do first, before the slice named:**
 1. **The engine-wide pin — before IM-7.** A chunk any door wrote stays loaded until the next autosave (IM-5's
@@ -45,7 +45,7 @@ five more in the tests), all fixed, none suppressed; zero from both builds now (
 sensor's Core, with the rule IM-6 leans on: a signalled-off cell never unpays a vault's bill (COLLAPSE-PLAN, "f-1 —
 built"). **IM-6's pass is written and taken (2026-11-24)**: split into 6a, 6b and 6c, all twenty-six as recommended
 (IDEAL-MACHINES-PLAN, "IM-6 — the code-level pass"). **IM-6a, its Core, is built the same day** (the plan, "IM-6a —
-built").
+built"), **and IM-6b, the wire and content, on 2026-11-25** (the plan, "IM-6b — built"): the vault plays in sandbox.
 
 **Collisions, two planned works on one code path or one question:**
 1. **Water bodies part a and LAKE-EDIT's "hand back sooner at ~95%"** both change when Tier B hands back to
@@ -122,13 +122,13 @@ built").
       6c (creative, header v9). **All twenty-six decisions taken as recommended, 2026-11-24.** **IM-6a is built
       the same day** (the plan, "IM-6a — built"): the runway from per-channel flows, `PowerText` and `EnergyText`,
       `StoreMoves` with the withdraw guard and the store's fill, and the pile's positions; nothing changes in play,
-      and ten build choices are listed there for his word. **IM-6b is next.** Every "into IM-6" item still open has
-      its place there:
-      - the pile's cyan glitch, drawn from `PileVoxelsLast` (decision 14);
-      - the in-game read of a real dump, a fuse burning out underground, and the `fluidsurf` install against about
-        50 ms mean or 250 ms worst (17);
-      - the grade files at `ownChargeSeconds` 60 (6);
-      - his warranty line (9), the channel box's lock (10), and power auto-scaled on the panel through `PowerText` (3).
+      and ten build choices are listed there for his word. **IM-6b is built (2026-11-25)** (the plan, "IM-6b —
+      built"): the vault, crate and siphon files, P's store, the HUD's bank line, the fuse line and the water gauge,
+      the stock section with his warranty line, the padlock and power in watts, the siphon on T behind the clicks'
+      water branch, both glitches, the store's lines, `--placeat=`, `--deposit=` and `--tool=`. Ten build choices
+      are listed there for his word, and his play is its test (his list's "The vault, your first play of it").
+      **Still owed from it**, decision 17's windowed reads, on his yes (Owed checks). **IM-6c is next**: the v8
+      capture, header v9, `--mode=creative`, kits, the first cell's grant, the keys, the card, the storm oracle.
 
       Plays after IM-6, IM-8 and IM-9. **Still owed elsewhere:** a bite under a lake (IM-7's bench); a dump
       underground headless (IM-5's).
@@ -193,9 +193,9 @@ built").
 - [ ] **Collapse part f — f-1 built 2026-11-24; f-2 next, the wire**
       ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "f-1 — built"): a sense over the scheduler and the
       director (a Godot-free adapter can live in Core), the `M10:` terms and one-off lines, `P` seeding a
-      sensor and its texture, `--placeat=`, decision 7's full panel status, and the headless oracle. Then f-3,
-      his play. Not in front of IM-6. `--placeat=` lands in IM-6b (IM-6's decision 16, taken). Build in a
-      worktree if he is playing.
+      sensor and its texture, decision 7's full panel status, and the headless oracle. Then f-3, his play. Not in
+      front of IM-6. **`--placeat=` is built** (IM-6b, 2026-11-25, to decision 13's grammar; `PlaceAt` in Core),
+      so f-2 places its sensor with it. Build in a worktree if he is playing.
 - [ ] **M10e — the conductor index** (after the M10d play): `conductor` block, `ConductorTracker`
       marking a dirty set and nothing else in the hook, per-chunk summaries at schema 5 riding the
       batch write, `NetworkSet` with position-derived ids, `maxRunCells` as occupied brush cells,
@@ -246,6 +246,19 @@ built").
 
 ## Owed checks
 
+- [ ] **IM-6b's windowed reads (IM-6's decision 17), on his yes**, since a windowed run takes his screen:
+      - the real dump: a high vault on a channel with no cells, in the workings of a copy of his world, filled by the
+        panel's verbs and the siphon; read the `dump` term, the frame line and the remeshes against the `--pile`
+        bench;
+      - a fuse burning out underground, the same run, from the fuse lighting to the dump's end;
+      - the install: the `M8b:` line's surface install against about 50 ms mean or 250 ms worst (the lever is the
+        render, not the ceiling, if it is over).
+
+      The same run can screenshot the bank line, the stock section and both glitches for the look questions, and
+      check that `INSTANCE_CUSTOM` reaches the pile's shader (decision 14's unchecked point).
+- [ ] **Two more stacked doc summaries**, outside the machine code IM-6b mended: `WaterSurface.cs` (the dimming
+      summary over `Enclosure`) and `FluidSimulation.Sheets.cs` (a sheet's summary over `SolveCellsWoken`). Each one
+      line.
 
 - [ ] **Re-judge `start.cmd`'s `--lightbudget=16` on a play** — it answered a 1.4 ms unoptimised
       derive that is ~0.36 ms since the JIT optimiser (2026-09-15); and re-take the Debug bench

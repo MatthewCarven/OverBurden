@@ -29,6 +29,38 @@ care about. I keep it current at the end of each session.
 and i will get around to testing things"*). **Nothing here blocks development**, which carries on alongside; tell
 me in the chat whenever you've tried something, and I'll fold it in.
 
+### The vault, your first play of it (about 15 minutes, `start.cmd`, LakeTest2)
+
+New on 2026-11-25: the quantum vault in your own world, its bank on the HUD, the siphon, and the dump. **This is
+the step's real test**; nothing else checks how it looks or feels. A line back on any step is plenty.
+
+1. **P.** The line above the hotbar says a hundred of each, and that the crates and vaults are a V away. Your row
+   doesn't change: the vaults, the crate and the backpack take a slot only when you pin one.
+2. **Wear the quantum backpack**: V to it, right-click. Over the status line a new line reads `BANK 0 mJ ch 0 · +0 W
+   sun · −0 W`, where the pack line used to read `0 mJ / 0 mJ`. A small *store / water* box sits right of slot 9.
+3. **A vacuum cell and Alt+P**: place a cell, Alt+P. The bank reads 5,000.0 MJ.
+4. **A vault**: V to *quantum vault (high)*, place it near you. The bank line gains `store 0%`. *Do the five grades'
+   cyans, from dark to bright, and the crate's brown read as what they are?*
+5. **Its panel**: computer in hand, right-click the vault. The top shows a bar, `bill 0 W on channel 0 · own …`,
+   and `HOLDING`; then a row for each block you carry, with `→ pocket` and `→ vault`; a water row with no buttons;
+   your warranty line at the foot. The channel box says *locked — click to unlock*.
+6. **Fill it**: click `→ vault` on stone (a cubic metre a click), then Shift-click for all of it. The bar, the bill
+   and the HUD's `hold` and `store` rise; `→ pocket` brings it back. *Does the panel read right, and is a cubic metre
+   a click the right step?*
+7. **The whole store**: right-click with the computer on nothing. The backpack's panel lists the store on channel 0,
+   with `→ store`.
+8. **The siphon**: T past the three quantum tools to the siphons (stops 5–7). The status line says SIPHON, and the
+   water box lights cyan. Aim at water (or press R for 10,000 L first) and left-click: the box fills and the bank
+   drops 1 MJ a cubic metre. Right-click pours it back, free; Q held keeps taking.
+9. **The dump**: open the vault's panel, click the padlock, and set its channel to 9, where nothing pays. It spends its
+   own minute, then the top of the screen reads `VAULT LOSING CONTAINMENT — 14 s` and its body glitches cyan. At zero
+   your stone comes back as a pile round it, each block flashing cyan for a second, and its water floods out. *Does it
+   read as losing containment? Is the pile the right look?*
+10. **(If you like) a fuse that pauses**: as 9 with a second vault, but set it back to 0 while the fuse burns. The line
+    says `(paused)` and the glitch holds still, then it goes out once the bank refills its minute.
+
+A world you test in moves nothing about saves: no format changed, so 0.1.3 still opens it.
+
 ### The retest, in one sitting (about 20 minutes, `start.cmd`, LakeTest2)
 
 It has been a month, so this strings every untested build into one route. A line back on any step is plenty, and
@@ -406,12 +438,33 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-11-24**. **0.1.3-alpha is released on GitHub** (a pre-release, the zip byte-identical to the one
+Updated **2026-11-25**. **0.1.3-alpha is released on GitHub** (a pre-release, the zip byte-identical to the one
 built), going public's files and the README's Releases link are pushed, and **Ctrl+P** (one lithium-ion pack, in
-your hand) is on main for your next `start.cmd`. Your untested builds are one route at the top, "The retest, in
-one sitting"; development carries on alongside it. The build warnings and the collapse sensor's first step landed
-today, **IM-6's plan is written and taken as you recommended**, and **its first step, the insides, is built**. The
-second, the vault in your LakeTest2, is next.
+your hand) is on main for your next `start.cmd`. **The vault is in your game**: IM-6's second step, built today,
+is the first of the ideal machines you can play, and its route is at the top of Now, before the older retest.
+Development carries on alongside; creative mode is next.
+
+- **IM-6's second step, the vault in your own world, is built** (2026-11-25). In a sandbox world, through P and Alt+P:
+  - **P** gives the quantum backpack, a crate and the five vaults (low, medium, high, mythical, god), a hundred each,
+    a V away, so your row and slot 9 stay as they are.
+  - **The bank on the HUD**: wear the backpack and a line reads `BANK … ch 0 · +… sun · −… · runway … · hold … ·
+    store …%`, the runway amber under ten minutes and red under one. A small box right of slot 9 shows the store's
+    water, lit while a siphon is in hand.
+  - **A vault's panel**: a bar, the bill in watts with its own minute, its state, a row for each block with
+    `→ pocket` and `→ vault` (Shift for all), your warranty line at the foot, and the channel box behind a padlock.
+    The backpack's panel shows the whole store.
+  - **The siphon**: three, after the quantum tools on T, in their sizes: left takes water into the store at
+    1,000 J a litre, right pours it back free.
+  - **The dump**: a vault whose bill goes unpaid spends its minute, then `VAULT LOSING CONTAINMENT — 14 s` and its
+    body glitches cyan; at zero its blocks pile back, flashing cyan, and its water floods out.
+  - Nothing in your saves changed: 0.1.3 still opens a world you play this in.
+  - Ten small choices the build made are in the plan, for your word whenever you look; the first is that a right
+    click with the computer in hand still opens a panel when a siphon is on T.
+  - Checked: all 2,558 tests pass, I broke the new code 57 deliberate ways and every one was caught, plus eight
+    breakages only the running game shows, and the game's quick check reads exactly as recorded. **How it looks is
+    yours to judge**: nothing I can run draws the HUD or the panel.
+  - **One run I'd like, on your yes**: a windowed read of a real dump in a copy of your world, which takes the screen
+    for a few minutes. Say when it suits.
 
 - **IM-6's first step, the insides, is built** (2026-11-24). Nothing you play changes. It's the parts the next step
   puts on screen:
