@@ -377,6 +377,43 @@ public class VaultPileTests
         return (int)Math.Floor(y - o.Y + Math.Sqrt((dx * dx) + (dz * dz)));
     }
 
+    // ---------------------------------------------------------------- the positions (IM-6a, decision 5)
+
+    [Fact]
+    public void ThePilesPositionsAreTheVoxelsItWroteThisBoundaryAndNoMore()
+    {
+        // What the glitch is drawn from (IM-6's decision 14): each boundary's list is that boundary's writes,
+        // each a pile block standing in the world, never two alike, at most the budget, cleared every boundary.
+        var rig = new Rig();
+        rig.Owing(Middle, [(Dirt, 1_500), (Gravel, 700)]);
+        var seen = new HashSet<VoxelPos>();
+        int boundaries = 0, full = 0;
+        while (rig.Machines.Rows.Any(row => rig.Machines.IsVault(row) && VaultState.TryRead(row, out VaultContents c) && c.Owes))
+        {
+            DumpReport report = rig.Boundary();
+            IReadOnlyList<VoxelPos> written = rig.Dump.PileVoxelsLast;
+            Assert.Equal(report.VoxelsPiled, written.Count);
+            Assert.InRange(written.Count, 0, VaultDump.VoxelsPerBoundary);
+            full += written.Count == VaultDump.VoxelsPerBoundary ? 1 : 0;
+            foreach (VoxelPos v in written)
+            {
+                Assert.True(seen.Add(v), $"{v} written twice");
+                Assert.True(rig.Terrain.Placed.TryGetValue(v, out int material) && material is Dirt or Gravel, $"{v} is not a pile block");
+                Assert.Contains(v.Chunk, rig.Dump.PileChunksLast);
+            }
+
+            rig.AssertBooks();
+            Assert.True(++boundaries < 400, "the dump never ended");
+        }
+
+        Assert.True(full > 0, "no boundary piled its whole budget");
+        Assert.Equal(2_200, seen.Count);
+        Assert.True(seen.SetEquals(rig.Piled.Select(entry => entry.Key)));
+
+        rig.Boundary();
+        Assert.Empty(rig.Dump.PileVoxelsLast);
+    }
+
     // ---------------------------------------------------------------- the heap (decision 11, the cone)
 
     [Fact]

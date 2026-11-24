@@ -1253,6 +1253,28 @@ public class MachineTickTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void APumpsBillIsOutflowOnItsOwnChannel()
+    {
+        // IM-6a, decision 2: the pumps' term per channel, counted where DrawnByPumps is.
+        var twin = new Twin();
+        twin.Place(Twin.PumpCell, BilledPump, channel: 4);
+        twin.Place(Twin.RimOutlet, Outlet, channel: 4);
+        twin.Place(Twin.RimOutletB, Panel, channel: 4);
+        twin.Place(Twin.RoomOutlet, BigCell, channel: 4, charge: 120_000L * RelayBill);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+
+        MachineTickReport report = twin.Boundary(step: false);
+
+        Assert.Equal(1, report.Moved);
+        ChannelFlows flows = twin.Tick.FlowsOn(4);
+        Assert.Equal(new ChannelFlows(PanelMillijoulesPerBoundary, 0, 0, RelayMillilitresPerBoundary * RelayBill, 0, 0, 0), flows);
+        Assert.Equal(RelayMillilitresPerBoundary * RelayBill, flows.Out);
+        Assert.Equal(default, twin.Tick.FlowsOn(0));
+        RunwayTests.AssertFlowsSum(twin.Tick, report);
+    }
+
+    [Fact]
     public void ThePoolIdentityHoldsOverAThousandBoundariesWithEverythingRunning()
     {
         var twin = new Twin();
@@ -1299,6 +1321,7 @@ public class MachineTickTests(ITestOutputHelper output)
             unpowered += report.Unpowered;
             Assert.True(twin.Tick.PowerExact, $"boundary {boundary}: the pool identity broke");
             Assert.True(report.Exact, $"boundary {boundary}: pumped != emitted");
+            RunwayTests.AssertFlowsSum(twin.Tick, report);
         }
 
         twin.AssertIdentity();
@@ -2781,8 +2804,13 @@ public class MachineTickTests(ITestOutputHelper output)
                 siphon.Enqueue(random.Next(2) == 0 ? SiphonVerb.Pour : SiphonVerb.Take, eye, new System.Numerics.Vector3(0, -1, 0), 100f, cube, backpack);
             }
 
+            long paid = siphon.PaidMillijoules;
             pouredBack += siphon.Apply().PouredMillilitres;
             MachineTickReport report = twin.Boundary();
+
+            // IM-6a, decision 2: the siphon's draw is outflow on its channel at the boundary after it.
+            Assert.Equal(siphon.PaidMillijoules - paid, twin.Tick.FlowsOn(0).DrawnMillijoules);
+            RunwayTests.AssertFlowsSum(twin.Tick, report);
             if (!MachineTick.IsEnabled(vault) && report.PumpedInAll > 0)
             {
                 Assert.Equal(0, report.VaultedMillilitres);

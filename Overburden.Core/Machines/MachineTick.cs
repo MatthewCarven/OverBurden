@@ -306,6 +306,17 @@ public sealed class MachineTick : IChannelBank
     private readonly long[] _heldCharge = new long[Channels];
     private readonly long[] _heldKept = new long[Channels];
 
+    // IM-6a, decision 2: each channel's flows at the last boundary, counted beside the global terms — the
+    // runway's inputs, never the bank's change — and the draws since the last boundary, counted inside Draw.
+    private readonly long[] _flowGenerated = new long[Channels];
+    private readonly long[] _flowHeldFromPool = new long[Channels];
+    private readonly long[] _flowHeldFromOwn = new long[Channels];
+    private readonly long[] _flowPumps = new long[Channels];
+    private readonly long[] _flowOwnGiven = new long[Channels];
+    private readonly long[] _flowOwnReturned = new long[Channels];
+    private readonly long[] _flowDrawn = new long[Channels];
+    private readonly long[] _drawnBetween = new long[Channels];
+
     /// <param name="machines">The rows; the tick reads them and never writes a row.</param>
     /// <param name="materials">Which rows are pumps and outlets, and at what rate.</param>
     /// <param name="fluid">Tier B, at a boundary — the grid is the caller's.</param>
@@ -522,8 +533,32 @@ public sealed class MachineTick : IChannelBank
     /// </summary>
     public long SiphonPaidMillijoules { get; private set; }
 
-    /// <summary>What a channel's enabled cells hold now — what a siphon's take can afford.</summary>
-    internal long BankOf(int channel) => ((IChannelBank)this).BankMillijoules(channel);
+    /// <summary>
+    /// What a channel's enabled cells hold now — the bank a window and a siphon spend, and what a runway
+    /// divides (IM-6a, decision 2: a public read; the draw stays internal).
+    /// </summary>
+    public long BankOf(int channel) => ((IChannelBank)this).BankMillijoules(channel);
+
+    /// <summary>
+    /// What <paramref name="channel"/>'s power did at the last boundary, term by term, and what was drawn out
+    /// of its bank since the boundary before (IM-6a, decision 2) — the ledger a <see cref="Runway"/> reads.
+    /// Every term is counted where its global twin is, so the sixteen channels sum to the report's terms.
+    /// All zero before the first boundary; under <see cref="PowerOff"/>, everything but the draws.
+    /// </summary>
+    public ChannelFlows FlowsOn(int channel)
+    {
+        int c = Math.Clamp(channel, 0, Channels - 1);
+        return new ChannelFlows(
+            _flowGenerated[c], _flowHeldFromPool[c], _flowHeldFromOwn[c], _flowPumps[c],
+            _flowOwnGiven[c], _flowOwnReturned[c], _flowDrawn[c]);
+    }
+
+    /// <summary>
+    /// Millijoules drawn out of the channels' banks between boundaries, over the lifetime: every window's take
+    /// and every siphon's payment, and any drawer after them (IM-6a, decision 2). The draws the ledger counts,
+    /// summed — <c>windows' taken + siphonPaid</c> while every pack worn is a window.
+    /// </summary>
+    public long BankDrawnMillijoules { get; private set; }
 
     /// <summary>
     /// The siphon's draw on a channel's bank, last-filled first, counted <c>siphonPaid</c>. Between
@@ -825,6 +860,9 @@ public sealed class MachineTick : IChannelBank
         long pumpedB = 0, pumpedA = 0, emittedB = 0, emittedA = 0, vaulted = 0;
         int noOutlet = 0, noWater = 0, noRoom = 0, unloaded = 0, unanalysed = 0, unpowered = 0, signalled = 0;
 
+        // IM-6a, decision 2: this boundary's flows start from nothing, and the draws since the last are its.
+        BeginFlows();
+
         // Collapse f-1: every sensor reads the collapse around it, so each channel's signal is this
         // boundary's before anything reads a reader.
         (int tripped, int byFuse, int byEvent) = Sense();
@@ -918,6 +956,19 @@ public sealed class MachineTick : IChannelBank
     private long _heldFromOwnThisBoundary;
     private long _ownReturnedThisBoundary;
 
+    /// <summary>IM-6a, decision 2: every channel's flows cleared for this boundary, and the draws made since the last boundary handed to it.</summary>
+    private void BeginFlows()
+    {
+        Array.Clear(_flowGenerated);
+        Array.Clear(_flowHeldFromPool);
+        Array.Clear(_flowHeldFromOwn);
+        Array.Clear(_flowPumps);
+        Array.Clear(_flowOwnGiven);
+        Array.Clear(_flowOwnReturned);
+        Array.Copy(_drawnBetween, _flowDrawn, Channels);
+        Array.Clear(_drawnBetween);
+    }
+
     /// <summary>
     /// Every converter's output and every storage row's charge, summed per channel into what the
     /// channel can pay this boundary. Returns the generation.
@@ -931,6 +982,7 @@ public sealed class MachineTick : IChannelBank
         {
             long output = SolarOutput(row, definition);
             _available[channel] += output;
+            _flowGenerated[channel] += output;
             generated += output;
         }
 
@@ -1178,6 +1230,7 @@ public sealed class MachineTick : IChannelBank
                     VaultState.Write(row, contents);
                     _available[channel] += excess;
                     _ownReturnedThisBoundary += excess;
+                    _flowOwnReturned[channel] += excess;
                 }
             }
 
@@ -1199,6 +1252,8 @@ public sealed class MachineTick : IChannelBank
                 {
                     _available[channel] -= fromPool;
                     paid += bill;
+                    _flowHeldFromPool[channel] += fromPool;
+                    _flowHeldFromOwn[channel] += fromOwn;
                     row.LastHoldPaid = true;
                     if (bill > 0) VaultBillsPaid++;
 
@@ -1279,6 +1334,7 @@ public sealed class MachineTick : IChannelBank
                 {
                     contents.OwnChargeMillijoules += give;
                     _available[channel] -= give;
+                    _flowOwnGiven[channel] += give;
                     given += give;
                     changed = true;
                 }
@@ -1439,7 +1495,8 @@ public sealed class MachineTick : IChannelBank
             Rebuild();
         }
 
-        List<(MachineRow Row, MachineDefinition Definition)>? rows = _storage[Math.Clamp(channel, 0, Channels - 1)];
+        int c = Math.Clamp(channel, 0, Channels - 1);
+        List<(MachineRow Row, MachineDefinition Definition)>? rows = _storage[c];
         if (rows is null || millijoules == 0)
         {
             return 0;
@@ -1465,7 +1522,12 @@ public sealed class MachineTick : IChannelBank
             remaining -= take;
         }
 
-        return millijoules - remaining;
+        // IM-6a, decision 2: every draw is outflow on its channel, counted here and not by the caller, so a
+        // new drawer is in the runway by construction; the caller still counts its own term for the identity.
+        long drawn = millijoules - remaining;
+        _drawnBetween[c] += drawn;
+        BankDrawnMillijoules += drawn;
+        return drawn;
     }
 
     /// <summary>
@@ -1854,6 +1916,7 @@ public sealed class MachineTick : IChannelBank
             {
                 long cost = moved * bill;
                 _available[channel] -= cost;
+                _flowPumps[channel] += cost;
                 _drawnThisBoundary += cost;
                 DrawnByPumpsMillijoules += cost;
             }

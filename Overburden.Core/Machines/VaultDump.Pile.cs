@@ -126,6 +126,15 @@ public sealed partial class VaultDump
     /// <summary>The chunks the piles wrote at the last boundary.</summary>
     public IReadOnlyCollection<ChunkPos> PileChunksLast => _pileChunks;
 
+    private readonly List<VoxelPos> _pileVoxels = new(VoxelsPerBoundary);
+
+    /// <summary>
+    /// The voxels the piles wrote at the last boundary, in the order written — at most
+    /// <see cref="VoxelsPerBoundary"/> — so the Game can put the cyan glitch where a block appeared (IM-6's pass,
+    /// decision 5). Cleared with <see cref="PileChunksLast"/> at every boundary's pile.
+    /// </summary>
+    public IReadOnlyList<VoxelPos> PileVoxelsLast => _pileVoxels;
+
     /// <summary>
     /// Whether a material can lie loose in the world (decision 12): placeable, not air, not a fluid, not a
     /// machine, and inside the table. A removed mod's stand-in reads placeable and solid, so it piles; a
@@ -255,6 +264,7 @@ public sealed partial class VaultDump
     private PileTally Pile((VoxelPos Min, VoxelPos Max)? player)
     {
         _pileChunks.Clear();
+        _pileVoxels.Clear();
         _covered.Clear();
         var tally = default(PileTally);
         if (_world is null || _materials is null)
@@ -396,6 +406,7 @@ public sealed partial class VaultDump
 
             placed++;
             _pileChunks.Add(slot.Chunk);
+            _pileVoxels.Add(slot);
             TakeOne(material);
 
             int below = column.Slot;

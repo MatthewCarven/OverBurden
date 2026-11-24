@@ -505,6 +505,7 @@ public sealed partial class MachineSet
     }
 
     /// <summary>Moves up to <paramref name="voxels"/> of a material from the channel's store into the pocket, last-filled first. Returns what moved.</summary>
+    /// <remarks>A material the pocket refuses stays where it is and nothing moves (IM-6's pass, decision 4), as through <see cref="WithdrawFrom(BrushCell, int, long, VolumetricInventory)"/>.</remarks>
     public long Withdraw(int channel, int materialId, long voxels, VolumetricInventory to)
     {
         ArgumentNullException.ThrowIfNull(to);
@@ -530,8 +531,86 @@ public sealed partial class MachineSet
         return _rows.TryGetValue(cell, out MachineRow? row) && IsOpenBox(row) ? WithdrawFrom([row], materialId, voxels, to) : 0;
     }
 
-    private bool IsOpenBox(MachineRow row) =>
-        IsVault(row) && MachineTick.IsEnabled(row) && VaultState.TryRead(row, out VaultContents contents) && !contents.Owes;
+    /// <summary>
+    /// Why the box at <paramref name="cell"/> takes and gives nothing, or <see cref="StoreRefusal.None"/> when
+    /// it is open (IM-6's pass, decision 4): not a vault or crate, unreadable, a wreck, dumping, or switched off,
+    /// the first that holds. The one definition every door into one box reads.
+    /// </summary>
+    public StoreRefusal ClosedReason(BrushCell cell) =>
+        _rows.TryGetValue(cell, out MachineRow? row) ? ClosedReason(row) : StoreRefusal.NotABox;
+
+    private StoreRefusal ClosedReason(MachineRow row)
+    {
+        if (!IsVault(row)) return StoreRefusal.NotABox;
+        if (!VaultState.TryRead(row, out VaultContents contents)) return StoreRefusal.Unreadable;
+        if (contents.Wreck) return StoreRefusal.Wreck;
+        if (contents.Phase == VaultPhase.Dumping) return StoreRefusal.Dumping;
+        return MachineTick.IsEnabled(row) ? StoreRefusal.None : StoreRefusal.SwitchedOff;
+    }
+
+    private bool IsOpenBox(MachineRow row) => ClosedReason(row) == StoreRefusal.None;
+
+    /// <summary>Voxels moved from a channel's store straight into one box, over the session — the combined box's second half, held to held.</summary>
+    public long VoxelsMovedBetweenBoxes { get; private set; }
+
+    /// <summary>Voxels a withdrawal was asked for of a material the pocket refuses, and left where they were (IM-6's pass, decision 4).</summary>
+    public long WithdrawRefusedVoxels { get; private set; }
+
+    /// <summary>
+    /// Moves up to <paramref name="voxels"/> of a material from the channel's store into the one open box at
+    /// <paramref name="cell"/>, last-filled first and never out of that box itself, up to its room (IM-6's pass,
+    /// decision 4: the combined box's store half). Returns what moved. Both ends are held, so no term of the
+    /// store's identity moves; nothing passes through the pocket, which would offer the material a slot.
+    /// </summary>
+    internal long MoveFromStoreInto(int channel, BrushCell cell, int materialId, long voxels)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(voxels);
+        if (!_rows.TryGetValue(cell, out MachineRow? box) || !IsOpenBox(box))
+        {
+            return 0;
+        }
+
+        VaultState.TryRead(box, out VaultContents into);
+        long wanted = Math.Min(voxels, FreeMillilitres(VaultDefinitionOf(box)!, into) / MachineDefinition.VoxelMillilitres);
+        long remaining = wanted;
+        List<MachineRow> store = StoreRows(channel, except: box, skipDamaged: false);
+        for (int i = store.Count - 1; i >= 0 && remaining > 0; i--)
+        {
+            VaultState.TryRead(store[i], out VaultContents from);
+            long taken = from.Take(materialId, remaining);
+            if (taken <= 0) continue;
+            VaultState.Write(store[i], from);
+            remaining -= taken;
+        }
+
+        long moved = wanted - remaining;
+        if (moved > 0)
+        {
+            into.Add(materialId, moved);
+            VaultState.Write(box, into);
+            VoxelsMovedBetweenBoxes += moved;
+        }
+
+        return moved;
+    }
+
+    /// <summary>
+    /// The channel's store as a whole (IM-6's pass, decision 4): what its vaults use, blocks and water together,
+    /// and what they hold inside — the vaults <see cref="StoreOf"/> lists, so not one switched off, dumping, a
+    /// wreck or unreadable, and never a crate.
+    /// </summary>
+    public StoreFill StoreFillOf(int channel)
+    {
+        long used = 0, inside = 0;
+        foreach (MachineRow row in StoreOf(channel))
+        {
+            VaultState.TryRead(row, out VaultContents contents);
+            used += contents.UsedMillilitres;
+            inside += VaultDefinitionOf(row)!.InsideMillilitres;
+        }
+
+        return new StoreFill(used, inside);
+    }
 
     private long DepositInto(IReadOnlyList<MachineRow> rows, int materialId, long voxels, VolumetricInventory from)
     {
@@ -564,6 +643,15 @@ public sealed partial class MachineSet
     private long WithdrawFrom(IReadOnlyList<MachineRow> rows, int materialId, long voxels, VolumetricInventory to)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(voxels);
+
+        // IM-6's pass, decision 4 (fact 11): the pocket drops a material it refuses into RefusedVoxels, a counter
+        // only a test reads, so taking one out of a vault for it would lose it without a word. It stays put.
+        if (to.Refuses(materialId))
+        {
+            WithdrawRefusedVoxels += voxels;
+            return 0;
+        }
+
         long remaining = voxels;
         foreach (MachineRow row in rows)
         {

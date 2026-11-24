@@ -270,6 +270,42 @@ public class SiphonTests
     }
 
     [Fact]
+    public void ATakeIsPaidFromTheBackpacksChannelAndCountedThereAsOutflow()
+    {
+        // IM-6a, decision 2: the siphon's draw goes through the bank's, which counts it on its channel — the
+        // backpack's — with nothing in the siphon to remember. A charged cell on channel 0 pays nothing.
+        var rig = new Rig();
+        rig.Lake(100_000);
+        var vault = new MachineRow(new BrushCell(0, 10, 0), BigVault, BrushFacing.PositiveX, Materials.Machine(BigVault)!.DefaultPorts());
+        vault.SetPortUnchecked("channel", 3);
+        rig.Machines.Add(vault);
+        var cell = new MachineRow(new BrushCell(1, 10, 0), CellMaterial, BrushFacing.PositiveX, CellDefinition.DefaultPorts());
+        cell.SetPortUnchecked("channel", 3);
+        StorageState.Write(cell, 10_000L * PerLitre);
+        rig.Machines.Add(cell);
+        MachineRow bystander = rig.Charged(new BrushCell(2, 10, 0), 10_000L * PerLitre);
+        rig.Backpack.Channel = 3;
+
+        Assert.Equal(SiphonRefusal.None, rig.Click(SiphonVerb.Take, Rig.Above(64, 60, 64)));
+        SiphonReport took = rig.Siphon.Apply();
+        Assert.Equal(1_000, took.TakenLitres);
+        Assert.Equal(1_000 * PerLitre, took.PaidMillijoules);
+        Assert.Equal((10_000L - 1_000) * PerLitre, StorageState.Read(cell));
+        Assert.Equal(10_000L * PerLitre, StorageState.Read(bystander));
+
+        rig.Tick.Run();
+
+        // The vault now bills for its cubic metre of water, out of the same bank.
+        ChannelFlows flows = rig.Tick.FlowsOn(3);
+        Assert.Equal(1_000 * PerLitre, flows.DrawnMillijoules);
+        Assert.True(flows.HeldFromPoolMillijoules > 0);
+        Assert.Equal(1_000 * PerLitre + flows.HeldFromPoolMillijoules, flows.Out);
+        Assert.Equal(0, rig.Tick.FlowsOn(0).DrawnMillijoules);
+        Assert.Equal(rig.Tick.SiphonPaidMillijoules, rig.Tick.BankDrawnMillijoules);
+        rig.AssertBooks();
+    }
+
+    [Fact]
     public void TheRayFindsALakeWhoseBandIsStaleBecauseItCoversTheColumnsItCrosses()
     {
         // IM-4's pass, fact 4: InLake answers false where no band is built. The lake is poured with

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Godot;
 using Overburden.Core.Building;
 using Overburden.Core.Fluid;
+using Overburden.Core.Inventory;
 using Overburden.Core.Machines;
 
 namespace Overburden.Game.Ui;
@@ -638,7 +639,6 @@ public sealed partial class MachinePanel : CanvasLayer
         return ($"VAULT — {holds}   ·   bill {Joules(bill)} a boundary on channel {channel}, {own}   ·   {phase}", colour, null);
     }
 
-    /// <summary>Millijoules in the unit a person reads: mJ under a joule, then J, kJ, MJ, GJ.</summary>
     /// <summary>
     /// A charge against its capacity with the share between them — <c>3,994 J of 3,600.0 kJ
     /// (0.1%)</c>.
@@ -666,17 +666,9 @@ public sealed partial class MachinePanel : CanvasLayer
         return part > 0 && percent < 0.05 ? "<0.1%" : $"{percent:N1}%";
     }
 
-    internal static string Joules(long millijoules)
-    {
-        long sign = millijoules < 0 ? -1 : 1;
-        long mJ = Math.Abs(millijoules);
-        string s = sign < 0 ? "−" : string.Empty;
-        if (mJ < 1_000L) return $"{s}{mJ} mJ";
-        if (mJ < 10_000_000L) return $"{s}{mJ / 1000.0:N0} J";
-        if (mJ < 10_000_000_000L) return $"{s}{mJ / 1_000_000.0:N1} kJ";
-        if (mJ < 10_000_000_000_000L) return $"{s}{mJ / 1_000_000_000.0:N1} MJ";
-        return $"{s}{mJ / 1_000_000_000_000.0:N2} GJ";
-    }
+    /// <summary>Millijoules in the unit a person reads: mJ under a joule, then J, kJ, MJ, GJ.</summary>
+    /// <remarks>Core's <see cref="EnergyText"/> since IM-6a (decision 3), with the same output; the callers move with 6b's panel.</remarks>
+    internal static string Joules(long millijoules) => EnergyText.Of(millijoules);
 
     /// <summary>Millilitres as litres, whole when they are whole — the tick's unit shown in the player's.</summary>
     private static string Litres(long millilitres) =>
