@@ -244,10 +244,10 @@ built"), **and IM-6b, the wire and content, on 2026-11-25** (the plan, "IM-6b â€
 - [ ] **Dust when a roof comes down** (M9c-2), optional, only if falls read as too quiet.
 - [ ] **Precision mining's key: Ctrl or Alt.** Ctrl descends in fly mode (~1.8 m sunk between
       chips); Alt means *crawl* there, so it pairs. One line in `MiningController`.
-- [ ] **The heap and a wet slot**: his (c) is built on the branch `heap-lift` (`e0bcd91`, worktree
-      `.claude/worktrees/heap-lift`) and **held**: the heap buries its own ball's water. Question 2 (the plan,
-      "Decision 17's windowed reads"): (A) the heap waits for its vault's water, recommended; (B) the ball climbs
-      the heap; (C) merge as is. On his answer: build it on the branch, rerun the LakeTest3 recipe headless, merge.
+- [ ] **The heap and a wet slot**: his (c) and (A) are built on the branch `heap-lift` (`8c62e4b`, worktree
+      `.claude/worktrees/heap-lift`) and **held**: (A)'s exception let the heap go in a no-room rest and bury the
+      ball again (69.9 mÂ³). Question 3 (the plan, "Decision 17's windowed reads"): (A2) no exception, recommended;
+      (C) merge as built. On his answer: build it, rerun the LakeTest3 recipe with `--measure=` long enough, merge.
 - [ ] **Rename stage 4**, his: the local folder, and the assistant's memory directory keyed on the old
       folder path. The GitHub repo (`OverBurden`, 2026-10-12) and the remote URL (seen 2026-10-26) are done.
 

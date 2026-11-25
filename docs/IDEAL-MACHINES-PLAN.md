@@ -3191,6 +3191,33 @@ bone dry, which a working that has seen water rarely is. Even a dry one is wette
 - **Recommended: (A).** It is the smallest change, keeps IM-5a's ball, and with (c) the blocks then land in the water.
   *Revisit:* if a played dump's blocks feel too late, (B).
 
+**Taken: (A), 2026-11-25** (*"As recommended (A)"*). **Built the same day on the branch (`8c62e4b`) and held again**:
+- **What the branch does:** while a vault owes the cells water and its ball is not resting for no room, its whole heap
+  waits that boundary (`WaitsForItsWater`). The wait is counted as `PileWaitedWater` (vault-boundaries), on the
+  per-boundary line as `M waiting for their water` and first on the profile's `pile` line. A lake's share never holds
+  a heap back.
+- **Its checks:** three tests (the wait test red against the old order: all 400 blocks in the first boundary, the
+  water still pouring); twenty-four recipes, (c)'s sixteen and (A)'s eight, twenty-three red, the survivor (c)'s
+  predicted identity; suite 2,565; zero warnings from scratch on both builds; r6 exact. The tests also turned up that
+  in a sealed room the ball stands as a mound to the ceiling, so a heap starting as the water ends displaces some lifted
+  water, counted (590 L of 50 m³ in the fixture).
+- **Why it is held:** the recipe rerun headless with `--measure=600` (a copy of LakeTest3, deleted after):
+  - the fuse burnt about tick 239 and the heap waited 393 boundaries while 430 m³ poured, every line exact;
+  - then the ball rested for no room, the exception let the heap go, and its 32,000 voxels buried the ball again:
+    69.9 m³ owed from about tick 630 to the window's end, against 248.7 m³ with (c) alone;
+  - **the exception's premise fails in his pit.** A rest there is the water's mound reaching the ball's top (5 m round
+    the vault), not a full room. After its first 40 ticks (336 m³) the water left the ball at about 0.16 m³ a tick as
+    the cells levelled the mound, so waiting would have helped.
+
+**Question 3, the exception** (his):
+- **(A2) The heap waits for the whole of its water**, no exception. *Cost:* in his pit the blocks come back about ten
+  minutes after the fuse. That is an estimate: 112 m³ was still owed at tick 580, at the measured 0.16 m³ a tick, then
+  about 63 boundaries of blocks. In a room with truly no space, the blocks wait with the water until he digs some.
+  Nothing is buried and nothing is lost. One clause and one test change.
+- **(C) Merge (A) as built.** 69.9 m³ waits under the heap until it is dug away.
+- **Recommended: (A2).** *Revisit:* if ten minutes feels too long in his play, a faster pour (a ball that reaches
+  further into the pit) is a pass of its own, and it would let the exception come back.
+
 ## Must not ship
 
 1. A reserve floor under any name: a percentage kept back, a quarry that stops itself without a sensor he

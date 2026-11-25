@@ -159,11 +159,13 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
-- [ ] **Your (c) is built and waiting on one more choice** (2026-11-25). Blocks now land in water, and all 32,000
-      came back in your pit. But they went out faster than the water and buried the spot the water pours from, so
-      half the water stayed stuck under the heap. **(A) the blocks wait until the vault's water is out, then land
-      in it** (my pick: minutes later in a big dump); (B) the water climbs out over the top of the heap; (C) leave
-      it, and the water waits until you dig the heap away. "As recommended" or a letter back.
+- [ ] **Your (A) is built and needs one more word** (2026-11-25). The blocks now wait while the vault's water
+      pours, and 430 m³ of its 500 came out in your pit. But I let the blocks go whenever the water paused for lack
+      of room, and in your pit a pause only means the water's mound has reached the top of the spot it pours into
+      while it spreads. The blocks went in a pause and buried the rest: 70 m³ stuck. **(A2) the blocks wait for all
+      of the water, pause or not** (my pick: in your pit they come back about ten minutes after the fuse, my
+      estimate; in a room with truly no space, blocks and water both wait until you dig some); (C) leave it as
+      built, and the 70 m³ waits under the heap until you dig it away. "As recommended" or a letter back.
 - [ ] **The collapse: pieces that jump — I gave you the wrong size.** You said "leave it" when I
       said "at most a metre". On a copy of your tower, one piece jumped 4.5 m (about 20 pieces in
       800 jumped at all). Watch for it when you play: if you see a piece hop up, say "fix it" —
@@ -214,8 +216,8 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
-- **A vault's blocks in a wet mine** (2026-11-25): *"As recommended (c)"*, *"please Claude and thanks"*. Built on a
-  branch the same day, and held for the one choice under "Waiting on your word".
+- **A vault's blocks in a wet mine** (2026-11-25): *"As recommended (c)"*, *"please Claude and thanks"*, then *"As
+  recommended (A)"*. Both built on a branch the same day, and held for the one choice under "Waiting on your word".
 - **IM-6's twenty-six decisions** (2026-11-24): *"As recommended"*. So the vault comes in three steps: the insides,
   then the vault in your own LakeTest2 (the bank on the HUD, the stock panel, the siphon on T, the cyan glitch), then
   creative mode. P will give the backpack, a crate and the five vaults, pinned only. A vault's channel box opens
