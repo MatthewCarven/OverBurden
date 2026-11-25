@@ -29,10 +29,16 @@ namespace Overburden.Core.Machines;
 /// </para>
 /// <para>
 /// <b>A slot is refused, and its column waits for the next boundary,</b> when its chunk is not loaded to the
-/// water, when the live grid holds water there (the published copy misses this boundary's ball), when it is
-/// in a lake band (each chunk column covered the first time a boundary asks), inside the player, or reserved
-/// by a landing collapse. A slot the world has changed under is looked for again first: filled, the column's
-/// slot moves up; dug out from under, it falls.
+/// water, when it is in a lake band (each chunk column covered the first time a boundary asks), inside the
+/// player, or reserved by a landing collapse. A slot the world has changed under is looked for again first:
+/// filled, the column's slot moves up; dug out from under, it falls.
+/// </para>
+/// <para>
+/// <b>A wet slot takes its block</b> (decision 17's read, question 1, taken as (c) 2026-11-25). It used to wait,
+/// and in a working with water standing, or wet by the dump's own ball, it waited for good. The live grid's water
+/// there is lifted first through the collapse's door (<see cref="Fluid.ICollapseWater"/>), so no write lands in
+/// water. It goes back up the slot's column (<see cref="ReturnUpTheColumn"/>), or into the slot if the write is
+/// refused, and what has no room is displaced. <c>lifted == returned + displaced</c> is the pile's own line.
 /// </para>
 /// <para>
 /// <b>Only what can lie loose is piled</b> (decision 12) and <b>a dump heaps at most
@@ -112,16 +118,34 @@ public sealed partial class VaultDump
     /// <summary>Undo steps dropped for touching a chunk a pile wrote, over the lifetime (decision 13's own counter).</summary>
     public long PileStepsForgotten { get; private set; }
 
-    /// <summary>Column-boundaries a heap waited on, by why: not loaded to the water, wet, in a lake, the player, a landing collapse.</summary>
+    /// <summary>Column-boundaries a heap waited on, by why: not loaded to the water, in a lake, the player, a landing collapse.</summary>
     public long PileWaitedUnloaded { get; private set; }
-
-    public long PileWaitedWet { get; private set; }
 
     public long PileWaitedLake { get; private set; }
 
     public long PileWaitedPlayer { get; private set; }
 
     public long PileWaitedReserved { get; private set; }
+
+    /// <summary>
+    /// Millilitres the piles lifted out of the wet slots they wrote, over the lifetime (decision 17's read, question 1,
+    /// taken as (c) 2026-11-25), through the collapse's door. <c>lifted == returned + displaced</c> is the pile's own
+    /// line, and it is in <see cref="Exact"/>.
+    /// </summary>
+    public long PileLiftedMillilitres { get; private set; }
+
+    /// <summary>Of <see cref="PileLiftedMillilitres"/>, what went back: up the slot's column, or into the slot if the write was refused.</summary>
+    public long PileReturnedMillilitres { get; private set; }
+
+    /// <summary>Of <see cref="PileLiftedMillilitres"/>, what had no room within the climb: Tier B's displaced, never dropped.</summary>
+    public long PileDisplacedMillilitres { get; private set; }
+
+    /// <summary>
+    /// How far up its column a slot's lifted water climbs looking for room: the collapse's climb, so a block
+    /// and a falling piece push water the same distance. Past it, or at a solid voxel or a chunk whose water is
+    /// not home, the rest is displaced.
+    /// </summary>
+    public const int LiftClimbVoxels = Structure.CollapseDirector.MaxClimbVoxels;
 
     /// <summary>The chunks the piles wrote at the last boundary.</summary>
     public IReadOnlyCollection<ChunkPos> PileChunksLast => _pileChunks;
@@ -157,6 +181,7 @@ public sealed partial class VaultDump
         public int Waiting;
         public int NoRoom;
         public int Forgotten;
+        public long Lifted;
     }
 
     private enum SlotAnswer : byte
@@ -395,15 +420,22 @@ public sealed partial class VaultDump
                 break;
             }
 
+            // A wet slot takes its block and lifts its water first (decision 17's question 1, (c)), so no write lands
+            // in water: the collapse's door, which a fill into water and a placed body use too.
             int material = MostLeft();
+            long lifted = _fluid.Lift(slot);
+            PileLiftedMillilitres += lifted;
+            tally.Lifted += lifted;
             if (!_world!.SetVoxel(slot, material))
             {
+                PutLiftedBack(slot, lifted);
                 heap.Waiting.Add(column);
                 tally.Waiting++;
                 PileWaitedUnloaded++;
                 continue;
             }
 
+            ReturnUpTheColumn(slot, lifted);
             placed++;
             _pileChunks.Add(slot.Chunk);
             _pileVoxels.Add(slot);
@@ -583,12 +615,6 @@ public sealed partial class VaultDump
             return SlotAnswer.Waiting;
         }
 
-        if (_fluid.HeldAt(slot) > 0)
-        {
-            PileWaitedWet++;
-            return SlotAnswer.Waiting;
-        }
-
         if (_ceiling is not null)
         {
             if (_covered.Add((slot.X >> VoxelConstants.ChunkSizeLog2, slot.Z >> VoxelConstants.ChunkSizeLog2)))
@@ -655,6 +681,55 @@ public sealed partial class VaultDump
     /// Whether a voxel is open to the heap — air, and not in a machine's or a wreck's cell — or false when
     /// its chunk is not there to ask. Anything else, rock or a pile or a machine, is what a block rests on.
     /// </summary>
+    /// <summary>
+    /// A written slot's lifted water, up its column from the cell above: each cell asked while it is open to water
+    /// (not solid, its chunk's water home), up to <see cref="LiftClimbVoxels"/>; what is left is displaced.
+    /// </summary>
+    private void ReturnUpTheColumn(VoxelPos slot, long lifted)
+    {
+        if (lifted == 0)
+        {
+            return;
+        }
+
+        long remaining = lifted;
+        for (int up = 1; up <= LiftClimbVoxels && remaining > 0; up++)
+        {
+            VoxelPos cell = slot.Offset(0, up, 0);
+            if (!Ready(cell.Chunk) || !_world!.TryGetMaterial(cell, out int material) || (_materials?.IsSolid(material) ?? material != MaterialIds.AirNumericId))
+            {
+                break;
+            }
+
+            remaining = _fluid.Return(cell, remaining);
+        }
+
+        PileReturnedMillilitres += lifted - remaining;
+        Displace(remaining);
+    }
+
+    /// <summary>A refused write's water, straight back into its slot, the rest displaced: a write that lands nothing moves nothing.</summary>
+    private void PutLiftedBack(VoxelPos slot, long lifted)
+    {
+        if (lifted == 0)
+        {
+            return;
+        }
+
+        long remaining = _fluid.Return(slot, lifted);
+        PileReturnedMillilitres += lifted - remaining;
+        Displace(remaining);
+    }
+
+    private void Displace(long millilitres)
+    {
+        if (millilitres > 0)
+        {
+            _fluid.DisplaceLifted(millilitres);
+            PileDisplacedMillilitres += millilitres;
+        }
+    }
+
     private bool TryOpen(VoxelPos voxel, out bool open)
     {
         if (!_world!.TryGetMaterial(voxel, out int material))

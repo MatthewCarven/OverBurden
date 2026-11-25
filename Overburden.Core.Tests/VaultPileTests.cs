@@ -91,8 +91,11 @@ public class VaultPileTests
 
         public IEditJournal? Journal { get; set; }
 
-        /// <summary>Writes that landed in a cell the live grid held water in: a pile must make none.</summary>
+        /// <summary>Writes that landed in a cell the live grid held water in: a pile lifts first, so it must make none.</summary>
         public List<VoxelPos> WetWrites { get; } = [];
+
+        /// <summary>Every write refused while set, as a chunk the world will not take would refuse it.</summary>
+        public bool RefuseAll { get; set; }
 
         public bool CanHold(VoxelPos v) =>
             Loaded.Contains(v.Chunk) && !Placed.ContainsKey(v) && (Dug.Contains(v) || v.Y > seed.SurfaceHeightAt(v.X, v.Z));
@@ -119,7 +122,7 @@ public class VaultPileTests
 
         public bool SetVoxel(VoxelPos voxel, int materialId)
         {
-            if (!TryGetMaterial(voxel, out int was))
+            if (RefuseAll || !TryGetMaterial(voxel, out int was))
             {
                 return false;
             }
@@ -309,8 +312,12 @@ public class VaultPileTests
 
             Assert.InRange(report.VoxelsPiled, 0, VaultDump.VoxelsPerBoundary);
             Assert.InRange(report.PileChunks, 0, VaultDump.PileChunksPerBoundary);
+            ReportedLifted += report.PileLiftedMillilitres;
             return report;
         }
+
+        /// <summary>The reports' lifted water summed over every boundary run, against the dump's own counter.</summary>
+        public long ReportedLifted { get; private set; }
 
         /// <summary>Boundaries until no vault owes anything, each one's books checked unless a test has moved the world itself.</summary>
         public int RunToEnd(int cap = 400, bool books = true)
@@ -358,6 +365,31 @@ public class VaultPileTests
             Assert.True(Dump.Exact, "a twin disagrees with the dump's own counters");
             Assert.Equal(Machines.VoxelsDumped, Piled.LongCount());
             Assert.Empty(Terrain.WetWrites);
+
+            // The lift's two lines (decision 17's question 1): the pile's own, and Tier B's, which the pile shares
+            // with a fall and a fill into water and alone uses here.
+            Assert.Equal(Dump.PileLiftedMillilitres, Dump.PileReturnedMillilitres + Dump.PileDisplacedMillilitres);
+            Assert.Equal(Fluid.LiftedMillilitres, Fluid.ReturnedMillilitres + Fluid.LiftDisplacedMillilitres);
+            Assert.Equal(Dump.PileLiftedMillilitres, Fluid.LiftedMillilitres);
+            Assert.Equal(Dump.PileDisplacedMillilitres, Fluid.LiftDisplacedMillilitres);
+        }
+
+        /// <summary>A quarter-full cell of water on every floor voxel of the room outside the vault's footprint, as his pit's floor stood.</summary>
+        public long WetTheFloor(BrushCell vault)
+        {
+            long added = 0;
+            for (int z = 32; z <= 51; z++)
+            for (int x = 32; x <= 51; x++)
+            {
+                var v = new VoxelPos(x, RoomFloor, z);
+                if (!Inside(v, vault))
+                {
+                    long quarter = FluidConstants.CellCapacityMillilitres / 4;
+                    added += quarter - Fluid.Add(v, quarter);
+                }
+            }
+
+            return added;
         }
     }
 
@@ -616,19 +648,155 @@ public class VaultPileTests
 
     // ---------------------------------------------------------------- the refusals (decision 11)
 
+    // ---------------------------------------------------------------- a wet slot (decision 17's question 1, (c))
+
     [Fact]
-    public void APileNeverWritesIntoWaterAndBuildsOnWhatIsDry()
+    public void APileWritesIntoItsOwnWaterLiftingItUpItsColumn()
     {
-        // The vault's own water pours first each boundary (decision 37), so its floor is wet while the pile runs.
+        // The vault's own water pours first each boundary (decision 37), so its floor is wet while the pile runs. The
+        // blocks waited for dry ground until 2026-11-25; now a wet slot takes its block and its water climbs the column.
         var rig = new Rig();
         rig.Owing(Middle, [(Dirt, 100)], water: 2 * CubicMetre);
 
         rig.RunToEnd();
 
         Assert.Equal(100, rig.Dump.VoxelsPiled);
-        Assert.True(rig.Dump.PileWaitedWet > 0, "the water never stood in the pile's way — the test would not see a wet write");
+        Assert.True(rig.Dump.PileLiftedMillilitres > 0, "the water never stood in the pile's way — the test would not see a wet write");
+        Assert.Equal(rig.Dump.PileLiftedMillilitres, rig.Dump.PileReturnedMillilitres);
+        Assert.Equal(0, rig.Dump.PileDisplacedMillilitres);
+        Assert.Equal(rig.Dump.PileLiftedMillilitres, rig.ReportedLifted);
         Assert.Equal(2 * CubicMetre, rig.Fluid.DumpedMillilitres);
         Assert.Equal(0, rig.Fluid.DisplacedMillilitres);
+        rig.AssertBooks();
+    }
+
+    [Fact]
+    public void AWetFloorNoLongerHoldsTheBlocksBack()
+    {
+        // Decision 17's windowed read: water standing on the floor before the dump, and a vault of blocks only. Every
+        // slot the heap reaches is wet, and in his pit 32,000 voxels waited for good.
+        var rig = new Rig();
+        rig.Owing(Middle, [(Dirt, 400)]);
+        long sheet = rig.WetTheFloor(Middle);
+        Assert.True(sheet > 0);
+
+        rig.RunToEnd();
+
+        Assert.Equal(400, rig.Dump.VoxelsPiled);
+        Assert.True(rig.Dump.PileLiftedMillilitres > 0);
+        Assert.Equal(0, rig.Dump.PileDisplacedMillilitres);
+        Assert.Equal(sheet, rig.Fluid.TotalMillilitres);
+        rig.AssertBooks();
+    }
+
+    [Fact]
+    public void LiftedWaterWithNoRoomUpItsColumnIsDisplacedAndCounted()
+    {
+        // Rock a voxel over the vault's top (un-dug, so it is the seed's rock and the books' count of piled voxels
+        // stays the pile's), and water standing full on the vault. The heap's columns on the vault rest at its top
+        // with the rock the next voxel up, so a slot's water can climb nowhere: it is displaced, never passed through
+        // the rock into the air over it. No step, so the water stands where it was put.
+        var rig = new Rig();
+        VoxelPos o = Middle.OriginVoxel;
+        int top = o.Y + BrushCell.Voxels;
+        long water = 0;
+        for (int z = o.Z; z < o.Z + BrushCell.Voxels; z++)
+        for (int x = o.X; x < o.X + BrushCell.Voxels; x++)
+        {
+            Assert.True(rig.Terrain.Dug.Remove(new VoxelPos(x, top + 1, z)));
+        }
+
+        rig.Owing(Middle, [(Dirt, 400)]);
+        for (int z = o.Z; z < o.Z + BrushCell.Voxels; z++)
+        for (int x = o.X; x < o.X + BrushCell.Voxels; x++)
+        {
+            water += FluidConstants.CellCapacityMillilitres - rig.Fluid.Add(new VoxelPos(x, top, z), FluidConstants.CellCapacityMillilitres);
+        }
+
+        for (int boundaries = 0; rig.Contents(Middle).Owes; boundaries++)
+        {
+            Assert.True(boundaries < 50, "the dump never ended");
+            rig.Boundary(step: false);
+            rig.AssertBooks();
+        }
+
+        Assert.Equal(400, rig.Dump.VoxelsPiled);
+        Assert.True(rig.Dump.PileDisplacedMillilitres > 0, "no slot on the vault was written — the test would not see a climb stopped");
+        Assert.Equal(rig.Dump.PileDisplacedMillilitres, rig.Fluid.LiftDisplacedMillilitres);
+        Assert.Equal(water - rig.Dump.PileDisplacedMillilitres, rig.Fluid.TotalMillilitres);
+        for (int z = o.Z; z < o.Z + BrushCell.Voxels; z++)
+        for (int x = o.X; x < o.X + BrushCell.Voxels; x++)
+        {
+            Assert.Equal(0, rig.Fluid.HeldAt(new VoxelPos(x, top + 2, z)));
+        }
+
+        rig.AssertBooks();
+    }
+
+    [Fact]
+    public void TheClimbStopsAtAChunkWhoseWaterIsNotHome()
+    {
+        // A shaft over the vault's west side, from the room's ceiling into the chunk above, whose voxels are loaded and
+        // whose water is not yet home. The shaft's columns are full of water to the chunk's edge, so a lifted slot's
+        // water climbs to the edge and must stop there: a return into a chunk whose water is on the lane is refused.
+        var rig = new Rig();
+        var above = new ChunkPos(1, 1, 1);
+        rig.DigBox(38, RoomCeiling + 1, 39, 39, 40, 44);
+        rig.Terrain.WaterLoaded.Remove(above);
+        rig.Owing(Middle, [(Dirt, 20)]);
+        for (int z = 39; z <= 44; z++)
+        for (int x = 38; x <= 39; x++)
+        for (int y = RoomFloor; y < VoxelConstants.ChunkSize; y++)
+        {
+            Assert.Equal(0, rig.Fluid.Add(new VoxelPos(x, y, z), FluidConstants.CellCapacityMillilitres));
+        }
+
+        rig.Boundary(step: false);
+
+        Assert.True(rig.Dump.PileLiftedMillilitres > 0, "no slot in the shaft was written");
+        Assert.True(rig.Dump.PileDisplacedMillilitres > 0);
+        for (int z = 39; z <= 44; z++)
+        for (int x = 38; x <= 39; x++)
+        for (int y = VoxelConstants.ChunkSize; y <= 40; y++)
+        {
+            Assert.Equal(0, rig.Fluid.HeldAt(new VoxelPos(x, y, z)));
+        }
+
+        rig.AssertBooks();
+    }
+
+    [Fact]
+    public void ARefusedWritePutsItsWaterBack()
+    {
+        // A write the world refuses lands nothing, so it moves nothing: the slot's water goes straight back into it.
+        var rig = new Rig();
+        rig.Owing(Middle, [(Dirt, 20)]);
+        rig.WetTheFloor(Middle);
+        var before = new Dictionary<VoxelPos, long>();
+        for (int z = 32; z <= 51; z++)
+        for (int x = 32; x <= 51; x++)
+        {
+            var v = new VoxelPos(x, RoomFloor, z);
+            before[v] = rig.Fluid.HeldAt(v);
+        }
+
+        rig.Terrain.RefuseAll = true;
+        DumpReport refused = rig.Boundary(step: false);
+
+        Assert.Equal(0, refused.VoxelsPiled);
+        Assert.True(rig.Dump.PileLiftedMillilitres > 0, "no wet slot was tried — the test would not see a refusal");
+        Assert.Equal(rig.Dump.PileLiftedMillilitres, rig.Dump.PileReturnedMillilitres);
+        Assert.Equal(0, rig.Dump.PileDisplacedMillilitres);
+        foreach ((VoxelPos v, long held) in before)
+        {
+            Assert.Equal(held, rig.Fluid.HeldAt(v));
+        }
+
+        rig.AssertBooks();
+
+        rig.Terrain.RefuseAll = false;
+        rig.RunToEnd();
+        Assert.Equal(20, rig.Dump.VoxelsPiled);
         rig.AssertBooks();
     }
 

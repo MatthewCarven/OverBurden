@@ -31,10 +31,11 @@ public enum DumpEnd : byte
 /// <param name="Piling">Vaults whose pile took its turn this boundary (IM-5b).</param>
 /// <param name="VoxelsPiled">Voxels the piles wrote into the world this boundary.</param>
 /// <param name="PileChunks">Chunks those voxels went into: at most <see cref="VaultDump.PileChunksPerBoundary"/>.</param>
-/// <param name="PileWaiting">Heap columns passed over this boundary for a refusal — wet, in a lake, the player, a landing collapse, not loaded.</param>
+/// <param name="PileWaiting">Heap columns passed over this boundary for a refusal — in a lake, the player, a landing collapse, not loaded.</param>
 /// <param name="PileNoRoom">Piles resting after their heap found no room within 32 m.</param>
 /// <param name="VoxelsDecohered">Voxels decohered this boundary: what cannot lie loose, and what is past the heap's ceiling.</param>
 /// <param name="StepsForgotten">Undo steps dropped because they touched a chunk a pile wrote (decision 13).</param>
+/// <param name="PileLiftedMillilitres">Water the piles lifted out of wet slots this boundary, to go back up their columns (decision 17's question 1).</param>
 public readonly record struct DumpReport(
     int Owing,
     int Admitted,
@@ -56,7 +57,8 @@ public readonly record struct DumpReport(
     int PileWaiting = 0,
     int PileNoRoom = 0,
     long VoxelsDecohered = 0,
-    int StepsForgotten = 0)
+    int StepsForgotten = 0,
+    long PileLiftedMillilitres = 0)
 {
     public bool DidAnything =>
         Admitted + Ended + WrecksRemoved + CellsVisited + Piling > 0
@@ -67,6 +69,7 @@ public readonly record struct DumpReport(
         + $"dumped {DumpedLitres:N0} L ({SpilledLitres:N0} L spilled) + {DumpedMillilitres:N0} mL, decohered {DecoheredMillilitres:N0} mL; "
         + $"owed: {Unloaded} unloaded, {Unanalysed} unanalysed, {NoRoom} no room; "
         + $"{Piling} piling: {VoxelsPiled:N0} voxel(s) into {PileChunks} chunk(s), {PileWaiting} column(s) waiting, {PileNoRoom} no room, "
+        + $"{PileLiftedMillilitres:N0} mL of water lifted, "
         + $"{VoxelsDecohered:N0} voxel(s) decohered, {StepsForgotten} undo step(s) forgotten; "
         + $"{Ended} back to holding, {WrecksRemoved} wreck(s) removed";
 }
@@ -116,8 +119,8 @@ public readonly record struct DumpReport(
 /// store's voxel <c>dumped</c> and <c>decohered</c> and its voxel line.
 /// </para>
 /// <para>
-/// <b>The blocks are a pile</b> (IM-5b), last in the boundary, into what is still dry: see the other half
-/// of this class, <c>VaultDump.Pile.cs</c>.
+/// <b>The blocks are a pile</b> (IM-5b), last in the boundary, a wet slot's water lifted up its column first
+/// (decision 17's question 1, 2026-11-25): see the other half of this class, <c>VaultDump.Pile.cs</c>.
 /// </para>
 /// </remarks>
 public sealed partial class VaultDump
@@ -264,7 +267,7 @@ public sealed partial class VaultDump
     /// Every twin against the dump's own counters, since construction, and the store's two lines: Tier B's
     /// <c>dumped</c>, Tier A's, the store's water <c>dumped</c> (both tiers, a thousand to the litre) and
     /// <c>decohered</c>, the store's voxel <c>dumped</c> and <c>decohered</c> against the pile's (IM-5b), the
-    /// water line and the voxel line. The machine layer's rule in the dump's shape.
+    /// water line and the voxel line, and the pile's lift line (2026-11-25). The machine layer's rule in the dump's shape.
     /// </summary>
     public bool Exact =>
         _fluid.DumpedMillilitres - _dumpedBBase == DumpedMillilitres
@@ -274,13 +277,14 @@ public sealed partial class VaultDump
         && _machines.VoxelsDumped - _voxelsDumpedBase == VoxelsPiled
         && _machines.VoxelsDecohered - _voxelsDecoheredBase == VoxelsDecohered
         && _machines.StoreWaterExact
-        && _machines.StoreExact;
+        && _machines.StoreExact
+        && PileLiftedMillilitres == PileReturnedMillilitres + PileDisplacedMillilitres;
 
     /// <summary>
     /// One boundary (decision 9: after the machine tick, so a fuse that burns out releases in the same
     /// boundary): every owing vault by position, the new ones checked against the ceilings, then each lake's
-    /// share, then the balls within the budget, then the piles into what is still dry (decision 37); last,
-    /// the wrecks this left empty removed.
+    /// share, then the balls within the budget, then the piles (decision 37), lifting a wet slot's water up its
+    /// column (decision 17's question 1); last, the wrecks this left empty removed.
     /// </summary>
     /// <param name="player">The player's body in voxels, which a pile never builds inside — Place's test; null in fly mode.</param>
     public DumpReport Run((VoxelPos Min, VoxelPos Max)? player = null)
@@ -463,7 +467,8 @@ public sealed partial class VaultDump
             owing, admitted, toLakes, toCells, unloaded, unanalysed, noRoom, visited,
             DumpedLitres - dumpedA, SpilledLitres - spilled, DumpedMillilitres - dumpedB, DecoheredMillilitres - decohered,
             (int)(_machines.DumpsEnded - ended), removed,
-            pile.Piling, pile.Voxels, _pileChunks.Count, pile.Waiting, pile.NoRoom, VoxelsDecohered - voxelsDecohered, pile.Forgotten);
+            pile.Piling, pile.Voxels, _pileChunks.Count, pile.Waiting, pile.NoRoom, VoxelsDecohered - voxelsDecohered, pile.Forgotten,
+            pile.Lifted);
         return Last;
     }
 
