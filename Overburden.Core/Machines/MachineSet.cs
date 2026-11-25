@@ -182,6 +182,40 @@ public sealed partial class MachineSet : IMachineBodies
         return landed;
     }
 
+    /// <summary>
+    /// Millijoules granted onto placed storage rows by <see cref="Grant"/> — creative's first-cell gift (IM-6's pass,
+    /// decision 23), and nothing else. A term of its own in the pool identity, never folded into
+    /// <see cref="StoredMillijoulesEntering"/> beside restores and <c>Alt+P</c>, so a gift that went in twice shows.
+    /// </summary>
+    public long StoredMillijoulesGranted { get; private set; }
+
+    /// <summary>
+    /// The first-cell gift, armed by the Game in a creative world whose header has not recorded it; null everywhere
+    /// else, sandbox included. <see cref="NotePlaced"/> — a body placed, never a restore or an undo — offers it each row.
+    /// </summary>
+    public FirstCellGift? Gift { get; set; }
+
+    /// <summary>
+    /// Grants <paramref name="millijoules"/> onto the placed storage row at <paramref name="cell"/>, clamped to its
+    /// capacity, counted <see cref="StoredMillijoulesGranted"/> — creative's gift, the one door it has.
+    /// </summary>
+    /// <returns>What the row was given, or −1 when the cell holds no placed storage row.</returns>
+    public long Grant(BrushCell cell, long millijoules)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(millijoules);
+        if (!_rows.TryGetValue(cell, out MachineRow? row)
+            || _materials?.Machine(row.MaterialId) is not { Kind: MachineKind.Storage, Carried: false } storage)
+        {
+            return -1;
+        }
+
+        long before = StorageState.Read(row);
+        long after = Math.Min(storage.CapacityMillijoules, before + Math.Min(millijoules, storage.CapacityMillijoules));
+        StorageState.Write(row, after);
+        StoredMillijoulesGranted += after - before;
+        return after - before;
+    }
+
     /// <summary>A placed storage row's capacity in millijoules, or zero when its material is not a storage here.</summary>
     public long CapacityOf(MachineRow row) =>
         _materials?.Machine(row.MaterialId) is { Kind: MachineKind.Storage, Carried: false } storage ? storage.CapacityMillijoules : 0;
@@ -245,6 +279,10 @@ public sealed partial class MachineSet : IMachineBodies
     {
         Add(row);
         Placed++;
+
+        // After Add, so the journal holds the row as placed, empty: Ctrl+Z of this placement then removes the row and
+        // its gift through `leaving`, and the gift is gone (decision 23), while a pick and its undo carry the charge.
+        Gift?.Offer(this, row);
     }
 
     /// <summary>

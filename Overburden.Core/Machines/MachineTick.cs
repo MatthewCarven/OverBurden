@@ -692,16 +692,19 @@ public sealed class MachineTick : IChannelBank
         }
     }
 
+    /// <summary>Millijoules granted onto placed cells — creative's first-cell gift (IM-6c) — the set's term, read here beside the identity's others.</summary>
+    public long GrantedMillijoules => _machines.StoredMillijoulesGranted;
+
     /// <summary>
     /// The pool's identity over the session: every millijoule on a row (a cell's charge or a vault's
     /// own) or in the pack now is one
-    /// that entered on a row, was generated, or was in a pack at hand-over, less what left on a
-    /// row, what the pumps paid, what was clamped, what the tool took and what a swap stowed.
-    /// No term is in flight.
+    /// that entered on a row, was granted onto one (creative's first cell, IM-6c), was generated, or was
+    /// in a pack at hand-over, less what left on a row, what the pumps paid, what was clamped, what the
+    /// tool took and what a swap stowed. No term is in flight.
     /// </summary>
     public bool PowerExact =>
         StoredMillijoules + (Pack?.ChargeMillijoules ?? 0)
-        == _machines.StoredMillijoulesEntering - _machines.StoredMillijoulesLeaving
+        == _machines.StoredMillijoulesEntering - _machines.StoredMillijoulesLeaving + _machines.StoredMillijoulesGranted
             + GeneratedMillijoules - DrawnByPumpsMillijoules - ClampedMillijoules - HeldMillijoules
             + PackInitialMillijoules + PackDebugMillijoules - PackTakenMillijoules - PackStowedMillijoules
             - SiphonPaidMillijoules;

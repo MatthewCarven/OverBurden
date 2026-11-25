@@ -35,6 +35,39 @@ public class ShippedContentTests
     }
 
     [Fact]
+    public void TheBaseGamesKitIsDecisionTwentyTwosAsIMSixCanFillIt()
+    {
+        // IM-6's pass, decision 22: two cells, eight panels, four pumps and four outlets; one vault of each grade and a
+        // crate; the computer; 4,096 m³ each of stone, clay and glass; the quantum backpack worn on channel 0; and the
+        // row stone, clay, glass, the cell, the panel, the pump, the outlet, the high vault, the crate.
+        var content = new GameContent();
+        LoadResult result = content.Load(new DirectoryContentSource(ModsDirectory()));
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+
+        KitDefinition kit = Assert.Single(content.Kits.Kits);
+        Assert.Equal(Identifier.Parse("overburden:creative"), kit.Id);
+        Dictionary<string, long> counts = kit.Materials.ToDictionary(entry => entry.Material.Path, entry => entry.Count);
+        Assert.Equal(
+            new Dictionary<string, long>
+            {
+                ["vacuum_cell"] = 2, ["solar_panel"] = 8, ["relay_pump"] = 4, ["relay_outlet"] = 4,
+                ["quantum_vault/low"] = 1, ["quantum_vault/medium"] = 1, ["quantum_vault/high"] = 1,
+                ["quantum_vault/mythical"] = 1, ["quantum_vault/god"] = 1, ["crate"] = 1,
+                ["computer"] = 1, ["stone"] = 4096, ["clay"] = 4096, ["glass"] = 4096,
+            },
+            counts);
+        Assert.Equal(
+            ["stone", "clay", "glass", "vacuum_cell", "solar_panel", "relay_pump", "relay_outlet", "quantum_vault/high", "crate"],
+            kit.Row!.Select(slot => slot!.Value.Path));
+        Assert.Equal(new KitPack(Identifier.Parse("overburden:quantum_backpack"), 0), kit.Pack);
+
+        // In voxels: 4,096 m³ is 4,096 cells of 64, a body is 64, the computer a piece.
+        Inventory.KitGrantPlan plan = Inventory.KitGrant.Plan(content.Kits, content.Materials);
+        long expected = (3 * 4096L * 64) + ((2 + 8 + 4 + 4 + 5 + 1) * 64L) + 1;
+        Assert.Equal(expected, plan.TotalVoxels);
+    }
+
+    [Fact]
     public void EveryFileOnDiskIsAccountedForInTheLoadResult()
     {
         // Counts against the directory rather than against a literal, so adding a material or
@@ -47,6 +80,7 @@ public class ShippedContentTests
 
         Assert.Equal(Count(mods, "materials"), result.MaterialsLoaded);
         Assert.Equal(Count(mods, "tools"), result.ToolsLoaded);
+        Assert.Equal(Count(mods, "kits"), result.KitsLoaded);
         Assert.True(result.ToolsLoaded > 0, "the base game must ship something to mine with");
 
         static int Count(string mods, string kind) =>

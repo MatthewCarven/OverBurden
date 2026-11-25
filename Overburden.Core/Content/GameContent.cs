@@ -29,6 +29,9 @@ public sealed class GameContent
     /// <summary>Every mod's <c>extras.json</c>, unioned (IDEAL-MACHINES-PLAN decision 3): which form each extra takes over each medium.</summary>
     public ExtrasTable Extras { get; } = new();
 
+    /// <summary>Every mod's kits (IM-6's pass, decision 22): what a creative world is given once, at creation.</summary>
+    public KitTable Kits { get; } = new();
+
     private readonly MachineExtra _servedExtras;
 
     /// <param name="servedExtras">
@@ -56,6 +59,6 @@ public sealed class GameContent
             Materials.SeedIdTable(savedMaterialIds);
         }
 
-        return new ContentLoader(_servedExtras).Load(source, Materials, Tools, Extras);
+        return new ContentLoader(_servedExtras).Load(source, Materials, Tools, Extras, Kits);
     }
 }

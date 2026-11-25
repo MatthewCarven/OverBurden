@@ -32,11 +32,17 @@ public sealed class LoadResult
     /// </summary>
     public required int ExtrasLoaded { get; init; }
 
+    /// <summary>
+    /// Kits read from the mods' <c>kits/</c> folders, after conflicts (IM-6's pass, decision 22).
+    /// <c>required</c> for <see cref="ToolsLoaded"/>'s reason.
+    /// </summary>
+    public required int KitsLoaded { get; init; }
+
     public bool Success => Errors.Count == 0;
 
     public override string ToString() =>
         $"{Mods.Count} mod(s), {MaterialsLoaded} material(s), {ToolsLoaded} tool(s), " +
-        $"{ExtrasLoaded} extra reach(es), {Errors.Count} error(s)";
+        $"{ExtrasLoaded} extra reach(es), {KitsLoaded} kit(s), {Errors.Count} error(s)";
 }
 
 /// <summary>
@@ -80,10 +86,12 @@ public sealed class ContentLoader
         IContentSource source,
         Registry<MaterialDefinition> materials,
         Registry<ToolDefinition> tools,
-        ExtrasTable? extras = null)
+        ExtrasTable? extras = null,
+        KitTable? kits = null)
     {
         var errors = new List<string>();
         extras ??= new ExtrasTable();
+        kits ??= new KitTable();
 
         // Pin air to 0 before anything else can take the slot. This reserves the number
         // only — air's properties still have to arrive from JSON below.
@@ -97,7 +105,7 @@ public sealed class ContentLoader
 
             return new LoadResult
             {
-                Mods = [], Errors = errors, MaterialsLoaded = 0, ToolsLoaded = 0, ExtrasLoaded = 0,
+                Mods = [], Errors = errors, MaterialsLoaded = 0, ToolsLoaded = 0, ExtrasLoaded = 0, KitsLoaded = 0,
             };
         }
 
@@ -121,6 +129,13 @@ public sealed class ContentLoader
             toolCount += LoadTools(source, manifest, tools, errors);
         }
 
+        // Kits after every mod's materials (IM-6's pass, decision 22), since a kit may name another mod's material,
+        // and in load order, so a conflict names the same two files whatever order the mods were listed in.
+        foreach (var manifest in manifests)
+        {
+            LoadKits(source, manifest, materials, kits, errors);
+        }
+
         if (!materials.Contains(MaterialIds.Air) || materials.IsPlaceholder(MaterialIds.AirNumericId))
         {
             errors.Add(
@@ -138,7 +153,182 @@ public sealed class ContentLoader
             MaterialsLoaded = materialCount,
             ToolsLoaded = toolCount,
             ExtrasLoaded = extras.Count,
+            KitsLoaded = kits.Count,
         };
+    }
+
+    /// <summary>The most of one material a kit may name, in the hotbar's units: a billion of anything is a typo, and the cap keeps the voxel sums far from overflow.</summary>
+    public const long MaxKitCount = 1_000_000_000;
+
+    /// <summary>
+    /// Reads one mod's kits (IM-6's pass, decision 22), strictly: every key known, every material one this content
+    /// defines and the pocket can hold, the row nine slots, the pack a carried storage on a channel. A file with any
+    /// fault is refused whole, naming it; a kit that conflicts with an earlier one is refused naming both files.
+    /// </summary>
+    private static void LoadKits(
+        IContentSource source,
+        ModManifest manifest,
+        Registry<MaterialDefinition> materials,
+        KitTable kits,
+        List<string> errors)
+    {
+        foreach (string path in source.ListFiles(manifest.Id, KitTable.Folder, ".json"))
+        {
+            string? json = source.ReadText(manifest.Id, path);
+            if (json is null) continue;
+
+            string file = $"{manifest.Id}/{path}".Replace('\\', '/');
+            if (!TryReadStrict<KitJson>(json, file, errors, out var dto) || dto is null)
+            {
+                continue;
+            }
+
+            if (ReadKit(dto, manifest, file, materials, errors) is { } kit
+                && !kits.TryAdd(kit, out string? conflict))
+            {
+                errors.Add($"{file}: {conflict}");
+            }
+        }
+    }
+
+    /// <summary>One kit file's contents, checked; null, with its faults in <paramref name="errors"/>, when any fails.</summary>
+    private static KitDefinition? ReadKit(
+        KitJson dto, ModManifest manifest, string file, Registry<MaterialDefinition> materials, List<string> errors)
+    {
+        int before = errors.Count;
+
+        if (dto.Id is null)
+        {
+            errors.Add($"{file}: no 'id'.");
+            return null;
+        }
+
+        if (!Identifier.TryParse(dto.Id, manifest.Id, out Identifier id, out string? idError))
+        {
+            errors.Add($"{file}: {idError}");
+            return null;
+        }
+
+        // A material the kit may name: defined here, not air, and not a fluid, which the pocket refuses (IM-4's
+        // decision 8) — a kit of water would be granted and lost without a word.
+        Identifier? Holdable(string text, string where)
+        {
+            if (!Identifier.TryParse(text, manifest.Id, out Identifier material, out string? error))
+            {
+                errors.Add($"{file}: {where}: {error}");
+                return null;
+            }
+
+            if (!materials.TryGet(material, out MaterialDefinition? definition) || definition.IsUnknown)
+            {
+                errors.Add($"{file}: {where}: {material} is not a material any loaded mod defines.");
+                return null;
+            }
+
+            if (definition.IsAir)
+            {
+                errors.Add($"{file}: {where}: air is not something anyone can carry.");
+                return null;
+            }
+
+            if (definition.IsFluid)
+            {
+                errors.Add($"{file}: {where}: {material} is a fluid, which the pocket never holds; water is the store's, through the siphon.");
+                return null;
+            }
+
+            return material;
+        }
+
+        var granted = new List<KitMaterial>();
+        foreach ((string name, long? count) in dto.Materials ?? [])
+        {
+            if (Holdable(name, $"materials.{name}") is not { } material)
+            {
+                continue;
+            }
+
+            if (count is not { } units || units < 1 || units > MaxKitCount)
+            {
+                errors.Add($"{file}: materials.{name}: the count must be a whole number from 1 to {MaxKitCount:N0}, in the hotbar's units.");
+                continue;
+            }
+
+            if (granted.Exists(entry => entry.Material == material))
+            {
+                errors.Add($"{file}: materials.{name}: {material} is named twice; a kit names each material once.");
+                continue;
+            }
+
+            granted.Add(new KitMaterial(material, units));
+        }
+
+        List<Identifier?>? row = null;
+        if (dto.Row is { } slots)
+        {
+            if (slots.Count != Inventory.HotbarSlots.Count)
+            {
+                errors.Add($"{file}: row holds {slots.Count} slot(s); the hotbar has exactly {Inventory.HotbarSlots.Count}, null for an empty one.");
+            }
+            else
+            {
+                row = [];
+                for (int slot = 0; slot < slots.Count; slot++)
+                {
+                    if (slots[slot] is not { } text)
+                    {
+                        row.Add(null);
+                        continue;
+                    }
+
+                    Identifier? material = Holdable(text, $"row[{slot}]");
+                    if (material is { } named && row.Contains(named))
+                    {
+                        errors.Add($"{file}: row[{slot}]: {named} is on the row already; a material is on the row once.");
+                    }
+
+                    row.Add(material);
+                }
+            }
+        }
+
+        KitPack? pack = null;
+        if (dto.Pack is { } packDto)
+        {
+            if (packDto.Material is null)
+            {
+                errors.Add($"{file}: pack: no 'material'.");
+            }
+            else if (Holdable(packDto.Material, "pack.material") is { } packMaterial)
+            {
+                int channel = packDto.Channel ?? 0;
+                if (materials.Get(packMaterial).Machine is not { Kind: MachineKind.Storage, Carried: true })
+                {
+                    errors.Add($"{file}: pack.material: {packMaterial} is not a pack (a carried storage), so it cannot be worn.");
+                }
+                else if (channel < 0 || channel >= MachineTick.Channels)
+                {
+                    errors.Add($"{file}: pack.channel: {channel} is not a channel; channels are 0..{MachineTick.Channels - 1}.");
+                }
+                else
+                {
+                    pack = new KitPack(packMaterial, channel);
+                }
+            }
+        }
+
+        if (errors.Count > before)
+        {
+            return null;
+        }
+
+        if (granted.Count == 0 && row is null && pack is null)
+        {
+            errors.Add($"{file}: kit {id} grants nothing: no materials, no row and no pack.");
+            return null;
+        }
+
+        return new KitDefinition { Id = id, File = file, Materials = granted, Row = row, Pack = pack };
     }
 
     /// <summary>
@@ -1184,6 +1374,21 @@ public sealed class ContentLoader
         public ToolPowerJson? Power { get; set; }
         public string? Bite { get; set; }
         public string? Takes { get; set; }
+    }
+
+    /// <summary>A kit file (IM-6's pass, decision 22): its ID, materials and counts, and optionally the row and the pack.</summary>
+    private sealed class KitJson
+    {
+        public string? Id { get; set; }
+        public Dictionary<string, long?>? Materials { get; set; }
+        public List<string?>? Row { get; set; }
+        public KitPackJson? Pack { get; set; }
+    }
+
+    private sealed class KitPackJson
+    {
+        public string? Material { get; set; }
+        public int? Channel { get; set; }
     }
 
     private sealed class ToolPowerJson

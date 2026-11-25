@@ -1,0 +1,22 @@
+{
+  "$comment": "What a creative world starts with (IDEAL-MACHINES-PLAN decision 53; IM-6's pass, decision 22), granted once, at creation, into the pocket. Counts are in the hotbar's units: a body, a cubic metre, a piece. Every mod's kits are summed; one kit may set the row and one may put a pack on. Sensors and quarries join this file with their slices (collapse f-2, IM-8, IM-9). The first vacuum cell placed in a creative world arrives holding 1 GJ, once; that is decision 23's door, not this file's.",
+  "id": "creative",
+  "materials": {
+    "vacuum_cell": 2,
+    "solar_panel": 8,
+    "relay_pump": 4,
+    "relay_outlet": 4,
+    "quantum_vault/low": 1,
+    "quantum_vault/medium": 1,
+    "quantum_vault/high": 1,
+    "quantum_vault/mythical": 1,
+    "quantum_vault/god": 1,
+    "crate": 1,
+    "computer": 1,
+    "stone": 4096,
+    "clay": 4096,
+    "glass": 4096
+  },
+  "row": ["stone", "clay", "glass", "vacuum_cell", "solar_panel", "relay_pump", "relay_outlet", "quantum_vault/high", "crate"],
+  "pack": { "material": "quantum_backpack", "channel": 0 }
+}
