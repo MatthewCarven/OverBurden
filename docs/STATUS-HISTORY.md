@@ -13,6 +13,42 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md at the 2026-11-26 close (IM-6c, creative):**
+
+**2026-11-25 — IM-6b, the wire and content, is built and on main** ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md),
+"IM-6b — built"). Decisions 6–18 of IM-6's pass, on IM-6a's Core; IM-6a's hand-over is in STATUS-HISTORY. **The vault,
+the bank, water and the dump play in a sandbox world through P and Alt+P, with no save change.** His play is the
+test: his list's "The vault, your first play of it", in LakeTest2.
+- **The siphon on T behind the clicks' water branch**, which landed first (`c85d76b`): Core's `SiphonClicks` routes a
+  water tier's left click and Q to a take and its right click to a pour, before either controller is asked, and each
+  controller has a guard of its own. T has seven stops.
+- **The content**: `quantum_vault/low` to `/god` at the grade table, the crate, three siphons, textures 15–20; a path
+  `a/b` reads "a (b)" (`ContentLabel`). **P** seeds the backpack, the crate and the five vaults, off the row
+  (`MaterialTable.OffTheRow`), so slot 9 stays the first stone's.
+- **The HUD**: the bank line (`BankLine`, Core) replaces a window's `0 mJ / 0 mJ`; the fuse's top line; water as a
+  gauge right of slot 9.
+- **The panel**: a stock section on a vault, a crate and the backpack (`MachinePanel.Stock.cs`), its verbs through
+  `StoreMoves`; his warranty line; the channel box behind a padlock; power in watts, a pump's draw shown at last.
+- **The glitches**, windowed only (`VaultGlitch`): a fusing vault's body, and the pile's blocks as one MultiMesh.
+- **The lines and doors**: the store on the periodic `M10:` line, `| hud:` for the bank and fuse lines, `M10: vault —`
+  and `M10: bank —`; `--placeat=` (f-2 reuses it), `--deposit=`, `--tool=`.
+- **Ten build choices** are listed in the plan for his word.
+- **Checked:** suite **2,558**; a battery of 57 recipes, 57 red, and eight Game-side recipes headless (both guards of
+  each verb caught, each guard alone holding by design); three headless oracles, every line exact; zero warnings from
+  both builds from scratch; r6 `2601 / 325 / 3446 at 411`.
+- **Decision 17's windowed reads ran the same day** (the plan, "Decision 17's windowed reads"): a real dump in a copy
+  of `LakeTest3`'s pit installs at 28.6 ms mean / 221 max, under both bars, so the ceiling stands. **But the heap
+  never came back**: it refused a wet slot (IM-5b). **His answers, (c), (A) and (A2), are built and on main the same
+  day**: a heap waits until its vault's water is all out, then its blocks land in the water and lift it up their
+  columns by the collapse's door (the plan, "Taken: (A2)").
+  `--fillcells` and the profile's `pile` line were added for the read. Headless draws no HUD, panel or glitch, so
+  every look is his play's.
+- **Standing from the alpha** (its hand-overs are in STATUS-HISTORY): 0.1.3-alpha is the latest release, a GitHub
+  pre-release, and `releases/latest` skips pre-releases, so the README links to `/releases`. **The next zip carries**
+  D's player text, Ctrl+P (2026-11-04), f-1's `onsignal` box and IM-6b's vault; none is scheduled. A fresh worktree's
+  export rewrites `Overburden.Game/icon.svg.import` with LF endings, so `make-alpha.ps1` warns of uncommitted changes
+  there.
+
 **Moved from CLAUDE.md at the 2026-11-25 close (IM-6b, the wire and content):**
 
 **2026-11-24 — IM-6a, the Core, is built and on main** ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md),

@@ -1249,6 +1249,41 @@ lifted. The water now comes first and the blocks after, so a rehearsal of the wh
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game -- --profile --speed=0 --world=probe-dump-2026-11-25 --at=268,-20,-436 --pitch=-89 --fluidnear=2 --fluidjob=1 --stock=64000 --pack=overburden:quantum_backpack --tool=quantum_siphon_chunk --mine --placeat=vacuum_cell@1236,-96,-1796 --fillcells=500000000 --placeat=quantum_vault/high@1248,-96,-1796 --deposit=stone:32000@1248,-96,-1796 --injectlitres=2000000 --measure=300
 ```
 
+**IM-6c adds creative (2026-11-26, IDEAL-MACHINES-PLAN, "IM-6c — built").** **`--mode=creative`** (or `sandbox`)
+chooses the mode of a world this run creates, profile or not; on an existing world it is warned and ignored, as
+`--seed` is, and a run with no world (`--nosave`, a profile without `--world=`) is sandbox and says so. A world's mode
+never changes; the open line names it (`M6: new creative world at …`, `M6: opened … — a creative world (header v9,
+flags kit granted, first cell granted)`) and so does the seed banner. A new creative world is granted every mod's
+`kits/*.json` once (`M6c: kit granted — 787,969 voxel(s) of 14 material(s) … overburden:quantum_backpack worn on channel
+0`, and `kit granted …` on the profile's `M6c:` line), and the first storage row placed in it arrives holding 1 GJ
+(`M10: grant — …`, and `granted` on the power lines). The test keys print `M10: <key> is a test key, and test keys
+are off in a creative world.` once each and do nothing, `--dev` or not. A creative world's first open shows the card
+in any binary (`M2c: the controls card is open (a creative world's first open)`).
+
+**The storm oracle** (decision 26), two runs on one new world and a control, read 2026-11-26 with no `ERROR` and every
+line exact. Run 1 builds it in sun: the kit's stone into a high vault on channel 0 (1,000 m³, a 400 W bill), eight
+panels beside it (4 kW at open 16/16), no cell there, and the first cell (the gift, 1,000.0 MJ) moved to channel 1. Its
+lines: the kit, the ten `--placeat=`, `--deposit — 64,000 … moved … exact`, `M10: grant — … 1,000.0 MJ`, and the
+vault's minute full (`own charges hold 24.0 kJ`). Run 2 reopens it under a forced storm (`--weather=1`, the panels at
+1/256): no second kit (`flags kit granted, first cell granted`), `--mode=sandbox` warned and ignored, the minute paying
+(`held … of it from their own charges` rising 1,922 J to 23.1 kJ over 120 bills while `own charges hold` falls 22.1 kJ
+to 937 J), `M10: vault — fuse lit … FUSE 14.7 s; its bill of 400 W went unpaid with its minute spent`, `fuse burnt …
+owes 64,000 voxel(s)`, the dump at 512 a boundary, `dump ended … a store again`, and `dumped 64,000 … exact`. The
+control reopens a copy of run 1's world in sun and the vault holds. Each world is deleted after:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --world=probe-creative-storm --mode=creative --profile --speed=0 --weather=0 --measure=40 --placeat=quantum_vault/high@68,4,60 --placeat=vacuum_cell@76,4,60,channel=1 --placeat=solar_panel@84,3,48 --placeat=solar_panel@88,3,48 --placeat=solar_panel@92,3,48 --placeat=solar_panel@96,3,48 --placeat=solar_panel@100,3,48 --placeat=solar_panel@104,3,48 --placeat=solar_panel@84,3,44 --placeat=solar_panel@88,3,44 --deposit=stone:64000@68,4,60
+```
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --world=probe-creative-storm --mode=sandbox --profile --speed=0 --weather=1 --measure=220
+```
+
+The panels stand on the profile's terrain at (84–104, 44–48), where the seed surface is 1–3 voxels; a `--placeat=` cell
+holding voxel y = 3 is cell 0, so a panel there is carved into the ground with its sky open (16/16). The profile seed's
+own weather peaks at an overcast of 170/256 around 840 s, which cuts eight panels only to 1.3 kW, so the oracle forces
+the storm rather than waiting for one; a reopen is what lets the minute fill in sun first.
+
 **The world file lives at `user://worlds/<name>/world.db`** — on Windows,
 `%APPDATA%/Godot/app_userdata/Overburden/worlds/`. `--world=<name>` picks one, `--nosave` opens
 none at all, and `--autosave=<seconds>` moves the 30 s flush. **A run that is a measurement or a

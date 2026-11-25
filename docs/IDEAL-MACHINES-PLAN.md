@@ -661,7 +661,7 @@ name, bounds or default.
 | **IM-3** Core (amended by its pass, below) | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
 | **IM-4** Core (its pass, 2026-09-30, splits it into 4a–4c, twelve decisions taken; **4a, 4b and 4c built**; 4c kept today's lake rule at his word, displacement is its own pass) | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; ~~the pump stalls `full` only when every ring entry refuses~~ a full vault reads `NoRoom`, the first refusal met (the pass's decision 11). Mutation: drop `vaulted`, red. |
 | **IM-5** Core (its pass, 2026-09-30, splits it into 5a, the water, and 5b, the pile; sixteen decisions taken as recommended) | The dump: the pile writer, the Tier A release, the Tier B ball with its twin sized to the budget, the ceilings and decoherence, the global budgets, owed while unloaded, the unload batch's session, the dead state; a heap-writer bench arm. | A fixture room receives every voxel once; a pile into a chunk that unloads, then a kill with no session save, then a reopen, counts every voxel once; the unloaded arm releases at arrival; N vaults dumping share the budget exactly; the Tier B ceiling decoheres the excess; power returning after the fuse does nothing; Ctrl+Z cannot touch the pile; Tier B exact, Tier A's counters seam-checked. Mutation: route the dump through `Add`, and the seam goes red. |
-| **IM-6** Wire (its pass, 2026-11-24, splits it into 6a, Core; 6b, the wire and the vault in sandbox; and 6c, creative; twenty-six decisions taken as recommended 2026-11-24; **6a built 2026-11-24, 6b built 2026-11-25**) | Header v9, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v8 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
+| **IM-6** Wire (its pass, 2026-11-24, splits it into 6a, Core; 6b, the wire and the vault in sandbox; and 6c, creative; twenty-six decisions taken as recommended 2026-11-24; **6a built 2026-11-24, 6b built 2026-11-25, 6c built 2026-11-26**) | Header v9, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v8 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
 | **IM-7** Core | The `quarry` kind: the box, `Facing`, the cursor, the skips, the scan cap, the stalls, the allotment and the carve's draw (`dug`), recording off with the chunk forget. | Digs a fixture box once, top down; never a machine or a full vault; pays exactly the voxels removed × 50 J; `OFF SITE` on an unloaded chunk; `flooded`; the cursor survives a save; Ctrl+Z on a hand dig in a chunk the quarry wrote is dropped, and in an untouched chunk still works; a Release bench arm at 1, 4 and 16 quarries. Mutation: quarry writes with recording on, red. |
 | **IM-8** Wire | Quarry wiring: the `quarry` bracket, the panel, the pins, the README's OH&S line. | Headless on the fixed seed: bites, and `quarry` against the 1 ms line; r6. **Playable: quarries.** |
 | **IM-9** Core+wire | Recall, the board, pin states, the power sensor, the unloaded-sensor guard. | `released == landed + in flight + lost + recalled` in both collapse modes and under `--bitechunks`; a part-picked machine credits `cleared + Recalled`, not 64; a bankrupt channel recalls nothing; a recalled pump is 64 in the pocket and none of it rubble; after the drain, Ctrl+Z re-adds nothing and the next arrival rebuilds nothing. Mutation: credit 64, red. A sensors × radius arm against `machines`. |
@@ -2815,8 +2815,8 @@ crosses. In 6b it is the clicks' water branch, the one place a free tool could s
 
 **Taken as recommended, all twenty-six, 2026-11-24** (*"As recommended"*), the same evening. The three amendments
 are carried into decisions 23, 51 and 52 and the fork list above. Decision 16 moves `--placeat=` into IM-6b, and
-COLLAPSE-PLAN's decision 13 and its f-2 row say so. **IM-6a is built (2026-11-24, below), and IM-6b (2026-11-25,
-below); IM-6c is next.**
+COLLAPSE-PLAN's decision 13 and its f-2 row say so. **IM-6a is built (2026-11-24, below), IM-6b (2026-11-25, below)
+and IM-6c (2026-11-26, below): IM-6 is built.**
 
 ## IM-6a — built (2026-11-24)
 
@@ -3260,6 +3260,177 @@ and (A)**:
     pile; it passed three runs alone and every whole run since (TODO's owed checks).
 - **The windowed read's recipe, rerun headless on the merged build** (a copy of LakeTest3 again, deleted after,
   `--measure=1200`): the fuse burnt at tick 230. The heap waited 436 boundaries, through 52 no-room rests, while all 499.83 m³ poured, out by about tick 675; the water sped up after tick 540, about 0.8 m³ a tick over its last 135 ticks, so the ten-minute estimate was long. Then all 32,000 voxels landed by tick 735, lifting 490 m³ and displacing none, and the vault went back to holding: about four minutes of game time from the fuse to the last block. Every line exact, zero ERROR lines. Later the recipe's siphon, still held, put 411 mL back into the emptied vault; its bill went unpaid, it fused again, and the 411 mL waits at the window's end, because the vault's own heap covers its mouth. A vault buried in its own pile keeps what it is given until it is dug out.
+
+## IM-6c — built (2026-11-26)
+
+Decisions 19–26 of the pass above, in the worktree `im-6c`, on 6a's Core and 6b's wire. **A creative world plays**:
+`--mode=creative` on a new world's name gives a kit, the quantum backpack worn on channel 0, 1 GJ in the first cell
+placed, and the test keys off. **Every world crosses to header v9 at its first open on this build**, and 0.1.3 refuses
+it after.
+
+**Re-read first**, as CLAUDE.md asks, since 6b and the heap's lift landed after the pass. Facts 19–24 still read as
+written, at new line numbers: the header in Core with its own length check; `--world=` turning a profile's persistence
+back on; a placed cell starting empty and `PowerExact` with no `granted`; the same ten test keys (6b added flags, no
+keys); the loader's sections as loops; and the oracle's doors, now built by 6b. Nothing changed a decision. Two things
+turned up that are 6c's to mend:
+- **The card's T row named four tools**, and T has had seven stops since 6b; QUICKSTART's twin row too. Both now name
+  the siphons.
+- **The header written at every open carried no pack.** `_pack` is set by `SetUpPack`, after that write, so until the
+  next autosave a world's header said no pack was worn, and a crash in the first 30 s lost the worn pack and its charge
+  (pre-existing, since M10c-3). The kit's worn pack rides that write, so it now carries the world file's pack (or the
+  kit's) until the pack is set up.
+
+**The order the plan asked for.** The v8 capture landed first, in its own commit (`01b105b`), its tree still writing v8.
+
+**What it is:**
+- **The v8 capture (decision 19).** `tools/make-v8-header.cs`, a one-file app (`#:project` on Core, outside every
+  project), refuses to run unless the writer is still v8, reads its blob back, and wrote
+  `Fixtures/v8-header-before-the-mode.bin` (366 bytes): the base game's table, a row out of ID order with the high
+  vault pinned and the relay pump held at zero, seven holdings, a lead-acid pack worn on channel 3, one charged
+  lithium-ion pack carried, a flying player and LakeTest2's seed. The next bump copies it, changes the version and the
+  fields, and runs it before touching the writer.
+- **Header v9 (decision 20).** Two bytes after the hotbar: the mode (sandbox 0, creative 1; survival 2 refused until it
+  exists) and the flags (bit 0 the kit, bit 1 the first cell; any other bit refused). One rule, `WorldModes.Problem`,
+  serves the writer and the reader, as alpha C's `HotbarSlots.Problem` does. A v8 world reads as a sandbox world
+  granted nothing, its row and everything else as they were.
+- **`--mode=` (decision 21).** `sandbox` or `creative`, for a world this run creates, profile or not. It is warned and
+  ignored on an existing world, as `--seed` is, and a run with no world says it is sandbox. The open line and the seed
+  banner name the mode (`M6: new creative world at …`, `a creative world (header v9, flags kit granted, first cell
+  granted)`, the banner `name — creative`). Core carries the byte and no rule reads it.
+- **Kits (decision 22).** `kits/*.json`, a content section read after every mod's materials, strictly: its ID, its
+  materials and counts in the hotbar's units, and optionally the row (nine IDs, null for empty) and the pack worn with
+  its channel. A material must be one this content defines, not air and not a fluid (the pocket refuses water); a count
+  is 1 to a billion; the row is nine slots, each material once; the pack is a carried storage on channels 0–15. The
+  same kit ID twice, or two kits setting the row or the pack, are refused naming both files. Every kit's materials are
+  summed (`KitTable`, `KitGrant.Plan`). **The base game's kit** is `overburden:creative`, decision 22's list: two cells,
+  eight panels, four pumps, four outlets, one vault of each grade, a crate, the computer, 4,096 m³ each of stone, clay
+  and glass (787,969 voxels in all); the row stone, clay, glass, cell, panel, pump, outlet, high vault, crate; the
+  quantum backpack worn on channel 0. **The grant** (`KitGrant.GrantIfDue`) runs once at a creative world's creation,
+  before the open's header write, which carries the voxels and bit 0 together: `M6c: kit granted — …`, and `kit granted`
+  on the session's `M6c:` line.
+- **The first cell's 1 GJ (decision 23).** `FirstCellGift`, armed in a creative world whose bit 1 is clear, is offered
+  every row `MachineSet.NotePlaced` adds (a placement, never a restore or an undo's re-add). The first placed storage row
+  is given `min(1 GJ, capacity)` through `MachineSet.Grant`, counted `StoredMillijoulesGranted`, a new term in
+  `PowerExact` (`+ granted`, on both power lines). The flags the header writes are stamped from the gift, so the
+  session write that carries the row's charge carries bit 1. `M10: grant — …` and a message line say so, once.
+- **The keys (decision 24).** `DebugKeyGate` in Core: the ten keys, and `Allowed(key, mode, dev)` — sandbox as today
+  (Ctrl+R, H and Alt+H under `--dev`), nothing in creative whatever `--dev` says. Main asks it at each handler: P, Alt+P,
+  Ctrl+P; R, Ctrl+R, Alt+R, Alt+G; H, Alt+H; L. In creative each says so once a session, on the log and the message
+  line, and does nothing. Flags (`--stock=`, `--nogate`, `--pack=`, `--placeat=`) and flying stay.
+- **The card (decision 25).** At a creative world's first open the card opens in any binary, decision 55's line at its
+  head and a note of what the kit holds; it lists none of the sandbox's test keys, and no developer heading.
+- **QUICKSTART and the zip's README.txt** gain "A creative world" (how to make one, what it gives) and the siphons; the
+  README's worlds-move-forward line names the alpha after 0.1.3. No version bump and no zip.
+
+**Build choices the pass left open**, each under a taken decision, listed for his word:
+1. **Kits are read for every world, sandbox too**, and a fault in one refuses the run as any content error does. Only a
+   creative world is granted them.
+2. **Bit 0 is set at a creative world's creation even when no kit is installed**, so a mod's kit installed later never
+   arrives late on a reopen ("once, at creation").
+3. **The kit's pack is worn empty**, as a fresh pack is; the quantum backpack holds nothing in any case.
+4. **The kit's row is a set of pins**: it may pin a container (the high vault, the crate) that a credit would leave off
+   the row, and it replaces whatever slots the credits were offered.
+5. **A kit's `pack.channel` is 0 when absent**, and a count is capped at a billion of the hotbar's units, so the sums
+   stay far from overflow.
+6. **The gift goes to a placement only.** `--placeat=`'s row alone (a chunk not loaded) and a world file's rows are
+   never offered it; a placement with `--placeat=` is, since it goes through the brush's path.
+7. **A cell smaller than 1 GJ is filled to its capacity**, only that is counted, and the gift is spent.
+8. **A test key's refusal is asked before the aim**, so R in creative says so at the sky too. Sandbox keeps ALPHA-PLAN
+   B7's one line for H and Alt+H, log only, as before.
+9. **The creative card adds a note** after decision 55's line: what the kit holds, the backpack, the 1 GJ, the keys off.
+10. **The seed banner reads `name — creative`**; a sandbox world's banner is unchanged.
+
+**Tests** (new: `KitTests`, `FirstCellGiftTests`, `DebugKeyGateTests`; added to `WorldHeaderTests` and
+`ShippedContentTests`; the header tests' tail constants grow by `ModeBytes` through one `AfterCarriedBytes`):
+- the header: the mode and flags round trip, a default header's last two bytes, the mode before the flags, the v8
+  capture reading as sandbox granted nothing with its row, pack, carried pack and player, the capture resaved at v9, a
+  v8 layout reading as sandbox whatever its cut bytes said, six corrupt mode or flags bytes refused naming them, the
+  writer's refusals, and the mode cut short;
+- kits: a kit loaded whole, no `kits/` folder, eighteen faults each refused naming the file, a placeholder only the
+  world's table remembers, the sum across mods, the same union in either mod order, the three conflicts naming both
+  files, the plan in voxels, an empty table, the grant at creation with an item pinned by the row, once and not again
+  through the header's bytes, never to sandbox or an already-granted world, and bit 0 with no kit installed; the
+  shipped kit is decision 22's;
+- the gift: 1 GJ counted `granted` and not `entering`, once, a crate first leaving it for the cell, sandbox none, the
+  header's bit, a small cell clamped, the stamp, a pick and its undo, the placement's undo losing it, a restored row
+  never taking it, the door refusing what is not a placed cell, and twenty boundaries exact;
+- the keys: exactly the ten, none in creative or survival with or without `--dev`, sandbox's three developer keys, the
+  refusals' reasons, and `--mode=`'s words.
+
+**The battery: 49 recipes, 48 red**, all written before any ran, run in three chunks (14, 16, 19), each mutated
+file restored from its saved bytes and compared byte for byte. **And three Game-side recipes, all red**, each built and
+run headless on the worktree's binary.
+- **Writing the recipes found a hole**: no test reached a material only the world's table remembers (a removed mod's
+  placeholder), so `AKitNamingAMaterialOnlyTheWorldsTableRemembersIsRefused` was added before the battery ran.
+- **The one survivor is that recipe, `kit-placeholder-allowed`, and it is equivalent.** Kits load before the registry
+  freezes, and before `Freeze` a placeholder has no definition, so `TryGet` answers false and the kit is refused by
+  that route; the `IsUnknown` check is reached only after a freeze. The test holds the rule either way.
+- **The recipes**, by area:
+  - the header: `version-stays-8`, `mode-not-written`, `flags-not-written`, `mode-flags-swapped-on-read`,
+    `v8-read-as-creative`, `v8-reads-mode-bytes`, `survival-check-gone`, `unknown-flags-accepted`,
+    `known-flags-without-cell`, `writer-skips-mode-check`, `reader-skips-mode-check`, `mode-bytes-not-summed`;
+  - the kit section: `kits-never-loaded`, `kit-fluid-allowed`, `kit-placeholder-allowed` (survived, above),
+    `kit-count-zero-allowed`, `kit-count-uncapped`, `kit-duplicate-material-allowed`, `kit-row-short-allowed`,
+    `kit-row-duplicate-allowed`, `kit-pack-not-carried-ok`, `kit-pack-channel-unchecked`, `kit-empty-allowed`,
+    `kit-same-id-twice-ok`, `kit-two-rows-ok`, `kit-two-packs-ok`;
+  - the plan and the grant: `plan-not-summed`, `plan-units-ignored`, `grant-sandbox-too`, `grant-again-on-reopen`,
+    `grant-bit-never-set`, `grant-row-not-set`;
+  - the gift: `gift-no-term`, `gift-through-entering`, `gift-every-cell`, `gift-not-marked`, `gift-in-sandbox`,
+    `gift-ignores-header-bit`, `gift-on-any-add`, `gift-unclamped`, `gift-crate-spends-it`, `gift-stamp-always`,
+    `gift-stamp-never`;
+  - the keys and the mode's words: `creative-key-allowed`, `dev-overrides-gate`, `alt-h-not-dev-only`,
+    `refusal-reasons-swapped`, `mode-survival-accepted`, `mode-case-sensitive`.
+- **The Game-side recipes**: `mode-not-written` (Main writes sandbox: the new creative world's reopen reads `a sandbox
+  world`), `bit1-not-stamped` (the header's flags not stamped from the gift: run 1 places a cell and its reopen reads
+  `flags kit granted)` with no first cell), and `mode-honoured-on-existing`, the decision's own (`--mode=sandbox` on a
+  creative world honoured: the next reopen reads `a sandbox world`). Each caught, 0 `ERROR`, Main restored byte for
+  byte and rebuilt, each world deleted. The key gate has no Game-side recipe: headless presses no key, so the table is
+  the test and his play the check.**
+
+**The headless runs**, all on the worktree's build, no `ERROR` and no `*** NO ***` in any:
+- **r6** `2601 / 325 / 3446 at 411`.
+- **A creative world, plain** (`--world=probe-creative-plain-… --mode=creative`): `M6: new creative world`, `M6c: kit
+  granted — 787,969 voxel(s) of 14 material(s) … overburden:quantum_backpack worn on channel 0`, the kit's row on the
+  hotbar line, the card opened (`a creative world's first open`), the backpack `from the creative kit`. **Its reopen**
+  with `--mode=sandbox`: the warning, `a creative world (header v9, flags kit granted)`, 14 materials carried, no second
+  kit, the pack `from the world file`.
+- **The storm oracle** (decision 26; COMMANDS.md has it verbatim): run 1 builds a new creative world in sun, the kit's
+  stone (64,000 voxels, 1,000 m³) in a high vault on channel 0 billing 400 W, eight panels (4 kW at 16/16 open), no cell
+  there, the first cell given its 1,000.0 MJ and moved to channel 1, the vault's minute full (24.0 kJ). Run 2 reopens
+  it under a forced storm: no second kit (`flags kit granted, first cell granted`), `--mode=sandbox` ignored, the
+  minute paying (`held … of it from their own charges` rising from 1,922 J to 23.1 kJ over 120 bills), `fuse lit … FUSE
+  14.7 s; its bill of 400 W went unpaid with its minute spent`, `fuse burnt … owes 64,000 voxel(s)`, the pile at 512 a
+  boundary, `dump ended … a store again`, `dumped 64,000 … exact`, and the pool, the store, the dump and the pile all
+  exact. **The control** reopens a copy of run 1's world in sun
+  (`--weather=0`): the vault holds through 440 bills, 88.0 kJ paid with none of it from its own charge, the minute
+  still 24.0 kJ, no fuse lit, every line exact. So the storm is what lets it go.
+- **His worlds, on copies** (decision 19's real-world arm), each copied with the game checked closed in the same
+  command, then deleted. `LakeTest2` (what `start.cmd` opens) and `LakeTest3` (his pit, `start - Copy.cmd`), both header
+  v8 sandbox worlds with no machine rows, read before and after one open on this build by a one-file reader over
+  `SqliteWorldStore`:
+  - **Before**: v8, sandbox, no flags, 17 IDs; LakeTest2's row `clay, computer, dirt, glass, grass, lamp, lead_acid_pack,
+    relay_outlet, relay_pump`, 13 holdings, a lithium-ion pack worn at 11.93 MJ and one carried at 5.02 MJ; LakeTest3's
+    row `relay_pump, relay_outlet, solar_panel, vacuum_cell, clay, glass, stone, dirt, grass`, 13 holdings, its pack at
+    1.31 MJ, flying at (1800.9, 29.7, 1755.7).
+  - **The open** (900 frames headless, no flags): `a sandbox world (header v8)`, the same rows on the `(at open)` line,
+    both packs restored, `0 machine row(s) read`, no kit, no card, 0 `ERROR`.
+  - **After**: v9, sandbox, no flags, 23 IDs (6b's vaults, crate and siphons appended, as any build since 6b would), and
+    every row, holding, pack, carried pack and player byte for byte as before.
+  - **0.1.3 refuses the copy after**: the released zip's exe, headless, on a copy in `%APPDATA%\Overburden Alpha\`:
+    `World header: format version 9, but this build reads versions 1 to 8. Refusing rather than guessing at the
+    layout.`, exit code 1, the world file unchanged. (The run rotated one of alpha C's 2026-10-19 export logs out of
+    that folder; it was copied aside first and put back.)
+  - **Backups before landing**, copies hash-checked against the originals: `backup-LakeTest2-2026-11-26` and
+    `backup-LakeTest3-2026-11-26`, beside them.
+
+**Checked:** suite **2,641** (+76); zero warnings from both builds from scratch; r6 `2601 / 325 / 3446 at 411`.
+
+**Only his play can check** (headless draws no card, banner or HUD, and presses no key): the card's look with
+decision 55's line, the banner, each key's refusal on the message line, the kit's row on the hotbar, the bank line
+reading 1.0 GJ after the first cell, and how the first minutes feel (decision 55's table is all estimates). **A 6b look
+could change a 6c choice** in three places: the kit's row (build choice 4) if he wants a vault off it, as decision 7
+keeps them off P's row; the card's note (build choice 9) once he has seen the card; and the kit's counts if the vault's
+cyans or the stock section read wrong at 4,096 m³.
 
 ## Must not ship
 

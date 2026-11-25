@@ -1,5 +1,40 @@
 ﻿# Overburden — Worklog
 
+## 2026-11-26 — IM-6c, creative: header v9, kits, the first cell's 1 GJ, the keys off; IM-6 is built
+
+Decisions 19–26 of IM-6's pass, in the worktree `im-6c`. The plan's "IM-6c — built" has the whole account, ten build
+choices for his word, and the tests. **A creative world plays**: `start.cmd "--world=<a new name>" --mode=creative`.
+- **The re-read changed nothing.** Facts 19–24 still read as written, at new line numbers since 6b and the heap's lift.
+  Two things turned up to mend: the card's and QUICKSTART's T rows still named four tools (T has had seven stops since
+  6b), and **the header written at every open carried no pack**. `_pack` is set after that write, so since M10c-3 a
+  world's header said no pack was worn until the first autosave, and a crash in that window lost the pack and its
+  charge. The write now carries the world file's pack, or the kit's, until the pack is set up.
+- **The v8 capture first** (`01b105b`): `tools/make-v8-header.cs` refuses to run unless the writer is still v8, and wrote
+  `Fixtures/v8-header-before-the-mode.bin` (366 bytes). Kept for the next bump, which copies it.
+- **Header v9**: the mode (sandbox 0, creative 1, survival 2 refused) and the flags (bit 0 the kit, bit 1 the first cell),
+  one rule for the writer and the reader. A v8 world reads as sandbox, granted nothing.
+- **`--mode=creative`** for a world this run creates; warned and ignored on an existing one; sandbox with no world.
+- **Kits**: `kits/*.json`, strict, summed across mods, one row and one pack; the base game's is decision 22's list,
+  787,969 voxels. Granted once at creation, with bit 0, in the open's header write.
+- **The first cell's 1 GJ** through `MachineSet.Grant`, counted `granted` in `PowerExact`, bit 1 stamped into the write
+  that carries the row. Undoing the placement loses it.
+- **The test keys** off in creative whatever `--dev` says (`DebugKeyGate`), each saying so once; **the card** at a
+  creative world's first open in any binary, headed by decision 55's line.
+- **Checked:** suite 2,641 (+76); 49 recipes written before any ran, 48 red, the survivor equivalent (a placeholder has no
+  definition before the registry freezes, so `TryGet` refuses it first), and three Game-side recipes red; zero warnings
+  from both builds from scratch; r6 `2601 / 325 / 3446 at 411` before and after. **The storm oracle**: a new creative
+  world, a high vault on channel 0 billing 400 W from the kit's stone, eight panels, the gift on channel 1; reopened
+  under a forced storm, its minute paid the bill for 120 boundaries, then `fuse lit … 14.7 s`, `fuse burnt`, the dump of
+  64,000 voxels and `dump ended`, every identity exact; the same world in sun held. No second kit on any reopen.
+- **His worlds, on copies**: LakeTest2 and LakeTest3 opened as sandbox from v8 with their rows, holdings, packs and
+  player as they were (neither has a machine row), crossed to v9, and the released 0.1.3 then refused the copy by
+  name. **Backups** before landing: `backup-LakeTest2-2026-11-26` and `backup-LakeTest3-2026-11-26`, beside them.
+- **What writing the recipes found**: no test reached a removed mod's placeholder in a kit, so one was added before the
+  battery ran. Its recipe still survived, for the reason above: the rule holds by an earlier route.
+- **Only his play can check** the card, the banner, each key's refusal on the message line and the kit's row; his
+  list's "Creative, your first world" walks them. A 6b look could still move three 6c choices (the kit's row, the
+  card's note, the kit's counts).
+
 ## 2026-11-25 — the heap waits for the whole of its vault's water, his (A2): the lift and the order merged
 
 His answer to question 3: *"As recommended (A2)"*. (A)'s exception is gone, and (c), (A) and (A2) are merged into main

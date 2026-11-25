@@ -29,6 +29,13 @@ care about. I keep it current at the end of each session.
 and i will get around to testing things"*). **Nothing here blocks development**, which carries on alongside; tell
 me in the chat whenever you've tried something, and I'll fold it in.
 
+**Your worlds open in the new save format only, from your next `start.cmd`** (2026-11-26, creative mode's step). The
+first open on this build rewrites a world's header at version 9, and 0.1.3 won't open it after. Your two test worlds
+were checked on copies first: both open as they were, row and machines included. **Backups, taken before the change**,
+sit beside them in `%APPDATA%\Godot\app_userdata\Overburden\worlds\`: `backup-LakeTest2-2026-11-26` and
+`backup-LakeTest3-2026-11-26`. A world's name is its folder, so a backup is restored by moving it back with the game
+closed.
+
 ### The vault, your first play of it (about 15 minutes, `start.cmd`, LakeTest2)
 
 New on 2026-11-25: the quantum vault in your own world, its bank on the HUD, the siphon, and the dump. **This is
@@ -59,7 +66,34 @@ the step's real test**; nothing else checks how it looks or feels. A line back o
 10. **(If you like) a fuse that pauses**: as 9 with a second vault, but set it back to 0 while the fuse burns. The line
     says `(paused)` and the glitch holds still, then it goes out once the bank refills its minute.
 
-A world you test in moves nothing about saves: no format changed, so 0.1.3 still opens it.
+When this route was written no format had changed. **Since 2026-11-26 (creative) your next `start.cmd` moves
+LakeTest2 to the new save format**, which 0.1.3 can't open; the backups are named above.
+
+### Creative, your first world (about 10 minutes, a new world's name)
+
+New on 2026-11-26: creative mode. A creative world starts with a kit, the quantum backpack on your back and 1 GJ in
+the first power cell you place, and has the test keys off. **This is its real test**: nothing headless draws the card,
+the banner or the HUD, or presses a key. Any name that doesn't exist yet:
+
+```powershell
+.\start.cmd "--world=CreativeTest" --mode=creative
+```
+
+1. **The card opens by itself**, headed *"You run a mine. Water wants in; the rock wants down. Everything you own
+   runs off one bank. Don't go broke."*, with a note of the kit under it. It lists no P, R or H. The seed in the upper
+   right reads `CreativeTest — creative`. *Does the card read right at the start?*
+2. **Esc closes it.** The hotbar holds stone, clay, glass, a vacuum cell, a solar panel, a pump, an outlet, the high
+   vault and a crate; V steps through the other four vaults and the computer. Over the status line, `BANK 0 mJ ch 0`:
+   you're wearing the quantum backpack.
+3. **Press P** (and R, H, L if you like). Each says once, above the hotbar, that it's a test key and off in a creative
+   world, and does nothing.
+4. **Place the vacuum cell.** A line says it arrived holding 1,000.0 MJ, and the bank line reads 1,000.0 MJ. Only the
+   first one: a second cell arrives empty. (Ctrl+Z straight after placing that first cell takes it back with its
+   1 GJ, and the gift is gone for good. That's the price we agreed.)
+5. **Build something**: panels in the open, the high vault on channel 0, stone into it from its panel (`→ vault`). The
+   bill shows on the bank line as `hold`; in sun the panels pay it. T to the quantum miner and dig: the bank drops
+   50 J a block. *Is 4,096 m³ of stone, clay and glass the right size of kit? Is 1 GJ the right start?*
+6. **Quit and reopen** with `.\start.cmd "--world=CreativeTest"`: no second kit, no card, the bank where you left it.
 
 ### The retest, in one sitting (about 20 minutes, `start.cmd`, LakeTest2)
 
@@ -443,11 +477,29 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-11-25**. **0.1.3-alpha is released on GitHub** (a pre-release, the zip byte-identical to the one
+Updated **2026-11-26**. **0.1.3-alpha is released on GitHub** (a pre-release, the zip byte-identical to the one
 built), going public's files and the README's Releases link are pushed, and **Ctrl+P** (one lithium-ion pack, in
-your hand) is on main for your next `start.cmd`. **The vault is in your game**: IM-6's second step, built today,
-is the first of the ideal machines you can play, and its route is at the top of Now, before the older retest.
-Development carries on alongside; creative mode is next.
+your hand) is on main for your next `start.cmd`. **The vault is in your game** (IM-6's second step) and **so is
+creative mode** (its third, built today): IM-6 is built. Their routes are at the top of Now, the vault first. **Your
+worlds move to the new save format at your next `start.cmd`**; the backups are named there.
+
+- **IM-6's third step, creative mode, is built** (2026-11-26):
+  - **A creative world**: `start.cmd "--world=<a new name>" --mode=creative`. It starts with a kit in your pocket (two
+    cells, eight panels, four pumps and outlets, one vault of each grade, a crate, the computer, and 4,096 m³ each of
+    stone, clay and glass, the row set for you), the quantum backpack on your back on channel 0, and **1 GJ in the
+    first power cell you place**, once.
+  - **The test keys are off there** (P, Ctrl+P, Alt+P, R, Ctrl+R, Alt+R, Alt+G, H, Alt+H, L), whatever `--dev` says,
+    and each says so once. Your sandbox worlds keep every key.
+  - **The card** opens by itself at a creative world's first open, headed by your line, *"You run a mine…"*.
+  - **The kit is a file** (`mods/overburden/kits/creative.json`), loaded as a mod's would be, so a mod can add to it.
+  - **The save format moved to version 9** (a world's mode and two once-only flags). Every world crosses at its first
+    open on this build; LakeTest2 and LakeTest3 were checked on copies and backed up first.
+  - Ten small choices the build made are in the plan for your word; the first is that the kit's row pins the high
+    vault and the crate, which P keeps off your row.
+  - Checked: all 2,641 tests pass; I broke the new code 49 deliberate ways and 48 were caught (the 49th is
+    held by an earlier check, so it can't slip), plus three breakages only the running game shows; a creative
+    world's vault let go in a storm and held in sun, with every number exact; and the game's quick check reads
+    exactly as recorded. **How it looks and feels is yours to judge**: nothing I can run draws the card or the HUD.
 
 - **IM-6's second step, the vault in your own world, is built** (2026-11-25). In a sandbox world, through P and Alt+P:
   - **P** gives the quantum backpack, a crate and the five vaults (low, medium, high, mythical, god), a hundred each,

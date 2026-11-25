@@ -51,7 +51,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. Today a block in a lake is a pier. |
 | [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) | **Walls that split a lake, the code-level pass (2026-10-01): all seven decisions taken as recommended; L-1, L-2 and E-1 built the same day; his play passed 2026-10-09, and all of it is on main since the pond branch merged.** His Tier B conversion can't separate (the hand-back rejoins the one lake); the pond branch's raise divides a lake but gives every litre to the old pit's side (fact 10). Recommended: share by the water over each cell (L-1, L-2 on the branch), and make the enclosure's answer independent of who asks first (E-1, main). |
 | [docs/ALPHA-PLAN.md](docs/ALPHA-PLAN.md) | **The public alpha** (2026-10-12, his ask: a public zip, extract and run). Twenty-one facts from three read-only searches (there is no export; content is found relative to the working directory; no menu, no quit key, no help; the phonk can't ship; personal data if the repo goes public) and **twenty-three decisions, his**, split into four sessions: the export, the first ten minutes, the hotbar's slots, going public. **All four built: C is 0.1.3-alpha (2026-10-19); D, going public's files (CONTRIBUTING, CLA.md, the README), 2026-10-26.** |
-| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30); IM-5a built (2026-10-10, after a re-read against the merged watershed), IM-5b built (2026-10-11: the pile, a cone at his word, its bench `--pile`), IM-6's pass taken and IM-6a built (2026-11-24), IM-6b built (2026-11-25: the vault plays in sandbox), IM-6c next; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
+| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30); IM-5a built (2026-10-10, after a re-read against the merged watershed), IM-5b built (2026-10-11: the pile, a cone at his word, its bench `--pile`), IM-6's pass taken and IM-6a built (2026-11-24), IM-6b built (2026-11-25: the vault plays in sandbox), IM-6c built (2026-11-26: creative, header v9), so IM-6 is built; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
 
@@ -214,50 +214,49 @@ version. A worktree has neither beside it, so give the script `-Godot <exe>` the
 
 ## Where things stand
 
-**2026-11-25 — IM-6b, the wire and content, is built and on main** ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md),
-"IM-6b — built"). Decisions 6–18 of IM-6's pass, on IM-6a's Core; IM-6a's hand-over is in STATUS-HISTORY. **The vault,
-the bank, water and the dump play in a sandbox world through P and Alt+P, with no save change.** His play is the
-test: his list's "The vault, your first play of it", in LakeTest2.
-- **The siphon on T behind the clicks' water branch**, which landed first (`c85d76b`): Core's `SiphonClicks` routes a
-  water tier's left click and Q to a take and its right click to a pour, before either controller is asked, and each
-  controller has a guard of its own. T has seven stops.
-- **The content**: `quantum_vault/low` to `/god` at the grade table, the crate, three siphons, textures 15–20; a path
-  `a/b` reads "a (b)" (`ContentLabel`). **P** seeds the backpack, the crate and the five vaults, off the row
-  (`MaterialTable.OffTheRow`), so slot 9 stays the first stone's.
-- **The HUD**: the bank line (`BankLine`, Core) replaces a window's `0 mJ / 0 mJ`; the fuse's top line; water as a
-  gauge right of slot 9.
-- **The panel**: a stock section on a vault, a crate and the backpack (`MachinePanel.Stock.cs`), its verbs through
-  `StoreMoves`; his warranty line; the channel box behind a padlock; power in watts, a pump's draw shown at last.
-- **The glitches**, windowed only (`VaultGlitch`): a fusing vault's body, and the pile's blocks as one MultiMesh.
-- **The lines and doors**: the store on the periodic `M10:` line, `| hud:` for the bank and fuse lines, `M10: vault —`
-  and `M10: bank —`; `--placeat=` (f-2 reuses it), `--deposit=`, `--tool=`.
-- **Ten build choices** are listed in the plan for his word.
-- **Checked:** suite **2,558**; a battery of 57 recipes, 57 red, and eight Game-side recipes headless (both guards of
-  each verb caught, each guard alone holding by design); three headless oracles, every line exact; zero warnings from
-  both builds from scratch; r6 `2601 / 325 / 3446 at 411`.
-- **Decision 17's windowed reads ran the same day** (the plan, "Decision 17's windowed reads"): a real dump in a copy
-  of `LakeTest3`'s pit installs at 28.6 ms mean / 221 max, under both bars, so the ceiling stands. **But the heap
-  never came back**: it refused a wet slot (IM-5b). **His answers, (c), (A) and (A2), are built and on main the same
-  day**: a heap waits until its vault's water is all out, then its blocks land in the water and lift it up their
-  columns by the collapse's door (the plan, "Taken: (A2)").
-  `--fillcells` and the profile's `pile` line were added for the read. Headless draws no HUD, panel or glitch, so
-  every look is his play's.
+**2026-11-26 — IM-6c, creative, is built and on main** ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md),
+"IM-6c — built"). Decisions 19–26 of IM-6's pass, on 6a's Core and 6b's wire; **IM-6 is built.** IM-6b's hand-over is in
+STATUS-HISTORY. **A creative world plays**: `start.cmd "--world=<new name>" --mode=creative`. His play is the test: his
+list's "Creative, your first world".
+- **Header v9**: a mode byte (sandbox 0, creative 1, survival 2 refused until it exists) and a flags byte (bit 0 the kit,
+  bit 1 the first cell), one rule (`WorldModes.Problem`) for the writer and the reader. **Every world crosses to v9 at
+  its first open on this build, and 0.1.3 refuses it after.** A v8 world reads as a sandbox world granted nothing, its
+  row and machines as they were. The golden v8 blob came first, from the unmodified writer, and its program is kept:
+  `tools/make-v8-header.cs` (copy it for the next bump, and run it before touching the writer).
+- **`--mode=creative`** for a world this run creates, profile or not; warned and ignored on an existing world; a run
+  with no world is sandbox. The open line and the seed banner name the mode.
+- **Kits**: `kits/*.json`, a strict content section (`KitTable`, `KitGrant`); the base game's `overburden:creative` is
+  decision 22's list, granted once at creation with bit 0 in the same header write.
+- **The first cell's 1 GJ**: `FirstCellGift` through `MachineSet.Grant`, counted `granted`, a new `PowerExact` term;
+  bit 1 is stamped into the write that carries the row's charge. Undoing that placement loses the gift.
+- **The test keys** (P, Alt+P, Ctrl+P, R, Ctrl+R, Alt+R, Alt+G, H, Alt+H, L) are off in creative whatever `--dev` says,
+  by Core's `DebugKeyGate`; each says so once. **The card** opens at a creative world's first open in any binary,
+  headed by decision 55's line.
+- **Mended on the way**: the card's and QUICKSTART's T rows name the siphons; the header written at every open now
+  carries the world file's pack (it carried none until the first autosave, since M10c-3).
+- **Ten build choices** are listed in the plan for his word; three of them a 6b look could change (the kit's row, the
+  card's note, the kit's counts).
+- **Checked:** suite **2,641**; 49 recipes written before any ran, 48 red (the survivor equivalent), and three
+  Game-side recipes red headless; the storm oracle (a creative world's vault let go under a storm and held in
+  sun, every identity exact); zero warnings from both builds from scratch; r6 `2601 / 325 / 3446 at 411`.
+- **His worlds**: `LakeTest2` and `LakeTest3` were opened on copies: both read as sandbox from v8 with their rows,
+  holdings, packs and player as they were (neither has a machine row), crossed to v9, and the released 0.1.3 then
+  refused the copy by name. **Backups**: `backup-LakeTest2-2026-11-26` and `backup-LakeTest3-2026-11-26` beside
+  them; his next `start.cmd` moves LakeTest2 to v9.
 - **Standing from the alpha** (its hand-overs are in STATUS-HISTORY): 0.1.3-alpha is the latest release, a GitHub
   pre-release, and `releases/latest` skips pre-releases, so the README links to `/releases`. **The next zip carries**
-  D's player text, Ctrl+P (2026-11-04), f-1's `onsignal` box and IM-6b's vault; none is scheduled. A fresh worktree's
+  D's player text, Ctrl+P (2026-11-04), f-1's `onsignal` box, IM-6b's vault and IM-6c's creative and header v9; none
+  is scheduled. QUICKSTART and the zip's README.txt already say how to make a creative world. A fresh worktree's
   export rewrites `Overburden.Game/icon.svg.import` with LF endings, so `make-alpha.ps1` warns of uncommitted changes
   there.
 
-**Next session, in order:**
-1. **IM-6c, creative** (the pass's decisions 19–26): the v8 capture first, its program kept as
-   `tools/make-v8-header.cs`; header v9's mode and flags bytes; `--mode=creative`; `kits/*.json` and the base game's
-   kit; the first cell's 1 GJ through `Grant`, a new `PowerExact` term; the keys off in creative whatever `--dev` says;
-   the card; the storm oracle, which reuses 6b's `--placeat=` and `--deposit=`. **The riskiest part of IM-6 is the
-   header**, the save format every world crosses. **Read his list's notes and his 6b play first**: a 6b look may
-   change a 6c choice. Build in a worktree if he is playing or may start.
+**Next session, in order** (TODO's "Order and collisions"):
+1. **Before IM-7: the engine-wide pin's pass** (TODO's Levers): a chunk any door wrote stays loaded until the next
+   autosave. Then the quarry's pass, which reads the `--pile` bench (its cost is chunks touched). **Read his list's
+   notes and his 6b and 6c plays first**: a look may change a choice built on.
 2. **Collapse f-2, the wire**, alongside whenever suits (TODO's "Collapse part f"): a sense over the scheduler and
    the director, the `M10:` terms, `P` seeding a sensor and its texture, and the headless oracle. `--placeat=` is
-   built (IM-6b), so f-2 places its sensor with it.
+   built (IM-6b), so f-2 places its sensor with it; its sensor joins the creative kit (`kits/creative.json`).
 3. **From D, later** (TODO's "The public repo"): a page for mod authors; a lawyer's read of CLA.md before the
    first outside merge, if the game is ever to earn; CLA Assistant past a handful of outside PRs.
 
@@ -265,8 +264,9 @@ The ideal machines plan: all sixty-one decisions were taken on 2026-09-29. **Bui
 IM-4a (thirty-six mutations red), IM-4b, IM-4c (reduced at his word), **IM-5a, the dump's water** (2026-10-10,
 twenty-eight red) and **IM-5b, the pile** (2026-10-11, forty-two red; its seven build choices taken
 2026-10-12). **IM-6's pass is written and taken** (2026-11-24, all twenty-six as recommended), and **IM-6a, the
-Core, is built** (2026-11-24, sixty-one mutations red), and **IM-6b, the wire and content** (2026-11-25, fifty-seven
-red and eight Game-side recipes headless). **Taken and not built:** IM-6c, and IM-7 onward.
+Core, is built** (2026-11-24, sixty-one mutations red), **IM-6b, the wire and content** (2026-11-25, fifty-seven
+red and eight Game-side recipes headless), and **IM-6c, creative** (2026-11-26, forty-eight of forty-nine red and three Game-side recipes headless). **Taken and not
+built:** IM-7 onward.
 
 **The lake plan is taken (2026-10-01): [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), all seven decisions
 as recommended; his last question closed 2026-10-12** (the walled area beneath TajMahal2 was two areas he
@@ -388,6 +388,11 @@ folder and the memory key are still to go, his, whenever suits.
   each controller, and a guard inside each. Until then a water tool on T dug and filled as a rock tool, and free. A
   tool that takes something new needs its branch before its files.
 - **A profile with `--world=` makes a world** (`Main.cs:2540-2542`). "A profile has no world" holds only without it.
+- **A registry sees no placeholders before `Freeze`** (IM-6c, 2026-11-26): a removed mod's material answers `TryGet`
+  false until the registry freezes, so a loader section that reads materials (kits) refuses it by that route, and an
+  `IsUnknown` check there is reached only after a freeze. A recipe on that check survives for that reason.
+- **Every world crosses to the build's header version at its first open** (`Main.cs`'s write at open), so a header bump
+  is checked on copies of his played worlds and backed up before it lands (IM-6c: v9; alpha C: v8).
 - **Check `git worktree list` at a session's start.** Alpha session B sat built and uncommitted in
   `.claude/worktrees/alpha-b` for six days while the hand-over said it was next (found 2026-10-19).
 - **A chord's modifier must not act on its own press** (2026-10-19, alpha C): V cycled on key-down, so V held

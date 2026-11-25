@@ -24,7 +24,7 @@ makes the zip. B, the first ten minutes (committed 2026-10-19), zipped as 0.1.2-
 (2026-10-19, header v8, so IM-6's mode byte is v9), zipped as 0.1.3-alpha, which carries B too. **D, going public**
 (2026-10-26, the plan's "Session D — built"): the README, CONTRIBUTING, CLA.md, the PR template, `.gitattributes`,
 and the notices' check in `make-alpha.ps1`; files only, riding the next zip. **Pushed, and 0.1.3 released on GitHub
-the same day.** What's left of it is his (MATTHEW-TODO): his play of 0.1.2 and 0.1.3. **IM-6's pass is written and taken (2026-11-24), IM-6a is built the same day, and IM-6b on 2026-11-25; IM-6c is next.**
+the same day.** What's left of it is his (MATTHEW-TODO): his play of 0.1.2 and 0.1.3. **IM-6's pass is written and taken (2026-11-24), IM-6a is built the same day, IM-6b on 2026-11-25, and IM-6c on 2026-11-26: IM-6 is built.**
 
 **Do first, before the slice named:**
 1. **The engine-wide pin — before IM-7.** A chunk any door wrote stays loaded until the next autosave (IM-5's
@@ -45,7 +45,10 @@ five more in the tests), all fixed, none suppressed; zero from both builds now (
 sensor's Core, with the rule IM-6 leans on: a signalled-off cell never unpays a vault's bill (COLLAPSE-PLAN, "f-1 —
 built"). **IM-6's pass is written and taken (2026-11-24)**: split into 6a, 6b and 6c, all twenty-six as recommended
 (IDEAL-MACHINES-PLAN, "IM-6 — the code-level pass"). **IM-6a, its Core, is built the same day** (the plan, "IM-6a —
-built"), **and IM-6b, the wire and content, on 2026-11-25** (the plan, "IM-6b — built"): the vault plays in sandbox.
+built"), **IM-6b, the wire and content, on 2026-11-25** (the plan, "IM-6b — built"): the vault plays in sandbox, **and
+IM-6c, creative, on 2026-11-26** (the plan, "IM-6c — built"): header v9, `--mode=creative`, kits, the first cell's 1 GJ,
+the test keys off in creative, the card, and the storm oracle. **Nothing stands before IM-7 but the engine-wide pin's
+pass and the quarry's reading of the `--pile` bench (below).**
 
 **Collisions, two planned works on one code path or one question:**
 1. **Water bodies part a and LAKE-EDIT's "hand back sooner at ~95%"** both change when Tier B hands back to
@@ -61,8 +64,8 @@ built"), **and IM-6b, the wire and content, on 2026-11-25** (the plan, "IM-6b �
    the rungs go in.
 4. **TNT's six decisions and IM-5.** A blast that destroys a vault makes a wreck, which dumps by IM-5's rules
    (the end of a dump, 5b's pile). TNT's pass reads IM-5 first.
-5. **Header versions.** The header is v8 since alpha C (the hotbar's slots, 2026-10-19); IM-6 takes v9 (the
-   mode). M10g's line below said "v6; a v5 world" and M11's "v5 at M11"; both are corrected.
+5. **Header versions.** The header is v9 since IM-6c (the mode and its flags, 2026-11-26), after alpha C's v8 (the
+   hotbar's slots, 2026-10-19); the next bump copies `tools/make-v8-header.cs` and runs it before touching the writer. M10g's line below said "v6; a v5 world" and M11's "v5 at M11"; both are corrected.
 6. **IM-6's water slot and M10g's nine-slot hotbar.** IM-6's pass reads the history's "An inventory screen,
    and slots that stay put", so the water slot fits the assignment alpha C built (a slot may name any material the table has, water
    included). **And IM-6's stock section
@@ -129,8 +132,11 @@ built"), **and IM-6b, the wire and content, on 2026-11-25** (the plan, "IM-6b �
       are listed there for his word, and his play is its test (his list's "The vault, your first play of it").
       **Decision 17's windowed reads ran 2026-11-25** (the plan, "Decision 17's windowed reads"): the install stands
       (28.6 ms mean / 221 max). The heap waited on a wet slot; his answers, (c), (A) and (A2), are built and merged
-      the same day: a heap waits until its vault's water is out, then lands in it, lifting it. **IM-6c is next**: the v8
-      capture, header v9, `--mode=creative`, kits, the first cell's grant, the keys, the card, the storm oracle.
+      the same day: a heap waits until its vault's water is out, then lands in it, lifting it. **IM-6c is built
+      (2026-11-26)** (the plan, "IM-6c — built"): the v8 capture and its kept program, header v9's mode and flags,
+      `--mode=creative`, kits and the base game's, the first cell's 1 GJ (`granted`), the test keys off in creative,
+      the card, and the storm oracle. Ten build choices are listed there for his word, and his play is its test (his
+      list's "Creative, your first world"). **IM-6 is built; IM-7 is next, after the pin's pass.**
 
       Plays after IM-6, IM-8 and IM-9. **Still owed elsewhere:** a bite under a lake (IM-7's bench); a dump
       underground headless (IM-5's: run on a copy of `LakeTest3` 2026-11-25, the recipe in COMMANDS.md; a seed-only
@@ -198,7 +204,8 @@ built"), **and IM-6b, the wire and content, on 2026-11-25** (the plan, "IM-6b �
       director (a Godot-free adapter can live in Core), the `M10:` terms and one-off lines, `P` seeding a
       sensor and its texture, decision 7's full panel status, and the headless oracle. Then f-3, his play. Not in
       front of IM-6. **`--placeat=` is built** (IM-6b, 2026-11-25, to decision 13's grammar; `PlaceAt` in Core),
-      so f-2 places its sensor with it. Build in a worktree if he is playing.
+      so f-2 places its sensor with it, and its sensor joins the creative kit (`kits/creative.json`, IM-6's decision
+      22). Build in a worktree if he is playing.
 - [ ] **M10e — the conductor index** (after the M10d play): `conductor` block, `ConductorTracker`
       marking a dirty set and nothing else in the hook, per-chunk summaries at schema 5 riding the
       batch write, `NetworkSet` with position-derived ids, `maxRunCells` as occupied brush cells,
@@ -249,6 +256,11 @@ built"), **and IM-6b, the wire and content, on 2026-11-25** (the plan, "IM-6b �
 
 ## Owed checks
 
+- [ ] **What IM-6c's headless runs could not show** (2026-11-26): the card at a creative world's first open with decision
+      55's line, the banner's `— creative`, each test key's refusal on the message line (headless presses no key, so
+      the gate is tested as Core's table and read in play), the kit's row on the hotbar, and the bank line at 1.0 GJ
+      after the first cell. His creative route (MATTHEW-TODO) walks each. Ten build choices wait on his word (the
+      plan, "IM-6c — built").
 - [ ] **What decision 17's read could not show** (run 2026-11-25; the install and the fuse are done): the pile's
       remeshes in a real world against the `--pile` bench, and that `INSTANCE_CUSTOM` reaches the pile's shader
       (decision 14). Both want a heap that lands, which since the lift and the order it does in his pit too: his
