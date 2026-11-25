@@ -3089,7 +3089,81 @@ restored from its saved bytes and compared byte for byte.
 **Only his play can check** (headless draws no HUD, panel or glitch): the bank line's look and colour, the gauge, the
 fuse line, the stock section's layout and verbs, the padlock, the two glitches (and that `INSTANCE_CUSTOM` reaches the
 pile's shader, decision 14's unchecked point), the vaults' and crate's swatches, and the pour, which no headless flag
-presses. **Decision 17's windowed reads are still owed, on his yes.**
+presses. **Decision 17's windowed reads ran the same day**: below.
+
+### Decision 17's windowed reads — run 2026-11-25
+
+Run on his yes the same day (*"Run them now"*). **The install stands; the heap does not come back in a wet working.**
+
+**Where, and the recipe** (verbatim in COMMANDS.md):
+- **The world** was a copy of `LakeTest3`, his windowed play of 2026-11-09, which his `start - Copy.cmd` opens. Its
+  workings are a pit about 72 × 88 m, dug to −24 m by the excavator, at about (292, −444) m. Every saved chunk is air,
+  and the floor already held about 213,000 L of his water.
+- **The setup:** the profile stands 4 m over the floor at (268, −20, −436) m, looking down. A vacuum cell and a high
+  vault go on a dry chunk of the floor 46 m east (`--placeat=`). The cell is charged to 500 MJ by `--fillcells=`,
+  new: Alt+P's door, which a scripted run lacked. 32,000 voxels of stone go in through the panel's door
+  (`--deposit=`). Then 2 ML of Tier B water is poured under the camera, with the chunk siphon held on it (`--mine`).
+- **The flags:** `--fluidnear=2 --fluidjob=1`, as IM-0's read.
+- **Three headless rehearsals came first**, so his screen was taken once:
+  - the first refused both bodies as wet (the pour lands before the doors run);
+  - the second's 1 GJ bank outlasted its 180 s window;
+  - the third ran the whole chain.
+
+**What happened**, windowed, at two water ticks a second (the third rehearsal agreed at every step):
+- **The siphon** took 499.84 m³ for 499.84 MJ, and the bank ran dry at tick 89. In the second rehearsal, takes ran
+  550 m³ in their first 30 s, then slowed to about 3 m³ a second as the ball spread thin.
+- **The fuse** lit at tick 200, with the vault's own minute spent: `its bill of 2.1 kW went unpaid … FUSE 14.6 s` (10.5
+  s headless). It burnt out at tick 230, owing 32,000 voxels and 499.83 m³.
+- **The water** went into cells at 2.3 m³ a second: 427.6 m³ in the 185 s left, and 72.2 m³ still owed when the window
+  closed. Every line was exact: the `dump` line, the store's water line and the pool's.
+- **The blocks never came back.** Every one of the 38 dump lines reads `0 voxel(s) into 0 chunk(s), 36 column(s)
+  waiting`. A new line names why: `pile waited 0 not loaded to the water, 13,248 wet, 0 in a lake, 0 the player, 0
+  reserved (column-boundaries)`. Headless, the first boundary laid 156 voxels before the water reached the heap, then
+  the same.
+  - The heap refuses a wet slot (`VaultDump.Pile.cs:586`, IM-5b, built as its plan said), and the dump's own water,
+    poured on the same floor, wets every slot in reach.
+  - In a working with no drain the water never leaves, so the 32,000 voxels stay owed and the vault stays dumping.
+  - A pump is no cure: one millilitre in a slot refuses it, and rain re-wets a floor.
+- **The install: 28.62 ms mean / 221.01 ms max**, on the main thread, over 605 rebuilds of 151.7 panels (9.5 MiB a
+  rebuild).
+  - The surface at the end: 34,310 quads over 126 panels (9,564 tops, 24,659 sides, 87 bottoms), with 2.45 ML moving
+    in 190,000 cells. That is the poured 2 ML and his own water as well as the dump's.
+  - **It is under both of the bars** (about 50 ms mean, 250 ms worst), the worst within 12% of its bar.
+  - The tick held 2 Hz, 600 ticks in 300 s, where IM-0's 10 ML read fell to 0.97 Hz.
+- **The frame line**: mean 7.14 ms, p50 6.94, p95 7.14, p99 8.33, max 148.6. The update's max, 221 ms, is the install's.
+  He may have moved the mouse during the run. The camera never changed chunk (`the viewer never changed chunk`) and
+  the player saved back unmoved, so at most the aim turned. That can touch the frame line, not the install, which
+  builds over all the loaded water wherever the camera faces.
+- **The remeshes against the `--pile` bench were not read**: nothing was piled, so the pile made none.
+- **Checked:** zero `ERROR` and zero `*** NO ***` in every run. Zero warnings from the Game's build from scratch with
+  both additions. r6 `2601 / 325 / 3446 at 411`.
+
+**What it decides:**
+- **Decision 32's 10 ML ceiling and IM-0's answer stand.** A real dump underground installs at 28.6 ms mean, under the
+  bar, so there is no render lever to pull.
+- **New, and his: the heap and a wet slot** (question 1 below).
+- **Still unread**, because both want a heap that lands dry: the pile's remeshes in a real world, and that
+  `INSTANCE_CUSTOM` reaches the pile's shader (decision 14). His play can show both with a vault of blocks only, or a
+  rerun can, once question 1 is answered.
+- **A side note, not a question:** the ball's pass starts at its bottom layer, which in a working is rock, so about
+  half of each pass's 3,200-cell budget visits cells with no room. The pour still ran at 2.3 m³ a second.
+
+**Question 1, the heap and a wet slot.** Today the blocks of a dump in any wet working wait for every slot to be
+bone dry, which a working that has seen water rarely is. Even a dry one is wetted by the dump's own water first.
+- **(a) Keep it.** *Cost:* a vault that lets go in a wet working keeps its blocks owed for good, and the body stays
+  dumping.
+- **(b) The heap first, the water after**, within one dump. *Cost:* the water waits about 30 s longer at 32,000 voxels,
+  and water that was already there still blocks. On his pit's floor (213,000 L before the dump) the blocks still never
+  land.
+- **(c) A wet slot takes its block and lifts its water**, by the door a collapse piece already uses (`ICollapseWater`:
+  lift, return up the column, displaced when there is no room). Those terms are already on Tier B's line, and a
+  machine placement lifts the same way. *Cost:* the pile's slot check, the dump's `Exact` reading the lifted term, and a
+  battery. A lake's band still refuses, since that is Tier A.
+- **(d) Blocks that wait wet decohere after a while**, through the dump's existing decohered term. *Cost:* the blocks
+  are lost. Cheap, and in keeping with bankruptcy being a feature, but a vault in a flooded mine then loses everything.
+- **Recommended: (c).** It returns the blocks, the dump ends, and it reuses a door whose terms are already printed and
+  tested. *Revisit:* if (c)'s lifts at 512 a boundary measure over the `--pile` bench's frame budget, fall back to (d)
+  for slots still wet after the release clock.
 
 ## Must not ship
 

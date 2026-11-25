@@ -235,8 +235,11 @@ test: his list's "The vault, your first play of it", in LakeTest2.
 - **Checked:** suite **2,558**; a battery of 57 recipes, 57 red, and eight Game-side recipes headless (both guards of
   each verb caught, each guard alone holding by design); three headless oracles, every line exact; zero warnings from
   both builds from scratch; r6 `2601 / 325 / 3446 at 411`.
-- **Owed, on his yes:** decision 17's windowed reads (TODO's Owed checks). Headless draws no HUD, panel or glitch,
-  so every look is his play's.
+- **Decision 17's windowed reads ran the same day** (the plan, "Decision 17's windowed reads"): a real dump in a copy
+  of `LakeTest3`'s pit installs at 28.6 ms mean / 221 max, under both bars, so the ceiling stands. **But the heap
+  never came back**: it refuses a wet slot (IM-5b), and the dump's own water wets them all. His question, recommended
+  (c), lifting by the collapse's door. `--fillcells` and the profile's `pile` line were added for it. Headless draws
+  no HUD, panel or glitch, so every look is his play's.
 - **Standing from the alpha** (its hand-overs are in STATUS-HISTORY): 0.1.3-alpha is the latest release, a GitHub
   pre-release, and `releases/latest` skips pre-releases, so the README links to `/releases`. **The next zip carries**
   D's player text, Ctrl+P (2026-11-04), f-1's `onsignal` box and IM-6b's vault; none is scheduled. A fresh worktree's
@@ -273,7 +276,7 @@ of it to one side, so that side can rise up to twice decision 3's 14 cm (correct
 on both branches) makes a walled area's answer the area's.** **His play passed (2026-10-09)**: R into one side
 of a split lake raised only that side, and on his word the pond branch is merged.
 
-His test world is **`LakeTest2`** (made 2026-10-11; its world file reads seed `0xD8FF0AD`, not the `0x3794C6C5` once recorded), and he pointed `start.cmd` at it himself. His windowed play of 2026-11-24 evening made a new world, `LakeTest3` (its log kept as `play-LakeTest3-2026-11-24-2127.log`); `start.cmd` still names LakeTest2.
+His test world is **`LakeTest2`** (made 2026-10-11; its world file reads seed `0xD8FF0AD`, not the `0x3794C6C5` once recorded), and he pointed `start.cmd` at it himself. His windowed play of 2026-11-09 made a new world, `LakeTest3` (its log kept as `play-LakeTest3-2026-11-09.log`), which his untracked `start - Copy.cmd` opens: a pit about 72 × 88 m dug 24 m down by the excavator, at about (292, −444) m; `start.cmd` still names LakeTest2. **A rotated log's name is the time of the rotation, not of the play**: date a play by its world file or its last `M6:` line.
 
 **The plan to build: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md).** The shape: a channel is an
 account (one bank, one store); the quantum backpack is a window that holds nothing; a vault bills for what it

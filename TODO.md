@@ -127,11 +127,14 @@ built"), **and IM-6b, the wire and content, on 2026-11-25** (the plan, "IM-6b �
       the stock section with his warranty line, the padlock and power in watts, the siphon on T behind the clicks'
       water branch, both glitches, the store's lines, `--placeat=`, `--deposit=` and `--tool=`. Ten build choices
       are listed there for his word, and his play is its test (his list's "The vault, your first play of it").
-      **Still owed from it**, decision 17's windowed reads, on his yes (Owed checks). **IM-6c is next**: the v8
+      **Decision 17's windowed reads ran 2026-11-25** (the plan, "Decision 17's windowed reads"): the install stands
+      (28.6 ms mean / 221 max), and the heap waits on a wet slot, his question (Waiting on his word). **IM-6c is
+      next**: the v8
       capture, header v9, `--mode=creative`, kits, the first cell's grant, the keys, the card, the storm oracle.
 
       Plays after IM-6, IM-8 and IM-9. **Still owed elsewhere:** a bite under a lake (IM-7's bench); a dump
-      underground headless (IM-5's).
+      underground headless (IM-5's: run on a copy of `LakeTest3` 2026-11-25, the recipe in COMMANDS.md; a seed-only
+      fixture is still owed).
 - [ ] **Building in a lake: walls that split a lake — built (L-1, L-2, E-1, 2026-10-01), played and passed
       (2026-10-09), and on main since the pond branch merged; three small things left open below**
       ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), "L-1 — built", "L-2 — built" and "E-1 —
@@ -241,21 +244,18 @@ built"), **and IM-6b, the wire and content, on 2026-11-25** (the plan, "IM-6b �
 - [ ] **Dust when a roof comes down** (M9c-2), optional, only if falls read as too quiet.
 - [ ] **Precision mining's key: Ctrl or Alt.** Ctrl descends in fly mode (~1.8 m sunk between
       chips); Alt means *crawl* there, so it pairs. One line in `MiningController`.
+- [ ] **The heap and a wet slot** (IM-6's decision 17 read, 2026-11-25): a dump in a wet working never returns its
+      blocks. (a) keep, (b) heap first, (c) lift by the collapse's door, (d) decohere after a wait; recommended (c).
+      The plan's "Decision 17's windowed reads", question 1.
 - [ ] **Rename stage 4**, his: the local folder, and the assistant's memory directory keyed on the old
       folder path. The GitHub repo (`OverBurden`, 2026-10-12) and the remote URL (seen 2026-10-26) are done.
 
 ## Owed checks
 
-- [ ] **IM-6b's windowed reads (IM-6's decision 17), on his yes**, since a windowed run takes his screen:
-      - the real dump: a high vault on a channel with no cells, in the workings of a copy of his world, filled by the
-        panel's verbs and the siphon; read the `dump` term, the frame line and the remeshes against the `--pile`
-        bench;
-      - a fuse burning out underground, the same run, from the fuse lighting to the dump's end;
-      - the install: the `M8b:` line's surface install against about 50 ms mean or 250 ms worst (the lever is the
-        render, not the ceiling, if it is over).
-
-      The same run can screenshot the bank line, the stock section and both glitches for the look questions, and
-      check that `INSTANCE_CUSTOM` reaches the pile's shader (decision 14's unchecked point).
+- [ ] **What decision 17's read could not show** (run 2026-11-25; the install and the fuse are done): the pile's
+      remeshes in a real world against the `--pile` bench, and that `INSTANCE_CUSTOM` reaches the pile's shader
+      (decision 14). Both want a heap that lands dry: his play (a vault of blocks only), or a rerun once the
+      wet-slot question is answered.
 - [ ] **Two more stacked doc summaries**, outside the machine code IM-6b mended: `WaterSurface.cs` (the dimming
       summary over `Enclosure`) and `FluidSimulation.Sheets.cs` (a sheet's summary over `SolveCellsWoken`). Each one
       line.

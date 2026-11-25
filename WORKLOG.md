@@ -1,5 +1,31 @@
 ﻿# Overburden — Worklog
 
+## 2026-11-25 — IM-6's decision 17, the windowed reads: the install stands, the heap waits on a wet slot
+
+On his yes (*"Run them now"*), a real dump in his workings: a high vault with 32,000 voxels of stone and 499.8 m³ of
+water it siphoned, on a channel run dry, in a copy of `LakeTest3`'s pit, 24 m down. The plan's "Decision 17's
+windowed reads" has the recipe, every figure and the question.
+- **The install read 28.62 ms mean / 221.01 ms max** over 605 rebuilds, under both bars (50 / 250 ms). Decision 32's
+  ceiling and IM-0's answer stand. The frame line: p50 6.94 ms, p99 8.33, max 148.6; the tick held 2 Hz.
+- **The fuse underground**: lit at tick 200 with the vault's own minute spent, 14.6 s, burnt at tick 230; the water
+  then poured at 2.3 m³ a second (427.6 m³ in 185 s), every line exact.
+- **The blocks never came back**: `pile waited … 13,248 wet` and nothing else. The heap refuses a wet slot (IM-5b), and
+  the dump's own water wets every slot first. **His question, recommended (c)**: a wet slot takes its block and lifts its
+  water by the collapse's door, whose terms are already printed.
+- **Two small additions to the Game**, both headless doors, no rule changed: `--fillcells[=<joules>]` (Alt+P at the
+  doors' time; a scripted cell had no charge), and the profile's `pile` line (why a heap's columns waited, which the
+  per-boundary line summed without saying). Zero warnings from scratch; r6 `2601 / 325 / 3446 at 411`.
+- **How it went:** three headless rehearsals before his screen was taken, and each one found something:
+  - the pour lands before the doors run, so the bodies refused as wet;
+  - a 1 GJ bank outlasted a 180 s window;
+  - the third found the heap's wait.
+- **He may have moved the mouse** during the windowed run. The camera never changed chunk, so at most its aim turned:
+  the frame line could feel it, the install cannot.
+- **A record corrected**: the play log kept this morning as `2026-11-24 21:27` was his play of 2026-11-09 (its last
+  `M6:` line matches `LakeTest3`'s world file, last written 2026-11-09 23:24). A rotated log is named for the rotation.
+  Renamed `play-LakeTest3-2026-11-09.log`; the windowed run's own output is kept beside it as
+  `probe-dump-windowed-2026-11-25.log`. The probe world was deleted after.
+
 ## 2026-11-25 — IM-6b, the wire and content: the vault, the bank, water and the dump in sandbox
 
 IM-6's pass, decisions 6–18, built in the worktree `im-6b` on IM-6a's Core. The plan's "IM-6b — built" has the whole
@@ -35,8 +61,10 @@ save change**; his play is the test, and his route is on his list.
   the miner never swinging, Tier B's, the store's and the pool's lines exact). Recipes verbatim in the plan and in
   COMMANDS.md.
 - **Checked:** suite **2,558**; zero warnings from both builds from scratch; r6 `2601 / 325 / 3446 at 411`.
-- **His log of 2026-11-24 21:27** (a windowed play that made a world `LakeTest3`) is kept as
-  `play-LakeTest3-2026-11-24-2127.log` before the headless runs rotated it. No `ERROR` in it.
+- **His log of a windowed play that made a world `LakeTest3`** is kept as `play-LakeTest3-2026-11-09.log` before the
+  headless runs rotated it. No `ERROR` in it. *Corrected the same day:* it was first filed as 2026-11-24 21:27, the
+  time a later run rotated it out, not the time of the play. Its last line matches the world file's counts (370
+  chunks, 3,151 water rows), which was last written 2026-11-09 23:24.
 - **Not checked, his play's:** every look (the bank line and its colours, the gauge, the fuse line, the stock section,
   the padlock, both glitches, the swatches) and the pour, which no headless flag presses. Decision 17's windowed reads
   are owed, on his yes.

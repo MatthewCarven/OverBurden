@@ -159,6 +159,11 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
+- [ ] **A vault that lets go in a wet mine never gives its blocks back** (found in the windowed run, 2026-11-25).
+      The blocks wait for dry ground, and the vault's own water gets there first, so in a pit they wait for good.
+      (a) leave it; (b) blocks first, then the water (still stuck if the floor was wet already); **(c) a block may
+      land in water and push it up, the way a collapsing piece already does** (my pick); (d) blocks that can't land
+      are lost after a while. "As recommended" or a letter back.
 - [ ] **The collapse: pieces that jump — I gave you the wrong size.** You said "leave it" when I
       said "at most a metre". On a copy of your tower, one piece jumped 4.5 m (about 20 pieces in
       800 jumped at all). Watch for it when you play: if you see a piece hop up, say "fix it" —
@@ -465,8 +470,9 @@ Development carries on alongside; creative mode is next.
   - Checked: all 2,558 tests pass, I broke the new code 57 deliberate ways and every one was caught, plus eight
     breakages only the running game shows, and the game's quick check reads exactly as recorded. **How it looks is
     yours to judge**: nothing I can run draws the HUD or the panel.
-  - **One run I'd like, on your yes**: a windowed read of a real dump in a copy of your world, which takes the screen
-    for a few minutes. Say when it suits.
+  - **The windowed run you said yes to is done** (2026-11-25): a vault letting go in a copy of LakeTest3's big pit.
+    The water it dumped is cheap to draw (well under the bar I set), so nothing needs changing there. But its
+    blocks never came back, which is the question just below under "Waiting on your word".
 
 - **IM-6's first step, the insides, is built** (2026-11-24). Nothing you play changes. It's the parts the next step
   puts on screen:
