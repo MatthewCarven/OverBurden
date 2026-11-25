@@ -3165,6 +3165,32 @@ bone dry, which a working that has seen water rarely is. Even a dry one is wette
   tested. *Revisit:* if (c)'s lifts at 512 a boundary measure over the `--pile` bench's frame budget, fall back to (d)
   for slots still wet after the release clock.
 
+**Taken: (c), 2026-11-25** (*"As recommended (c)"*, *"please Claude and thanks"*). **Built the same day on the branch
+`heap-lift` (`e0bcd91`) and held there, not merged**:
+- **What the branch does:** a wet slot takes its block. The slot's water is lifted through the collapse's door before
+  the write, goes back up the slot's column to the collapse's 64 m climb (stopping at solid or a chunk whose water is
+  not home), or into the slot if the write is refused, and the rest is displaced. `lifted == returned + displaced` is
+  in the dump's `Exact` and on both lines.
+- **Its checks:** five tests; sixteen recipes, fifteen red, the survivor the predicted identity; suite 2,562; zero
+  warnings from scratch on both builds; r6 exact.
+- **Why it is held:** the windowed read's recipe, rerun headless on the branch:
+  - all 32,000 voxels landed in his pit, lifting 483 m³ and displacing none, every line exact;
+  - **but the water stopped**, 248.7 m³ owed from tick 270 to the window's end, with 13 no-room rests. The heap went
+    out in about 50 s, faster than the water's 2.3 m³ a second, and buried the whole ball the water pours into
+    (about 4 m round the vault's top). So a stall of the blocks became a stall of the water: 251 m³ of water out,
+    against 427 m³ before the change.
+  - The fault is build choice 3 (the ball keeps pouring first, the heap in the same boundaries), not the rule.
+
+**Question 2, the order within a dump** (his):
+- **(A) The heap waits for its vault's water**, unless the ball is resting for lack of room, since waiting would not
+  help then. In his pit that is about 220 s of water, then about 50 s of blocks landing in it. *Cost:* the blocks of a
+  big wet dump come minutes later. It is decision 37's order read across boundaries, not only within one.
+- **(B) The ball's mouth climbs** to the top of the heap when a pass finds no room. *Cost:* IM-5a's ball changes, and
+  the water pours out over the heap's top.
+- **(C) Merge as it is.** The water under the heap waits until the heap is dug away.
+- **Recommended: (A).** It is the smallest change, keeps IM-5a's ball, and with (c) the blocks then land in the water.
+  *Revisit:* if a played dump's blocks feel too late, (B).
+
 ## Must not ship
 
 1. A reserve floor under any name: a percentage kept back, a quarry that stops itself without a sensor he

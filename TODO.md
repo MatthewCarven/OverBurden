@@ -244,9 +244,10 @@ built"), **and IM-6b, the wire and content, on 2026-11-25** (the plan, "IM-6b â€
 - [ ] **Dust when a roof comes down** (M9c-2), optional, only if falls read as too quiet.
 - [ ] **Precision mining's key: Ctrl or Alt.** Ctrl descends in fly mode (~1.8 m sunk between
       chips); Alt means *crawl* there, so it pairs. One line in `MiningController`.
-- [ ] **The heap and a wet slot** (IM-6's decision 17 read, 2026-11-25): a dump in a wet working never returns its
-      blocks. (a) keep, (b) heap first, (c) lift by the collapse's door, (d) decohere after a wait; recommended (c).
-      The plan's "Decision 17's windowed reads", question 1.
+- [ ] **The heap and a wet slot**: his (c) is built on the branch `heap-lift` (`e0bcd91`, worktree
+      `.claude/worktrees/heap-lift`) and **held**: the heap buries its own ball's water. Question 2 (the plan,
+      "Decision 17's windowed reads"): (A) the heap waits for its vault's water, recommended; (B) the ball climbs
+      the heap; (C) merge as is. On his answer: build it on the branch, rerun the LakeTest3 recipe headless, merge.
 - [ ] **Rename stage 4**, his: the local folder, and the assistant's memory directory keyed on the old
       folder path. The GitHub repo (`OverBurden`, 2026-10-12) and the remote URL (seen 2026-10-26) are done.
 

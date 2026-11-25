@@ -1,5 +1,14 @@
 ﻿# Overburden — Worklog
 
+## 2026-11-25 — the heap's lift, his (c): built on a branch and held for one more question
+
+His answer to decision 17's question: *"As recommended (c)"*, *"please Claude and thanks"*. Built in the worktree
+`heap-lift` (`e0bcd91`): a wet slot takes its block, its water lifted up the column by the collapse's door. It passed
+five tests, fifteen of sixteen recipes red (the survivor the predicted identity), suite 2,562, zero warnings and r6.
+**Held, not merged**: the windowed read's recipe rerun headless landed all 32,000 voxels, but the heap outran the water
+and buried its ball, leaving 248.7 m³ owed for good. That makes 251 m³ of water out against 427 before. Question 2 (the
+plan): (A) the heap waits for its vault's water, recommended; (B) the ball climbs the heap; (C) merge as is.
+
 ## 2026-11-25 — IM-6's decision 17, the windowed reads: the install stands, the heap waits on a wet slot
 
 On his yes (*"Run them now"*), a real dump in his workings: a high vault with 32,000 voxels of stone and 499.8 m³ of
