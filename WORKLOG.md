@@ -1,5 +1,24 @@
 ﻿# Overburden — Worklog
 
+## 2026-11-25 — his (A) built on the branch and held: the exception's premise fails in his pit
+
+His answer to question 2: *"As recommended (A)"*. Built on `heap-lift` (`8c62e4b`): while a vault owes the cells water and
+its ball is not resting for no room, its heap waits. Three tests (the wait test red against the old order), twenty-three
+of twenty-four recipes red (the survivor (c)'s identity), suite 2,565, zero warnings, r6 exact. **Held again**: the
+recipe rerun headless (`--measure=600`) waited 393 boundaries while 430 m³ poured, then the ball rested for no room, the
+heap went and buried it: 69.9 m³ owed for good (248.7 with (c) alone). A rest in his pit is the water's mound at the
+ball's top, not a full room, and the water was still leaving at about 0.16 m³ a tick. Question 3 (the plan): (A2) no
+exception, recommended; (C) merge as built.
+
+## 2026-11-25 — the heap's lift, his (c): built on a branch and held for one more question
+
+His answer to decision 17's question: *"As recommended (c)"*, *"please Claude and thanks"*. Built in the worktree
+`heap-lift` (`e0bcd91`): a wet slot takes its block, its water lifted up the column by the collapse's door. It passed
+five tests, fifteen of sixteen recipes red (the survivor the predicted identity), suite 2,562, zero warnings and r6.
+**Held, not merged**: the windowed read's recipe rerun headless landed all 32,000 voxels, but the heap outran the water
+and buried its ball, leaving 248.7 m³ owed for good. That makes 251 m³ of water out against 427 before. Question 2 (the
+plan): (A) the heap waits for its vault's water, recommended; (B) the ball climbs the heap; (C) merge as is.
+
 ## 2026-11-25 — IM-6's decision 17, the windowed reads: the install stands, the heap waits on a wet slot
 
 On his yes (*"Run them now"*), a real dump in his workings: a high vault with 32,000 voxels of stone and 499.8 m³ of
