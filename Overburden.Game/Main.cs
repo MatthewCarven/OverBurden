@@ -228,6 +228,10 @@ public partial class Main : Node3D
     private readonly List<PlaceAt> _placeAts = [];
     private readonly List<DepositAt> _deposits = [];
     private bool _placeAtsDone;
+
+    // --fillcells: Alt+P's charge at the doors' time, every placed cell to this many millijoules or its capacity,
+    // whichever is less; -1 is off. Decision 17's windowed read needed a cell the siphon could pay from.
+    private long _fillCellsMillijoules = -1;
     private long _depositsMoved;
     private BrushShape _startingBrush = BrushShape.Cube;
 
@@ -2888,6 +2892,26 @@ public partial class Main : Node3D
 
                     break;
 
+                // Alt+P at the doors' time (decision 17's read, 2026-11-25): every placed cell charged through the
+                // same debug door, bare to its capacity, --fillcells=<joules> to that much at most, after every
+                // --placeat=; a worn pack given at most as much, through FillPack, as Alt+P gives it. Printed as Alt+P's
+                // line is, and counted as Alt+P's charge is: a cell's as stored energy entering, a pack's as its debug.
+                case "fillcells":
+                    if (value.Length == 0)
+                    {
+                        _fillCellsMillijoules = long.MaxValue;
+                    }
+                    else if (long.TryParse(value, out long fillJoules) && fillJoules >= 0 && fillJoules <= long.MaxValue / 1000)
+                    {
+                        _fillCellsMillijoules = fillJoules * 1000;
+                    }
+                    else
+                    {
+                        GD.Print($"Overburden: --fillcells={value} wants joules, or nothing for full; ignored");
+                    }
+
+                    break;
+
                 case "brush" when Enum.TryParse(value, ignoreCase: true, out BrushShape brush):
                     _startingBrush = brush;
                     break;
@@ -5356,7 +5380,7 @@ public partial class Main : Node3D
     /// </summary>
     private void PlaceAtsIfDue()
     {
-        if (_placeAtsDone || (_placeAts.Count == 0 && _deposits.Count == 0) || _machines is null || _materials is null || _pipeline is null)
+        if (_placeAtsDone || (_placeAts.Count == 0 && _deposits.Count == 0 && _fillCellsMillijoules < 0) || _machines is null || _materials is null || _pipeline is null)
         {
             return;
         }
@@ -5408,6 +5432,11 @@ public partial class Main : Node3D
 
             GD.Print($"M10: --placeat — {Hud.DisplayName(Content.Materials, material)} at {cell} (voxel {at.Voxel}): {how}"
                      + (writes.Count > 0 ? $"; {string.Join("; ", writes)}" : string.Empty));
+        }
+
+        if (_fillCellsMillijoules >= 0)
+        {
+            FillEveryCell(_fillCellsMillijoules, "--fillcells");
         }
 
         foreach (DepositAt deposit in _deposits)
@@ -5752,8 +5781,11 @@ public partial class Main : Node3D
         Tell($"One {label} in your hand, empty. Right-click to wear it.");
     }
 
-    /// <summary>Every placed storage row charged to its capacity, through the set's one debug door.</summary>
-    private void FillEveryCell()
+    /// <summary>
+    /// Every placed storage row charged to its capacity, or to <paramref name="upToMillijoules"/> if that is less,
+    /// through the set's one debug door. <paramref name="door"/> names the press or flag on the printed line.
+    /// </summary>
+    private void FillEveryCell(long upToMillijoules = long.MaxValue, string door = "Alt+P")
     {
         if (_machines is null || _materials is null)
         {
@@ -5767,7 +5799,7 @@ public partial class Main : Node3D
             if (_materials.Machine(row.MaterialId) is { Kind: MachineKind.Storage, Carried: false } storage)
             {
                 long before = _machines.ChargeOf(row);
-                long landed = _machines.SetCharge(row.Cell, storage.CapacityMillijoules);
+                long landed = _machines.SetCharge(row.Cell, Math.Min(storage.CapacityMillijoules, upToMillijoules));
                 if (landed >= 0)
                 {
                     filled++;
@@ -5779,10 +5811,10 @@ public partial class Main : Node3D
         // Through the tick, so the debug charge is a term in the pool identity — a Give on the
         // pack alone is the pool's recharge path and broke the identity for a session (2026-09-19).
         long packGiven = _pack is null ? 0
-            : _machineTick?.Pack is not null ? _machineTick.FillPack(_pack.CapacityMillijoules)
-            : _pack.Give(_pack.CapacityMillijoules);
+            : _machineTick?.Pack is not null ? _machineTick.FillPack(Math.Min(_pack.CapacityMillijoules, upToMillijoules))
+            : _pack.Give(Math.Min(_pack.CapacityMillijoules, upToMillijoules));
         GD.Print(
-            $"M10: Alt+P — {filled} cell(s) filled with {EnergyText.Of(millijoules)}"
+            $"M10: {door} — {filled} cell(s) filled with {EnergyText.Of(millijoules)}"
             + (_pack is null ? string.Empty : $", the pack given {EnergyText.Of(packGiven)} to {EnergyText.Of(_pack.ChargeMillijoules)}")
             + " (debug)");
         string cells = filled == 1 ? "1 power cell" : $"{filled:N0} power cells";
@@ -10054,6 +10086,10 @@ public partial class Main : Node3D
                             + $"({dump.CeilingDecoheredMillilitres:N0} past the ceiling); owed {dump.OwedUnloaded:N0} unloaded and {dump.OwedUnanalysed:N0} unanalysed vault-boundary(ies), "
                             + $"{dump.NoRoomRests:N0} no-room rest(s); {_machines.DumpsEnded:N0} back to holding, {_machines.WrecksRemoved:N0} wreck(s) removed: "
                             + $"{(dump.Exact ? "exact" : "*** NO ***")}\n"
+                            // Decision 17's read (2026-11-25): why a heap's columns waited, column-boundaries by reason, which
+                            // the per-boundary line's "column(s) waiting" sums without saying.
+                            + $"pile      waited {dump.PileWaitedUnloaded:N0} not loaded to the water, {dump.PileWaitedWet:N0} wet, {dump.PileWaitedLake:N0} in a lake, "
+                            + $"{dump.PileWaitedPlayer:N0} the player, {dump.PileWaitedReserved:N0} reserved (column-boundaries)\n"
                           : string.Empty);
         if (_machineTick is null)
         {

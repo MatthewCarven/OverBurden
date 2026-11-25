@@ -1228,6 +1228,24 @@ litre), no `mining` block (the miner never swings), and every line exact: Tier B
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --pitch=-89 --injectlitres=200000 --fillbasin=2000000 --breach=3 --pump=100 --pack=overburden:quantum_backpack --tool=quantum_siphon_cube --mine --placeat=quantum_vault/high@68,4,60 --measure=15
 ```
 
+**`--fillcells[=<joules>]`** (2026-11-25, for IM-6's decision 17 read) is Alt+P at the doors' time: every placed cell
+charged through the set's one debug door, after every `--placeat=`, bare to its capacity and with a value to that many
+joules at most, and a worn pack given at most as much (a quantum backpack, a window, is given nothing). It prints
+`M10: --fillcells — …` as Alt+P prints its line, and the charge is counted as Alt+P's is: a cell's as stored energy
+entering, a pack's as its debug. A scripted run had no other way to give a `--placeat=` cell a charge (`--pump`'s cell wants
+`--breach`'s shaft at a basin's pit).
+
+**Decision 17's real dump, windowed (2026-11-25)**, in a copy of `LakeTest3` (`worlds/probe-dump-…`, deleted after):
+the cell and the high vault on a dry chunk of his pit's floor, the cell charged to 500 MJ, 32,000 voxels of stone
+deposited, 2 ML poured under the camera and the chunk siphon held on it. The bank runs dry about tick 89, the fuse
+lights about tick 200 and burns out about tick 230, and the report's `fluidsurf` line ends with the install's mean and
+max. Drop the window's flags (no `--headless`) only on his yes; headless, the same line rehearses everything but the
+install. The profile's `pile` line says why a heap's columns waited, by reason:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game -- --profile --speed=0 --world=probe-dump-2026-11-25 --at=268,-20,-436 --pitch=-89 --fluidnear=2 --fluidjob=1 --stock=64000 --pack=overburden:quantum_backpack --tool=quantum_siphon_chunk --mine --placeat=vacuum_cell@1236,-96,-1796 --fillcells=500000000 --placeat=quantum_vault/high@1248,-96,-1796 --deposit=stone:32000@1248,-96,-1796 --injectlitres=2000000 --measure=300
+```
+
 **The world file lives at `user://worlds/<name>/world.db`** — on Windows,
 `%APPDATA%/Godot/app_userdata/Overburden/worlds/`. `--world=<name>` picks one, `--nosave` opens
 none at all, and `--autosave=<seconds>` moves the 30 s flush. **A run that is a measurement or a
