@@ -10088,7 +10088,8 @@ public partial class Main : Node3D
                             + $"{(dump.Exact ? "exact" : "*** NO ***")}\n"
                             // Decision 17's read (2026-11-25): why a heap's columns waited, column-boundaries by reason, which
                             // the per-boundary line's "column(s) waiting" sums without saying; and what its wet slots lifted.
-                            + $"pile      waited {dump.PileWaitedUnloaded:N0} not loaded to the water, {dump.PileWaitedLake:N0} in a lake, "
+                            + $"pile      {dump.PileWaitedWater:N0} vault-boundary(ies) waiting for their water; "
+                            + $"waited {dump.PileWaitedUnloaded:N0} not loaded to the water, {dump.PileWaitedLake:N0} in a lake, "
                             + $"{dump.PileWaitedPlayer:N0} the player, {dump.PileWaitedReserved:N0} reserved (column-boundaries); "
                             + $"lifted {dump.PileLiftedMillilitres:N0} mL == returned {dump.PileReturnedMillilitres:N0} + displaced {dump.PileDisplacedMillilitres:N0}: "
                             + $"{(dump.PileLiftedMillilitres == dump.PileReturnedMillilitres + dump.PileDisplacedMillilitres ? "exact" : "*** NO ***")}\n"

@@ -72,6 +72,9 @@ public class VaultPileTests
     // In the rock under the rim, west of the room: no air anywhere round its cell.
     private static readonly BrushCell Sealed = new(4, 2, 10);
 
+    // Standing on the rim, its mouth above the seed surface: its water is a lake's.
+    private static readonly BrushCell OnTheRim = new(8, 10, 22);
+
     private static ISurfaceHeights BowlAndRim() => new AnalyticSurface((x, z) =>
         x >= 48 && x < 80 && z >= 48 && z < 80 ? Floor : Rim);
 
@@ -391,6 +394,20 @@ public class VaultPileTests
 
             return added;
         }
+
+        /// <summary>Every open voxel of the room filled to the brim, so a ball in it finds no room.</summary>
+        public long FillTheRoom()
+        {
+            long added = 0;
+            for (int y = RoomFloor; y <= RoomCeiling; y++)
+            for (int z = 32; z <= 51; z++)
+            for (int x = 32; x <= 51; x++)
+            {
+                added += FluidConstants.CellCapacityMillilitres - Fluid.Add(new VoxelPos(x, y, z), FluidConstants.CellCapacityMillilitres);
+            }
+
+            return added;
+        }
     }
 
     private static bool Inside(VoxelPos v, BrushCell cell)
@@ -653,8 +670,9 @@ public class VaultPileTests
     [Fact]
     public void APileWritesIntoItsOwnWaterLiftingItUpItsColumn()
     {
-        // The vault's own water pours first each boundary (decision 37), so its floor is wet while the pile runs. The
-        // blocks waited for dry ground until 2026-11-25; now a wet slot takes its block and its water climbs the column.
+        // The vault's own water pours first (decision 37, and since question 2 the whole of it before the heap starts), so
+        // its floor is wet while the pile runs. The blocks waited for dry ground until 2026-11-25; now a wet slot takes its
+        // block and its water climbs the column.
         var rig = new Rig();
         rig.Owing(Middle, [(Dirt, 100)], water: 2 * CubicMetre);
 
@@ -797,6 +815,100 @@ public class VaultPileTests
         rig.Terrain.RefuseAll = false;
         rig.RunToEnd();
         Assert.Equal(20, rig.Dump.VoxelsPiled);
+        rig.AssertBooks();
+    }
+
+    // ---------------------------------------------------------------- the order (decision 17's question 2, (A))
+
+    [Fact]
+    public void TheHeapWaitsForItsVaultsWaterSoItNeverBuriesTheBall()
+    {
+        // In his pit the heap went out faster than the water and buried the ball it pours into, leaving 248.7 m³ owed for
+        // good. 50 m³ wants a ball of radius 10, more cells than one boundary visits, so the water outlasts a boundary and
+        // the old order would have piled while it poured. Every boundary the vault still owes the cells water at the
+        // pile's turn, with its ball not resting, piles nothing.
+        var rig = new Rig();
+        rig.Owing(Middle, [(Dirt, 400)], water: 50 * CubicMetre);
+        int boundaries = 0, waits = 0, lastWait = 0, firstPiled = 0;
+        while (rig.Contents(Middle).Owes)
+        {
+            DumpReport report = rig.Boundary();
+            boundaries++;
+            rig.AssertBooks();
+            if (rig.Contents(Middle).WaterMillilitres > 0 && report.NoRoom == 0)
+            {
+                Assert.Equal(0, report.VoxelsPiled);
+                Assert.Equal(0, report.Piling);
+                Assert.Equal(1, report.PileWaitingWater);
+                waits++;
+                lastWait = boundaries;
+            }
+
+            if (report.VoxelsPiled > 0 && firstPiled == 0)
+            {
+                firstPiled = boundaries;
+            }
+
+            Assert.True(boundaries < 400, "the dump never ended");
+        }
+
+        Assert.True(waits > 0, "the water never outlasted a boundary — the test would not see the order");
+        Assert.Equal(waits, rig.Dump.PileWaitedWater);
+        Assert.Equal(0, rig.Dump.NoRoomRests);
+        Assert.True(firstPiled > lastWait, $"piled at boundary {firstPiled}, before the water was out at {lastWait}");
+        Assert.Equal(400, rig.Dump.VoxelsPiled);
+        Assert.Equal(50 * CubicMetre, rig.Fluid.DumpedMillilitres);
+
+        // Every litre reached the cells. Some of what the blocks then lifted is displaced, counted in the books above: the
+        // ball pours as a mound that stands to this sealed room's ceiling until the cells level it, so a column's second
+        // block finds no room above it (the lift's climb stops at rock, build choice 2).
+    }
+
+    [Fact]
+    public void ABallRestingForWantOfRoomLetsTheHeapGo()
+    {
+        // A room full to the brim: the ball's whole pass finds no room and rests, and waiting would not help, so the heap
+        // goes. Its slots are full, and the room above them too, so what each lifts is displaced, and counted. The water
+        // still waits for room. No step, so the room stays as it was put.
+        var rig = new Rig();
+        rig.Owing(Middle, [(Dirt, 400)], water: CubicMetre);
+        Assert.True(rig.FillTheRoom() > 0);
+
+        DumpReport first = rig.Boundary(step: false);
+        Assert.Equal(1, first.NoRoom);
+        Assert.Equal(0, first.PileWaitingWater);
+        Assert.True(first.VoxelsPiled > 0, "the heap waited on a ball that was resting");
+        rig.AssertBooks();
+        for (int boundaries = 1; rig.Contents(Middle).TotalVoxels > 0; boundaries++)
+        {
+            Assert.True(boundaries < VaultDump.NoRoomWaitMillis / MachineTick.DefaultBoundaryMillis, "the heap outlasted the ball's rest");
+            Assert.Equal(1, rig.Boundary(step: false).NoRoom);
+            rig.AssertBooks();
+        }
+
+        Assert.Equal(400, rig.Dump.VoxelsPiled);
+        Assert.Equal(CubicMetre, rig.Contents(Middle).WaterMillilitres);
+        Assert.Equal(1, rig.Dump.NoRoomRests);
+        Assert.Equal(0, rig.Dump.PileWaitedWater);
+        Assert.True(rig.Dump.PileDisplacedMillilitres > 0, "a full room's lifted water found room — the room was not full");
+        rig.AssertBooks();
+    }
+
+    [Fact]
+    public void ALakesShareNeverHoldsTheHeapBack()
+    {
+        // A vault on the rim pays a lake, which needs no room by the vault, so its heap goes at once while the release
+        // clock still runs.
+        var rig = new Rig();
+        rig.Owing(OnTheRim, [(Dirt, 100)], water: CubicMetre);
+
+        DumpReport first = rig.Boundary();
+
+        Assert.Equal(0, first.ToCells);
+        Assert.True(rig.Contents(OnTheRim).WaterMillilitres > 0, "the vault's water was gone in a boundary — the test would not see the heap go first");
+        Assert.Equal(100, first.VoxelsPiled);
+        Assert.Equal(0, first.PileWaitingWater);
+        Assert.Equal(0, rig.Dump.PileWaitedWater);
         rig.AssertBooks();
     }
 

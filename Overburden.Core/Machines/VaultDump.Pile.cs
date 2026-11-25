@@ -41,6 +41,13 @@ namespace Overburden.Core.Machines;
 /// refused, and what has no room is displaced. <c>lifted == returned + displaced</c> is the pile's own line.
 /// </para>
 /// <para>
+/// <b>A heap waits for its own vault's water</b> (decision 17's read, question 2, taken as (A) 2026-11-25). In his pit
+/// the heap went out faster than the water and buried the ball it pours into, so a stall of the blocks became a stall
+/// of the water. While the vault owes the cells water the whole heap waits, unless the ball is resting for want of
+/// room, when waiting would not help. A lake's share needs no room by the vault, so it never holds a heap back. This is
+/// decision 37's order read across boundaries, and with the lift the blocks then land in the water.
+/// </para>
+/// <para>
 /// <b>Only what can lie loose is piled</b> (decision 12) and <b>a dump heaps at most
 /// <see cref="HeapCeilingVoxels"/></b> (decision 14): both decided when the vault is first seen owing, the
 /// rest decohered whole, the excess from the highest material ID down. The materials are piled mixed, each
@@ -128,6 +135,12 @@ public sealed partial class VaultDump
     public long PileWaitedReserved { get; private set; }
 
     /// <summary>
+    /// Vault-boundaries a heap waited for its own vault's water to pour first (decision 17's question 2, taken as (A)
+    /// 2026-11-25). Not columns: the whole heap waits.
+    /// </summary>
+    public long PileWaitedWater { get; private set; }
+
+    /// <summary>
     /// Millilitres the piles lifted out of the wet slots they wrote, over the lifetime (decision 17's read, question 1,
     /// taken as (c) 2026-11-25), through the collapse's door. <c>lifted == returned + displaced</c> is the pile's own
     /// line, and it is in <see cref="Exact"/>.
@@ -182,6 +195,7 @@ public sealed partial class VaultDump
         public int NoRoom;
         public int Forgotten;
         public long Lifted;
+        public int WaitingForWater;
     }
 
     private enum SlotAnswer : byte
@@ -369,6 +383,15 @@ public sealed partial class VaultDump
             return;
         }
 
+        // Decision 17's question 2, (A): the heap waits for its own vault's water, so it never buries the ball that
+        // water pours into, unless the ball is resting for want of room, when waiting would not help.
+        if (WaitsForItsWater(row))
+        {
+            PileWaitedWater++;
+            tally.WaitingForWater++;
+            return;
+        }
+
         tally.Piling++;
         if (!heap.Seeded)
         {
@@ -484,6 +507,17 @@ public sealed partial class VaultDump
             tally.NoRoom++;
         }
     }
+
+    /// <summary>
+    /// Whether a heap waits for its own vault's water (decision 17's question 2, taken as (A) 2026-11-25): the vault
+    /// still owes the cells water and its ball is not resting for want of room. A lake's share needs no room by the
+    /// vault, so a heap never waits on one.
+    /// </summary>
+    private bool WaitsForItsWater(MachineRow row) =>
+        VaultState.TryRead(row, out VaultContents contents)
+        && contents.WaterMillilitres > 0
+        && BoundForCells(row)
+        && !(_balls.TryGetValue(row.Cell, out Ball? ball) && ball.RestMillis > 0);
 
     /// <summary>
     /// A new heap, or one starting again after a rest: its floor and centre from the vault's cell, and the
