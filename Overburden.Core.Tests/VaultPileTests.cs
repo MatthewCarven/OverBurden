@@ -818,7 +818,7 @@ public class VaultPileTests
         rig.AssertBooks();
     }
 
-    // ---------------------------------------------------------------- the order (decision 17's question 2, (A))
+    // ---------------------------------------------------------------- the order (decision 17's questions 2 and 3, (A2))
 
     [Fact]
     public void TheHeapWaitsForItsVaultsWaterSoItNeverBuriesTheBall()
@@ -826,7 +826,7 @@ public class VaultPileTests
         // In his pit the heap went out faster than the water and buried the ball it pours into, leaving 248.7 m³ owed for
         // good. 50 m³ wants a ball of radius 10, more cells than one boundary visits, so the water outlasts a boundary and
         // the old order would have piled while it poured. Every boundary the vault still owes the cells water at the
-        // pile's turn, with its ball not resting, piles nothing.
+        // pile's turn piles nothing.
         var rig = new Rig();
         rig.Owing(Middle, [(Dirt, 400)], water: 50 * CubicMetre);
         int boundaries = 0, waits = 0, lastWait = 0, firstPiled = 0;
@@ -835,7 +835,7 @@ public class VaultPileTests
             DumpReport report = rig.Boundary();
             boundaries++;
             rig.AssertBooks();
-            if (rig.Contents(Middle).WaterMillilitres > 0 && report.NoRoom == 0)
+            if (rig.Contents(Middle).WaterMillilitres > 0)
             {
                 Assert.Equal(0, report.VoxelsPiled);
                 Assert.Equal(0, report.Piling);
@@ -865,33 +865,51 @@ public class VaultPileTests
     }
 
     [Fact]
-    public void ABallRestingForWantOfRoomLetsTheHeapGo()
+    public void ABallRestingForWantOfRoomStillHoldsTheHeapBackUntilRoomIsDug()
     {
-        // A room full to the brim: the ball's whole pass finds no room and rests, and waiting would not help, so the heap
-        // goes. Its slots are full, and the room above them too, so what each lifts is displaced, and counted. The water
-        // still waits for room. No step, so the room stays as it was put.
+        // Question 3, (A2): a rest is no proof the room is full — in his pit it was the water's mound at the ball's top
+        // while the cells spread it, and a heap let go in one buried the ball again. Here the room is full to the brim, so
+        // the ball rests and the heap waits with it, through the whole rest. Then the top of the room is emptied (as a
+        // player's pump would): the ball's next pass lands the water, and only then do the blocks come. No step, so the
+        // room stays as it was put.
         var rig = new Rig();
         rig.Owing(Middle, [(Dirt, 400)], water: CubicMetre);
         Assert.True(rig.FillTheRoom() > 0);
 
         DumpReport first = rig.Boundary(step: false);
         Assert.Equal(1, first.NoRoom);
-        Assert.Equal(0, first.PileWaitingWater);
-        Assert.True(first.VoxelsPiled > 0, "the heap waited on a ball that was resting");
+        Assert.Equal(1, first.PileWaitingWater);
+        Assert.Equal(0, first.VoxelsPiled);
         rig.AssertBooks();
-        for (int boundaries = 1; rig.Contents(Middle).TotalVoxels > 0; boundaries++)
+
+        for (int y = 17; y <= RoomCeiling; y++)
+        for (int z = 32; z <= 51; z++)
+        for (int x = 32; x <= 51; x++)
         {
-            Assert.True(boundaries < VaultDump.NoRoomWaitMillis / MachineTick.DefaultBoundaryMillis, "the heap outlasted the ball's rest");
-            Assert.Equal(1, rig.Boundary(step: false).NoRoom);
-            rig.AssertBooks();
+            rig.Fluid.Remove(new VoxelPos(x, y, z), FluidConstants.CellCapacityMillilitres);
         }
 
-        Assert.Equal(400, rig.Dump.VoxelsPiled);
-        Assert.Equal(CubicMetre, rig.Contents(Middle).WaterMillilitres);
+        int boundaries = 1, waits = 1;
+        while (rig.Contents(Middle).Owes)
+        {
+            DumpReport report = rig.Boundary(step: false);
+            boundaries++;
+            rig.AssertBooks();
+            if (rig.Contents(Middle).WaterMillilitres > 0)
+            {
+                Assert.Equal(0, report.VoxelsPiled);
+                Assert.Equal(1, report.PileWaitingWater);
+                waits++;
+            }
+
+            Assert.True(boundaries < 100, "the dump never ended");
+        }
+
+        Assert.True(waits >= VaultDump.NoRoomWaitMillis / MachineTick.DefaultBoundaryMillis, $"the heap waited {waits} boundaries, less than the ball's rest");
+        Assert.Equal(waits, rig.Dump.PileWaitedWater);
         Assert.Equal(1, rig.Dump.NoRoomRests);
-        Assert.Equal(0, rig.Dump.PileWaitedWater);
-        Assert.True(rig.Dump.PileDisplacedMillilitres > 0, "a full room's lifted water found room — the room was not full");
-        rig.AssertBooks();
+        Assert.Equal(400, rig.Dump.VoxelsPiled);
+        Assert.Equal(CubicMetre, rig.Fluid.DumpedMillilitres);
     }
 
     [Fact]
