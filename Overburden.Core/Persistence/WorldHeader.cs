@@ -119,6 +119,20 @@ public sealed record WorldHeader
     /// (<see cref="HotbarSlots.RowFor"/>), so nothing moves on its first open.
     /// </remarks>
     public IReadOnlyList<int> Hotbar { get; init; } = HotbarSlots.EmptyRow;
+
+    /// <summary>What kind of world this is (IM-6's pass, decision 20, header v9): sandbox unless it was made creative.</summary>
+    /// <remarks>
+    /// Chosen once, when the world is created, and never changed after (decision 21). A world written before v9 reads as
+    /// sandbox, which is exactly what every such world is: creative did not exist.
+    /// </remarks>
+    public WorldMode Mode { get; init; } = WorldMode.Sandbox;
+
+    /// <summary>The once-only doors this world has already been through (decision 20, header v9): the kit, the first cell's gift.</summary>
+    /// <remarks>
+    /// A world written before v9 reads with none set, which is true of it: nothing before v9 granted anything. Bits
+    /// this build does not know are refused at read and at write (<see cref="WorldModes.Problem"/>).
+    /// </remarks>
+    public WorldFlags Flags { get; init; } = WorldFlags.None;
 }
 
 /// <summary>The equipped pack as the header carries it: its material through the world's table, its charge, its channel.</summary>
@@ -183,12 +197,14 @@ public static class WorldHeaderBlob
     /// M10c-3</b> for the equipped pack, and <b>to 5 on 2026-09-18</b> for the carried packs'
     /// charges, <b>to 6 on 2026-09-23</b> for the relief variation and <b>to 7 the same day</b>
     /// for the floor and ceiling that replaced it, and <b>to 8 on 2026-10-19</b> (alpha session C)
-    /// for the hotbar's slots. All seven migrate under the policy in <see cref="OldestVersion"/>,
+    /// for the hotbar's slots, and <b>to 9 on 2026-11-26</b> (IM-6c) for the world's mode and its
+    /// once-only flags. All eight migrate under the policy in <see cref="OldestVersion"/>,
     /// though v7 is the first that is not purely additive — see there. (The hotbar assignment was
     /// written down as "v5", then "v6", then planned after IM-6's v8 before the alpha took it
-    /// first; the number is a counter. IM-6's mode byte takes v9.) <b>From v8, people other than
+    /// first; the number is a counter.) <b>From v8, people other than
     /// the one building it hold saved worlds</b>: an alpha that opens a world rewrites its header
-    /// at its own version, so a world opened in 0.1.3 is refused by 0.1.2 by name.
+    /// at its own version, so a world opened in 0.1.3 is refused by 0.1.2 by name, and a world
+    /// opened by a v9 build is refused by 0.1.3 the same way.
     /// </remarks>
     /// <remarks>
     /// <b>v6 is the first bump that grows a section in the middle of the payload rather than
@@ -196,7 +212,7 @@ public static class WorldHeaderBlob
     /// a <em>shorter</em> block and then a different offset for everything after it — see
     /// <see cref="SettingsBytesFor"/>.
     /// </remarks>
-    public const byte Version = 8;
+    public const byte Version = 9;
 
     /// <summary>The oldest layout this build can still read.</summary>
     /// <remarks>
@@ -211,6 +227,8 @@ public static class WorldHeaderBlob
     /// and a v5 header is a v6 one without its relief variation, which reads as a world of even
     /// lumpiness — which every world written before 2026-09-23 is. A v7 header is a v8 one without
     /// its hotbar, which reads as the row such a world showed: its first nine holdings in ID order.
+    /// A v8 header is a v9 one without its mode and flags bytes, which reads as a sandbox world that
+    /// has been granted nothing — every world made before creative existed.
     /// </para>
     /// <para>
     /// <b>v7 is the one exception to "additive", and it is allowed for a reason that will not
@@ -248,6 +266,9 @@ public static class WorldHeaderBlob
 
     /// <summary>Bytes the hotbar occupies (v8): nine int32s, −1 for an empty slot. No presence byte, since a row always exists.</summary>
     internal const int HotbarBytes = HotbarSlots.Count * sizeof(int);
+
+    /// <summary>Bytes the mode and the flags occupy (v9): one each, always present, after the hotbar.</summary>
+    internal const int ModeBytes = 2;
 
     /// <summary>
     /// Bytes one <see cref="WorldGenSettings"/> occupies: 8 + 4×2 + 4×6 + 1 + 4×3, and
@@ -356,6 +377,12 @@ public static class WorldHeaderBlob
             throw new ArgumentException(hotbarProblem, nameof(header));
         }
 
+        // v9: the mode and the flags, held to the reader's one rule — the inventory's reason once more.
+        if (WorldModes.Problem((byte)header.Mode, (byte)header.Flags) is string modeProblem)
+        {
+            throw new ArgumentException($"World header: {modeProblem}", nameof(header));
+        }
+
         int payloadLength = SettingsBytes
                             + sizeof(int)
                             + sizeof(int)
@@ -368,7 +395,8 @@ public static class WorldHeaderBlob
                             + (header.Pack is null ? 0 : PackBytes)
                             + sizeof(int)
                             + (carried.Count * PackBytes)
-                            + HotbarBytes;
+                            + HotbarBytes
+                            + ModeBytes;
 
         for (int i = 0; i < table.Count; i++)
         {
@@ -464,6 +492,10 @@ public static class WorldHeaderBlob
             BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(offset), materialId);
             offset += sizeof(int);
         }
+
+        // Version 9: the mode, then the flags — a byte each.
+        payload[offset++] = (byte)header.Mode;
+        payload[offset++] = (byte)header.Flags;
 
         if (offset != payloadLength)
         {
@@ -799,6 +831,15 @@ public static class WorldHeaderBlob
             hotbar = ReadHotbar(payload, count, ref offset);
         }
 
+        // Version 8 stopped here, so a world written before IM-6c is a sandbox world that has been
+        // granted nothing — creative did not exist, so that is exactly true of it.
+        WorldMode mode = WorldMode.Sandbox;
+        WorldFlags flags = WorldFlags.None;
+        if (version >= 9)
+        {
+            (mode, flags) = ReadMode(payload, ref offset);
+        }
+
         if (offset != payload.Length)
         {
             throw new BlobFormatException(
@@ -828,7 +869,29 @@ public static class WorldHeaderBlob
             Pack = pack,
             CarriedPacks = carried,
             Hotbar = hotbar,
+            Mode = mode,
+            Flags = flags,
         };
+    }
+
+    /// <summary>Reads the mode and the flags (v9), held to the one rule the writer holds them to.</summary>
+    private static (WorldMode Mode, WorldFlags Flags) ReadMode(ReadOnlySpan<byte> payload, ref int offset)
+    {
+        const string What = "World header";
+
+        if (payload.Length - offset < ModeBytes)
+        {
+            throw new BlobFormatException($"{What}: ran out of bytes reading the world's mode and flags.");
+        }
+
+        byte mode = payload[offset++];
+        byte flags = payload[offset++];
+        if (WorldModes.Problem(mode, flags) is string problem)
+        {
+            throw new BlobFormatException($"{What}: {problem}");
+        }
+
+        return ((WorldMode)mode, (WorldFlags)flags);
     }
 
     /// <summary>Reads the hotbar's nine slots (v8), held to the rules the writer holds them to.</summary>

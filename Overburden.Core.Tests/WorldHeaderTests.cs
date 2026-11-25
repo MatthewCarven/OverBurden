@@ -390,6 +390,16 @@ public class WorldHeaderTests
     /// </summary>
     private const int HotbarBytes = 9 * sizeof(int);
 
+    /// <summary>The mode and the flags v9 appended (IM-6c, 2026-11-26): a byte each, always present, after the hotbar.</summary>
+    private const int ModeBytes = 2;
+
+    /// <summary>
+    /// Everything after the carried packs: the hotbar (v8) and the mode and flags (v9). <b>Every offset counted back
+    /// from the end steps over it</b>, and a v7 layout is this payload without it, a v8 layout without the last
+    /// <see cref="ModeBytes"/>. The next appended section joins this sum and nothing else moves.
+    /// </summary>
+    private const int AfterCarriedBytes = HotbarBytes + ModeBytes;
+
     /// <summary>
     /// Everything after the inventory rows in a header with no player, no pack and no carried
     /// charge: the player flag, the clock and lattice, the pack flag, the carried count. <b>Every
@@ -398,7 +408,7 @@ public class WorldHeaderTests
     /// player flag read 9, or 1 with no player behind it) — <c>ClockAndLatticeBytes</c> happens
     /// to equal <c>EntryBytes</c>.
     /// </summary>
-    private const int TrailerBytes = 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes + HotbarBytes;
+    private const int TrailerBytes = 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes + AfterCarriedBytes;
 
     private const int EntryBytes = 12;
 
@@ -481,7 +491,7 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(
             Header(Air, Stone, Copper) with { Inventory = inventory, Player = player }));
 
-        byte[] older = payload[..^(ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes + HotbarBytes)];
+        byte[] older = payload[..^(ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes + AfterCarriedBytes)];
         WorldHeader read = WorldHeaderBlob.Read(Reframe(SettingsBlockAsAt(older, 2), version: 2));
 
         Assert.Equal(0, read.ElapsedMillis);
@@ -517,7 +527,7 @@ public class WorldHeaderTests
         // And on read, because a header can arrive from a file rather than from this process.
         byte[] blob = WorldHeaderBlob.Write(Header(Air, Stone));
         byte[] payload = PayloadOf(blob);
-        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - ClockAndLatticeBytes - PackAbsentBytes - CarriedAbsentBytes - HotbarBytes), -1);
+        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - ClockAndLatticeBytes - PackAbsentBytes - CarriedAbsentBytes - AfterCarriedBytes), -1);
 
         Assert.Throws<BlobFormatException>(
             () => WorldHeaderBlob.Read(Reframe(payload, WorldHeaderBlob.Version)));
@@ -530,7 +540,7 @@ public class WorldHeaderTests
             () => WorldHeaderBlob.Write(Header(Air, Stone) with { WatershedCellMetres = 0 }));
 
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone)));
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - sizeof(int) - PackAbsentBytes - CarriedAbsentBytes - HotbarBytes), 0);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - sizeof(int) - PackAbsentBytes - CarriedAbsentBytes - AfterCarriedBytes), 0);
 
         Assert.Throws<BlobFormatException>(
             () => WorldHeaderBlob.Read(Reframe(payload, WorldHeaderBlob.Version)));
@@ -630,7 +640,7 @@ public class WorldHeaderTests
         };
 
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(header));
-        payload[^(PlayerPayloadBytes + 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes + HotbarBytes)] = 2;
+        payload[^(PlayerPayloadBytes + 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes + AfterCarriedBytes)] = 2;
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
     }
@@ -708,7 +718,7 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(
             Header(Air, Stone, Copper) with { Inventory = inventory, Player = player, ElapsedMillis = 42 }));
 
-        byte[] older = payload[..^(PackAbsentBytes + CarriedAbsentBytes + HotbarBytes)];
+        byte[] older = payload[..^(PackAbsentBytes + CarriedAbsentBytes + AfterCarriedBytes)];
         WorldHeader read = WorldHeaderBlob.Read(Reframe(SettingsBlockAsAt(older, 3), version: 3));
 
         Assert.Null(read.Pack);
@@ -738,7 +748,7 @@ public class WorldHeaderTests
         // And on read: a valid pack rewritten to an ID past the table. The material sits four
         // bytes after the pack flag, sixteen before the carried count that ends the payload.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - PackPayloadBytes - CarriedAbsentBytes - HotbarBytes), 9);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - PackPayloadBytes - CarriedAbsentBytes - AfterCarriedBytes), 9);
 
         var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
         Assert.Contains("material ID 9", refused.Message);
@@ -755,7 +765,7 @@ public class WorldHeaderTests
         // Write refuses it too; the read is the arm a damaged file reaches. The charge sits
         // twelve bytes before the carried count that ends the payload.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
-        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - 12 - CarriedAbsentBytes - HotbarBytes), -1);
+        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - 12 - CarriedAbsentBytes - AfterCarriedBytes), -1);
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
         Assert.Throws<ArgumentException>(
@@ -769,7 +779,7 @@ public class WorldHeaderTests
             () => WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 16) }));
 
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - 4 - CarriedAbsentBytes - HotbarBytes), 16);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - 4 - CarriedAbsentBytes - AfterCarriedBytes), 16);
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
     }
@@ -780,7 +790,7 @@ public class WorldHeaderTests
         // Written with a pack present, for the reason the player's twin records: with none, the
         // check removed leaves "ran out of bytes reading the pack" to fire instead.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
-        payload[^(PackPayloadBytes + 1 + CarriedAbsentBytes + HotbarBytes)] = 2;
+        payload[^(PackPayloadBytes + 1 + CarriedAbsentBytes + AfterCarriedBytes)] = 2;
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
     }
@@ -822,7 +832,7 @@ public class WorldHeaderTests
         var pack = new PackSave(2, 99, 1);
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((2, 2)) with { Pack = pack, ElapsedMillis = 42 }));
 
-        byte[] older = payload[..^(CarriedAbsentBytes + HotbarBytes)];
+        byte[] older = payload[..^(CarriedAbsentBytes + AfterCarriedBytes)];
         WorldHeader read = WorldHeaderBlob.Read(Reframe(SettingsBlockAsAt(older, 4), version: 4));
 
         Assert.Empty(read.CarriedPacks);
@@ -844,7 +854,7 @@ public class WorldHeaderTests
             WithInventory((2, 2)) with { Pack = pack, ElapsedMillis = 42 }));
 
         WorldHeader read = WorldHeaderBlob.Read(
-            Reframe(SettingsBlockAsAt(payload[..^HotbarBytes], 5), version: 5));
+            Reframe(SettingsBlockAsAt(payload[..^AfterCarriedBytes], 5), version: 5));
 
         // "Uniform" is the floor sitting on the ceiling, which is what every world written
         // before 2026-09-23 is.
@@ -890,7 +900,7 @@ public class WorldHeaderTests
         }));
 
         WorldHeader read = WorldHeaderBlob.Read(
-            Reframe(SettingsBlockAsAt(payload[..^HotbarBytes], 6), version: 6));
+            Reframe(SettingsBlockAsAt(payload[..^AfterCarriedBytes], 6), version: 6));
 
         // Ceiling kept, floor taken as the flattest the old multiplier could ever have produced.
         Assert.Equal(100.0f, read.Settings.SurfaceAmplitudeVoxels);
@@ -918,7 +928,7 @@ public class WorldHeaderTests
         }));
 
         WorldHeader read = WorldHeaderBlob.Read(
-            Reframe(SettingsBlockAsAt(payload[..^HotbarBytes], 6), version: 6));
+            Reframe(SettingsBlockAsAt(payload[..^AfterCarriedBytes], 6), version: 6));
 
         Assert.Equal(48.0f, read.Settings.SurfaceAmplitudeVoxels);
         Assert.Equal(48.0f, read.Settings.ReliefBaseVoxels);
@@ -963,7 +973,7 @@ public class WorldHeaderTests
         // lattice, the pack flag, the carried count and two carried rows.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(
             WithInventory((2, 2)) with { CarriedPacks = [new PackSave(2, 1, 0), new PackSave(2, 2, 0)] }));
-        int trailer = 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes + (2 * PackPayloadBytes) + HotbarBytes;
+        int trailer = 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes + (2 * PackPayloadBytes) + AfterCarriedBytes;
         int row = payload.Length - trailer - EntryBytes;
         Assert.Equal(2, BinaryPrimitives.ReadInt32LittleEndian(payload.AsSpan(row)));
         Assert.Equal(2L, BinaryPrimitives.ReadInt64LittleEndian(payload.AsSpan(row + sizeof(int))));
@@ -981,7 +991,7 @@ public class WorldHeaderTests
 
         // On read: the one carried row's charge sits twelve bytes before the hotbar.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, 1, 0)] }));
-        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - 12 - HotbarBytes), 0);
+        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - 12 - AfterCarriedBytes), 0);
 
         var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
         Assert.Contains("holds nothing", refused.Message);
@@ -1002,7 +1012,7 @@ public class WorldHeaderTests
 
         // On read the channel is the last four bytes of the one carried row, before the hotbar.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, 1, 0)] }));
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - 4 - HotbarBytes), 16);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - 4 - AfterCarriedBytes), 16);
         var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
         Assert.Contains("Carried pack 0", refused.Message);
     }
@@ -1013,8 +1023,8 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, 1, 0)] }));
         // Past the bytes that follow, the hotbar's included: since v8 a count of two against one row
         // would read the hotbar's first sixteen bytes as the second and fail on something else.
-        int overrun = 2 + (HotbarBytes / PackPayloadBytes);
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - PackPayloadBytes - sizeof(int) - HotbarBytes), overrun);
+        int overrun = 2 + (AfterCarriedBytes / PackPayloadBytes);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - PackPayloadBytes - sizeof(int) - AfterCarriedBytes), overrun);
 
         var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
         Assert.Contains("bytes remain", refused.Message);
@@ -1029,7 +1039,7 @@ public class WorldHeaderTests
     private const int NoSlot = Overburden.Core.Inventory.HotbarSlots.Empty;
 
     /// <summary>The payload offset of hotbar slot <paramref name="slot"/>, zero-based: the hotbar ends the payload.</summary>
-    private static int SlotOffset(byte[] payload, int slot) => payload.Length - HotbarBytes + (slot * sizeof(int));
+    private static int SlotOffset(byte[] payload, int slot) => payload.Length - AfterCarriedBytes + (slot * sizeof(int));
 
     [Fact]
     public void TheHotbarSurvivesTheRoundTripIncludingASlotWhoseMaterialIsNotHeld()
@@ -1097,7 +1107,7 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(
             WithInventory((1, 3), (2, 4)) with { Hotbar = [2, 1, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot] }));
 
-        WorldHeader read = WorldHeaderBlob.Read(Reframe(payload[..^HotbarBytes], version: 7));
+        WorldHeader read = WorldHeaderBlob.Read(Reframe(payload[..^AfterCarriedBytes], version: 7));
 
         Assert.Equal([1, 2, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot, NoSlot], read.Hotbar);
     }
@@ -1159,6 +1169,146 @@ public class WorldHeaderTests
 
         var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload[..^4])));
         Assert.Contains("reading the hotbar", refused.Message);
+    }
+
+    // -------------------------------------------------------------------------------------
+    // IM-6c: the world's mode and its once-only flags (header v9), and the v8 capture.
+    // -------------------------------------------------------------------------------------
+
+    [Fact]
+    public void TheModeAndTheFlagsSurviveTheRoundTrip()
+    {
+        foreach (WorldFlags flags in new[] { WorldFlags.None, WorldFlags.KitGranted, WorldFlags.FirstCellGranted, WorldModes.KnownFlags })
+        {
+            WorldHeader written = WithInventory((1, 5)) with { Mode = WorldMode.Creative, Flags = flags };
+
+            WorldHeader read = WorldHeaderBlob.Read(WorldHeaderBlob.Write(written));
+
+            Assert.Equal(WorldMode.Creative, read.Mode);
+            Assert.Equal(flags, read.Flags);
+            Assert.Equal(written.Inventory, read.Inventory);
+        }
+    }
+
+    [Fact]
+    public void AHeaderThatSaysNothingWritesASandboxGrantedNothingAsItsLastTwoBytes()
+    {
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((1, 5))));
+
+        Assert.Equal(9, WorldHeaderBlob.Version);
+        Assert.Equal([0, 0], payload[^ModeBytes..]);
+        Assert.Equal(WorldMode.Sandbox, WorldHeaderBlob.Read(Reframe(payload)).Mode);
+    }
+
+    [Fact]
+    public void TheModeIsWrittenBeforeTheFlags()
+    {
+        // The layout, pinned: a world whose bytes are swapped would read a granted kit as a mode.
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(
+            WithInventory((1, 5)) with { Mode = WorldMode.Creative, Flags = WorldFlags.FirstCellGranted }));
+
+        Assert.Equal([1, 2], payload[^ModeBytes..]);
+    }
+
+    [Fact]
+    public void ARealV8HeaderOpensAsASandboxGrantedNothingWithItsRowIntact()
+    {
+        // Written by the unmodified v8 writer before the bump, by tools/make-v8-header.cs (IM-6's pass, decision 19):
+        // the base game's table, a row out of ID order with the high vault pinned and the relay pump held at zero, seven
+        // holdings, a lead-acid pack worn on channel 3, one charged lithium-ion pack carried.
+        byte[] blob = Fixture("v8-header-before-the-mode.bin");
+        Assert.Equal(8, blob[0]);
+
+        WorldHeader read = WorldHeaderBlob.Read(blob);
+
+        Assert.Equal(WorldMode.Sandbox, read.Mode);
+        Assert.Equal(WorldFlags.None, read.Flags);
+        string?[] names = [.. read.Hotbar.Select(id => id < 0 ? null : read.MaterialIdTable[id].Path)];
+        Assert.Equal(
+            ["stone", "glass", "clay", "vacuum_cell", null, "quantum_vault/high", "relay_pump", null, null],
+            names);
+        Assert.Equal(7, read.Inventory.Count);
+        Assert.DoesNotContain(read.Inventory, entry => read.MaterialIdTable[entry.MaterialId].Path == "relay_pump");
+        Assert.Equal(new PackSave(read.MaterialIdTable.ToList().IndexOf(Identifier.Parse("overburden:lead_acid_pack")), 1_234_567_000, 3), read.Pack);
+        Assert.Single(read.CarriedPacks);
+        Assert.Equal(new PlayerSave(new Vector3(12.5f, 40.25f, -630.75f), Flying: true), read.Player);
+        Assert.Equal(3_723_000, read.ElapsedMillis);
+        Assert.Equal(0xD8FF0ADUL, read.Settings.Seed);
+    }
+
+    [Fact]
+    public void ARealV8HeaderResavedAtV9KeepsEverythingAndStaysASandbox()
+    {
+        WorldHeader v8 = WorldHeaderBlob.Read(Fixture("v8-header-before-the-mode.bin"));
+
+        byte[] rewritten = WorldHeaderBlob.Write(v8);
+        WorldHeader v9 = WorldHeaderBlob.Read(rewritten);
+
+        Assert.Equal(9, rewritten[0]);
+        Assert.Equal(v8.Hotbar, v9.Hotbar);
+        Assert.Equal(v8.Inventory, v9.Inventory);
+        Assert.Equal(v8.Pack, v9.Pack);
+        Assert.Equal(v8.CarriedPacks, v9.CarriedPacks);
+        Assert.Equal(v8.Player, v9.Player);
+        Assert.Equal(v8.MaterialIdTable, v9.MaterialIdTable);
+        Assert.Equal(WorldMode.Sandbox, v9.Mode);
+        Assert.Equal(WorldFlags.None, v9.Flags);
+    }
+
+    [Fact]
+    public void AWorldWrittenBeforeTheModeExistedReadsAsSandboxWhateverItsBytesWouldHaveSaid()
+    {
+        // The seventh migration, an append again: a v8 header is a v9 one without its last two bytes. These two said
+        // creative with both gifts given; cut off and relabelled v8, the world is the sandbox it was.
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(
+            WithInventory((1, 3)) with { Mode = WorldMode.Creative, Flags = WorldModes.KnownFlags }));
+
+        WorldHeader read = WorldHeaderBlob.Read(Reframe(payload[..^ModeBytes], version: 8));
+
+        Assert.Equal(WorldMode.Sandbox, read.Mode);
+        Assert.Equal(WorldFlags.None, read.Flags);
+        Assert.Equal([new InventoryEntry(1, 3)], read.Inventory);
+    }
+
+    [Theory]
+    [InlineData(2, 0, "survival, which is reserved")]
+    [InlineData(3, 0, "mode is 3")]
+    [InlineData(255, 0, "mode is 255")]
+    [InlineData(1, 4, "bit(s) 0x04")]
+    [InlineData(0, 0x80, "bit(s) 0x80")]
+    [InlineData(1, 0xFF, "bit(s) 0xFC")]
+    public void ACorruptModeOrFlagsByteIsRefusedOnReadNamingIt(byte mode, byte flags, string expected)
+    {
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((1, 5))));
+        payload[^2] = mode;
+        payload[^1] = flags;
+
+        var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+
+        Assert.Contains(expected, refused.Message);
+    }
+
+    [Fact]
+    public void AModeOrAFlagTheReaderWouldRefuseIsRefusedAtWrite()
+    {
+        WorldHeader header = WithInventory((1, 5));
+
+        Assert.Contains("survival",
+            Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(header with { Mode = WorldMode.Survival })).Message);
+        Assert.Contains("mode is 7",
+            Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(header with { Mode = (WorldMode)7 })).Message);
+        Assert.Contains("0x08",
+            Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(header with { Flags = (WorldFlags)8 })).Message);
+    }
+
+    [Fact]
+    public void TheModeCutShortIsRefusedRatherThanReadAsSandbox()
+    {
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((1, 5)) with { Mode = WorldMode.Creative }));
+
+        var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload[..^1])));
+
+        Assert.Contains("mode and flags", refused.Message);
     }
 
     /// <summary>The blob's payload, decompressed if it was compressed. BCL only.</summary>
