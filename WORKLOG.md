@@ -1,5 +1,20 @@
 ﻿# Overburden — Worklog
 
+## 2026-11-25 — the heap waits for the whole of its vault's water, his (A2): the lift and the order merged
+
+His answer to question 3: *"As recommended (A2)"*. (A)'s exception is gone, and (c), (A) and (A2) are merged into main
+from `heap-lift`. The plan's "Taken: (A2)" has what is on main, two build choices for his word, and the checks.
+- **The rule:** while a vault owes the cells water, pouring or resting, its whole heap waits. Then its blocks land in
+  the water and lift it up their columns. A lake's share never holds a heap back; in a room truly full the blocks wait
+  with the water until room is dug.
+- **The books:** the wait is `PileWaitedWater` (vault-boundaries), on the per-boundary line as `M waiting for their
+  water` and first on the profile's `pile` line. No identity changes.
+- **Checked:** eight tests for the lift and the order; twenty-four recipes, (c)'s sixteen and (A2)'s eight, written before any ran, twenty-three red. Re-adding (A)'s exception is caught by the rest test; the survivor is (c)'s predicted identity (Exact's copy of the pile line, which the books assert directly). Each file was restored and compared byte for byte. Suite 2,565; zero warnings from scratch on both
+  builds; r6 exact.
+- **The windowed read's recipe, rerun headless** (`--measure=1200`): the fuse burnt at tick 230. The heap waited 436 boundaries, through 52 no-room rests, while all 499.83 m³ poured, out by about tick 675; the water sped up after tick 540, about 0.8 m³ a tick over its last 135 ticks, so the ten-minute estimate was long. Then all 32,000 voxels landed by tick 735, lifting 490 m³ and displacing none, and the vault went back to holding: about four minutes of game time from the fuse to the last block. Every line exact, zero ERROR lines. Later the recipe's siphon, still held, put 411 mL back into the emptied vault; its bill went unpaid, it fused again, and the 411 mL waits at the window's end, because the vault's own heap covers its mouth. A vault buried in its own pile keeps what it is given until it is dug out.
+- **What two holds taught:** every unit fixture passed both times; only the real recipe in his pit caught the heap
+  burying the ball. An order change between two producers is rehearsed on the real world before it merges.
+
 ## 2026-11-25 — his (A) built on the branch and held: the exception's premise fails in his pit
 
 His answer to question 2: *"As recommended (A)"*. Built on `heap-lift` (`8c62e4b`): while a vault owes the cells water and

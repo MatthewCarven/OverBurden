@@ -54,8 +54,8 @@ the step's real test**; nothing else checks how it looks or feels. A line back o
    drops 1 MJ a cubic metre. Right-click pours it back, free; Q held keeps taking.
 9. **The dump**: open the vault's panel, click the padlock, and set its channel to 9, where nothing pays. It spends its
    own minute, then the top of the screen reads `VAULT LOSING CONTAINMENT — 14 s` and its body glitches cyan. At zero
-   your stone comes back as a pile round it, each block flashing cyan for a second, and its water floods out. *Does it
-   read as losing containment? Is the pile the right look?*
+   its water floods out and your stone comes back as a pile round it, each block flashing cyan for a second
+   (underground, once all the water is out). *Does it read as losing containment? Is the pile the right look?*
 10. **(If you like) a fuse that pauses**: as 9 with a second vault, but set it back to 0 while the fuse burns. The line
     says `(paused)` and the glitch holds still, then it goes out once the bank refills its minute.
 
@@ -159,13 +159,6 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
-- [ ] **Your (A) is built and needs one more word** (2026-11-25). The blocks now wait while the vault's water
-      pours, and 430 m³ of its 500 came out in your pit. But I let the blocks go whenever the water paused for lack
-      of room, and in your pit a pause only means the water's mound has reached the top of the spot it pours into
-      while it spreads. The blocks went in a pause and buried the rest: 70 m³ stuck. **(A2) the blocks wait for all
-      of the water, pause or not** (my pick: in your pit they come back about ten minutes after the fuse, my
-      estimate; in a room with truly no space, blocks and water both wait until you dig some); (C) leave it as
-      built, and the 70 m³ waits under the heap until you dig it away. "As recommended" or a letter back.
 - [ ] **The collapse: pieces that jump — I gave you the wrong size.** You said "leave it" when I
       said "at most a metre". On a copy of your tower, one piece jumped 4.5 m (about 20 pieces in
       800 jumped at all). Watch for it when you play: if you see a piece hop up, say "fix it" —
@@ -217,7 +210,8 @@ Nothing is blocked on these; each is a small change once you have a view.
 ## Answered lately
 
 - **A vault's blocks in a wet mine** (2026-11-25): *"As recommended (c)"*, *"please Claude and thanks"*, then *"As
-  recommended (A)"*. Both built on a branch the same day, and held for the one choice under "Waiting on your word".
+  recommended (A)"* and *"As recommended (A2)"*. All built the same day: underground, a vault's blocks wait until
+  all of its water is out, then land in it and push it up.
 - **IM-6's twenty-six decisions** (2026-11-24): *"As recommended"*. So the vault comes in three steps: the insides,
   then the vault in your own LakeTest2 (the bank on the HUD, the stock panel, the siphon on T, the cyan glitch), then
   creative mode. P will give the backpack, a crate and the five vaults, pinned only. A vault's channel box opens
@@ -475,8 +469,12 @@ Development carries on alongside; creative mode is next.
     breakages only the running game shows, and the game's quick check reads exactly as recorded. **How it looks is
     yours to judge**: nothing I can run draws the HUD or the panel.
   - **The windowed run you said yes to is done** (2026-11-25): a vault letting go in a copy of LakeTest3's big pit.
-    The water it dumped is cheap to draw (well under the bar I set), so nothing needs changing there. But its
-    blocks never came back, which is the question just below under "Waiting on your word".
+    The water it dumped is cheap to draw (well under the bar I set), so nothing needs changing there. Its blocks
+    never came back, because they waited for dry ground. **Your answers are built**: underground, the blocks wait
+    until all of the vault's water is out, then land in it and push it up, as a collapsing piece does. In a copy of your
+    LakeTest3 pit all 500 m³ of water came out first, then all 32,000 blocks landed in it, about four minutes after the
+    fuse, with nothing lost or stuck. (A side note: a vault left buried under its own pile can't empty again until you
+    dig its top clear.)
 
 - **IM-6's first step, the insides, is built** (2026-11-24). Nothing you play changes. It's the parts the next step
   puts on screen:

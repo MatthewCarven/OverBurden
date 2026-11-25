@@ -128,8 +128,8 @@ built"), **and IM-6b, the wire and content, on 2026-11-25** (the plan, "IM-6b â€
       water branch, both glitches, the store's lines, `--placeat=`, `--deposit=` and `--tool=`. Ten build choices
       are listed there for his word, and his play is its test (his list's "The vault, your first play of it").
       **Decision 17's windowed reads ran 2026-11-25** (the plan, "Decision 17's windowed reads"): the install stands
-      (28.6 ms mean / 221 max), and the heap waits on a wet slot, his question (Waiting on his word). **IM-6c is
-      next**: the v8
+      (28.6 ms mean / 221 max). The heap waited on a wet slot; his answers, (c), (A) and (A2), are built and merged
+      the same day: a heap waits until its vault's water is out, then lands in it, lifting it. **IM-6c is next**: the v8
       capture, header v9, `--mode=creative`, kits, the first cell's grant, the keys, the card, the storm oracle.
 
       Plays after IM-6, IM-8 and IM-9. **Still owed elsewhere:** a bite under a lake (IM-7's bench); a dump
@@ -244,10 +244,6 @@ built"), **and IM-6b, the wire and content, on 2026-11-25** (the plan, "IM-6b â€
 - [ ] **Dust when a roof comes down** (M9c-2), optional, only if falls read as too quiet.
 - [ ] **Precision mining's key: Ctrl or Alt.** Ctrl descends in fly mode (~1.8 m sunk between
       chips); Alt means *crawl* there, so it pairs. One line in `MiningController`.
-- [ ] **The heap and a wet slot**: his (c) and (A) are built on the branch `heap-lift` (`8c62e4b`, worktree
-      `.claude/worktrees/heap-lift`) and **held**: (A)'s exception let the heap go in a no-room rest and bury the
-      ball again (69.9 mÂ³). Question 3 (the plan, "Decision 17's windowed reads"): (A2) no exception, recommended;
-      (C) merge as built. On his answer: build it, rerun the LakeTest3 recipe with `--measure=` long enough, merge.
 - [ ] **Rename stage 4**, his: the local folder, and the assistant's memory directory keyed on the old
       folder path. The GitHub repo (`OverBurden`, 2026-10-12) and the remote URL (seen 2026-10-26) are done.
 
@@ -255,8 +251,12 @@ built"), **and IM-6b, the wire and content, on 2026-11-25** (the plan, "IM-6b â€
 
 - [ ] **What decision 17's read could not show** (run 2026-11-25; the install and the fuse are done): the pile's
       remeshes in a real world against the `--pile` bench, and that `INSTANCE_CUSTOM` reaches the pile's shader
-      (decision 14). Both want a heap that lands dry: his play (a vault of blocks only), or a rerun once the
-      wet-slot question is answered.
+      (decision 14). Both want a heap that lands, which since the lift and the order it does in his pit too: his
+      play, or a windowed rerun of the recipe on his yes. The heap's two build choices wait on his word (the plan,
+      "Taken: (A2)").
+- [ ] **A streaming test raced once** (2026-11-25): `ChunkPipelineTests.MovingAwayCancelsWorkRatherThanLettingItRun`
+      failed one whole-suite run (*work queued for the abandoned region should have been cancelled*), then passed
+      three alone and every whole run since. If it fails again, it is a timing assumption in the test.
 - [ ] **Two more stacked doc summaries**, outside the machine code IM-6b mended: `WaterSurface.cs` (the dimming
       summary over `Enclosure`) and `FluidSimulation.Sheets.cs` (a sheet's summary over `SolveCellsWoken`). Each one
       line.

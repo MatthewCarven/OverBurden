@@ -1240,7 +1240,10 @@ the cell and the high vault on a dry chunk of his pit's floor, the cell charged 
 deposited, 2 ML poured under the camera and the chunk siphon held on it. The bank runs dry about tick 89, the fuse
 lights about tick 200 and burns out about tick 230, and the report's `fluidsurf` line ends with the install's mean and
 max. Drop the window's flags (no `--headless`) only on his yes; headless, the same line rehearses everything but the
-install. The profile's `pile` line says why a heap's columns waited, by reason:
+install. The profile's `pile` line says why a heap's columns waited, by reason. Since the heap's lift and order (the
+same day) it opens with the vault-boundaries a heap waited for its own water and ends `lifted … mL == returned … +
+displaced …: exact`; the per-boundary line says how many heaps waited for their water and how much their blocks
+lifted. The water now comes first and the blocks after, so a rehearsal of the whole dump wants `--measure=1200`:
 
 ```bash
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game -- --profile --speed=0 --world=probe-dump-2026-11-25 --at=268,-20,-436 --pitch=-89 --fluidnear=2 --fluidjob=1 --stock=64000 --pack=overburden:quantum_backpack --tool=quantum_siphon_chunk --mine --placeat=vacuum_cell@1236,-96,-1796 --fillcells=500000000 --placeat=quantum_vault/high@1248,-96,-1796 --deposit=stone:32000@1248,-96,-1796 --injectlitres=2000000 --measure=300

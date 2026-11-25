@@ -237,8 +237,9 @@ test: his list's "The vault, your first play of it", in LakeTest2.
   both builds from scratch; r6 `2601 / 325 / 3446 at 411`.
 - **Decision 17's windowed reads ran the same day** (the plan, "Decision 17's windowed reads"): a real dump in a copy
   of `LakeTest3`'s pit installs at 28.6 ms mean / 221 max, under both bars, so the ceiling stands. **But the heap
-  never came back**: it refused a wet slot (IM-5b). **His (c) and (A) are built on the branch `heap-lift` and held**:
-  (A)'s exception still lets the heap bury its ball's water. Question 3 is his (TODO's Waiting on his word).
+  never came back**: it refused a wet slot (IM-5b). **His answers, (c), (A) and (A2), are built and on main the same
+  day**: a heap waits until its vault's water is all out, then its blocks land in the water and lift it up their
+  columns by the collapse's door (the plan, "Taken: (A2)").
   `--fillcells` and the profile's `pile` line were added for the read. Headless draws no HUD, panel or glitch, so
   every look is his play's.
 - **Standing from the alpha** (its hand-overs are in STATUS-HISTORY): 0.1.3-alpha is the latest release, a GitHub

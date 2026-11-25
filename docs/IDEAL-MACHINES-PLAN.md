@@ -458,7 +458,8 @@ full high vault of water for about 35 hours with no sun; a full god vault for ab
     doubles it), and it is engine-wide. *Cost:* a session write (17–100 ms, the autosave's measured cost)
     on some unloads; the slice prices it.
 37. **The dump's order of work at a boundary:** Tier A first (O(1)), then the Tier B ball, then the pile into
-    whatever is still dry.
+    whatever is still dry. *(Amended 2026-11-25, decision 17's questions 1–3: a wet slot takes its block, its water
+    lifted up the column, and the pile waits until its vault owes the cells no water.)*
 
 ### F. The extras, one by one
 
@@ -1953,7 +1954,8 @@ wait on his word.** The slice is the plan's riskiest, and the reading bears that
 11. **The heap: each voxel lands on the lowest dry air voxel resting on something solid, in the nearest
     column, ring by ring out from the vault, within 32 m** (decision 30's "bottom-up, then nearest", made a
     heap). A heap is supported as it grows, so the director rarely finds a pile voxel at risk. A voxel is
-    refused if it is unloaded or its water hasn't loaded, wet (the grid's own answer, not the published one),
+    refused if it is unloaded or its water hasn't loaded, wet (the grid's own answer, not the published one;
+    amended 2026-11-25: a wet slot now takes its block, its water lifted up the column),
     in a lake band (after `Cover`), in a machine's or a wreck's cell, inside the player, or reserved by a
     landing collapse. Each dump keeps a cursor per column. With no room left inside 32 m, it waits, printed
     `no room`.
@@ -2191,7 +2193,8 @@ decision 11's rule, which needed a shape; he gave it.** What moved:
 8. **Each refusal has a predicate callable at the bracket:**
    - loaded to the water: `Ready` (`VaultDump.cs:618–627`);
    - wet: the live grid's `FluidSimulation.HeldAt` (`FluidSimulation.Siphon.cs:92–96`). `HoldsWater` reads the
-     published copy and misses this boundary's ball;
+     published copy and misses this boundary's ball; *(amended 2026-11-25, decision 17's question 1: a wet slot
+     takes its block, its water lifted up the column)*
    - in a lake band: `LakeCeiling.InLake` after `Cover`;
    - a machine's or a wreck's cell: `MachineSet.TryGet` (wrecks are rows). A write into a standing machine's
      cell marks it damaged (`MachineSet.cs:359–360`), so this refusal is what keeps a pile from killing a pump;
@@ -2268,7 +2271,8 @@ yet:** no vault ships until IM-6.
   high, and spills over a sill. A drop past `DropDepth` (8 m) under the vault's floor is no slot, and nothing
   past `HeapRadius` (32 m) is reached. A machine's or a wreck's cell is solid to the heap, never a slot.
 - **Refusals**, each waiting for the next boundary: the slot's chunk not loaded to the water, the live grid's
-  `HeldAt`, a lake band (each chunk column covered the first time a boundary asks), the player's box (passed
+  `HeldAt` (amended 2026-11-25: lifted now, not refused), a lake band (each chunk column covered the first time a
+  boundary asks), the player's box (passed
   by Main, walking only), and `CollapseDirector.Reserved`. **A slot the world changed under is looked for
   again**: filled, up to a metre above; dug from under, it falls. The vault's own chunk gates its heap, so an
   unloaded vault waits rather than reading as "no room".
@@ -2313,7 +2317,8 @@ read as taking it):
 - three piles share the budget, the remainder to the first; nine piles in nine chunks, eight written;
 - what cannot lie loose decohered by material; the ceiling from the highest material down, once, idempotent
   across a reopen;
-- never into water (the vault's own ball pouring first), never into a lake (the pile's own cover, the bowl out
+- never into water (the vault's own ball pouring first; amended 2026-11-25: into water, lifting it first, once the
+  vault's water is out), never into a lake (the pile's own cover, the bowl out
   of the reach), never into a machine's cell, the player or a reserved rest; a chunk with its voxels but not
   its water passed over; a column that waited asked again;
 - an unloaded vault waits; no slot rests the heap and starts it again once the cell beside is dug;
@@ -3166,14 +3171,14 @@ bone dry, which a working that has seen water rarely is. Even a dry one is wette
   for slots still wet after the release clock.
 
 **Taken: (c), 2026-11-25** (*"As recommended (c)"*, *"please Claude and thanks"*). **Built the same day on the branch
-`heap-lift` (`e0bcd91`) and held there, not merged**:
+`heap-lift` (`e0bcd91`), held there through questions 2 and 3 below, and merged into main with (A2)**:
 - **What the branch does:** a wet slot takes its block. The slot's water is lifted through the collapse's door before
   the write, goes back up the slot's column to the collapse's 64 m climb (stopping at solid or a chunk whose water is
   not home), or into the slot if the write is refused, and the rest is displaced. `lifted == returned + displaced` is
   in the dump's `Exact` and on both lines.
 - **Its checks:** five tests; sixteen recipes, fifteen red, the survivor the predicted identity; suite 2,562; zero
   warnings from scratch on both builds; r6 exact.
-- **Why it is held:** the windowed read's recipe, rerun headless on the branch:
+- **Why it was held:** the windowed read's recipe, rerun headless on the branch:
   - all 32,000 voxels landed in his pit, lifting 483 m³ and displacing none, every line exact;
   - **but the water stopped**, 248.7 m³ owed from tick 270 to the window's end, with 13 no-room rests. The heap went
     out in about 50 s, faster than the water's 2.3 m³ a second, and buried the whole ball the water pours into
@@ -3191,7 +3196,8 @@ bone dry, which a working that has seen water rarely is. Even a dry one is wette
 - **Recommended: (A).** It is the smallest change, keeps IM-5a's ball, and with (c) the blocks then land in the water.
   *Revisit:* if a played dump's blocks feel too late, (B).
 
-**Taken: (A), 2026-11-25** (*"As recommended (A)"*). **Built the same day on the branch (`8c62e4b`) and held again**:
+**Taken: (A), 2026-11-25** (*"As recommended (A)"*). **Built the same day on the branch (`8c62e4b`) and held again;
+its exception is gone in (A2)**:
 - **What the branch does:** while a vault owes the cells water and its ball is not resting for no room, its whole heap
   waits that boundary (`WaitsForItsWater`). The wait is counted as `PileWaitedWater` (vault-boundaries), on the
   per-boundary line as `M waiting for their water` and first on the profile's `pile` line. A lake's share never holds
@@ -3201,7 +3207,7 @@ bone dry, which a working that has seen water rarely is. Even a dry one is wette
   predicted identity; suite 2,565; zero warnings from scratch on both builds; r6 exact. The tests also turned up that
   in a sealed room the ball stands as a mound to the ceiling, so a heap starting as the water ends displaces some lifted
   water, counted (590 L of 50 m³ in the fixture).
-- **Why it is held:** the recipe rerun headless with `--measure=600` (a copy of LakeTest3, deleted after):
+- **Why it was held:** the recipe rerun headless with `--measure=600` (a copy of LakeTest3, deleted after):
   - the fuse burnt about tick 239 and the heap waited 393 boundaries while 430 m³ poured, every line exact;
   - then the ball rested for no room, the exception let the heap go, and its 32,000 voxels buried the ball again:
     69.9 m³ owed from about tick 630 to the window's end, against 248.7 m³ with (c) alone;
@@ -3217,6 +3223,43 @@ bone dry, which a working that has seen water rarely is. Even a dry one is wette
 - **(C) Merge (A) as built.** 69.9 m³ waits under the heap until it is dug away.
 - **Recommended: (A2).** *Revisit:* if ten minutes feels too long in his play, a faster pour (a ball that reaches
   further into the pit) is a pass of its own, and it would let the exception come back.
+
+**Taken: (A2), 2026-11-25** (*"As recommended (A2)"*). **Built the same day on the branch and merged into main with (c)
+and (A)**:
+- **What changed:** `WaitsForItsWater` loses the ball's rest. While a vault owes the cells water, whether its ball is
+  pouring or resting, its whole heap waits. In a room truly full the blocks wait with the water until room is dug.
+- **What is on main now, the three together** (`VaultDump.Pile.cs`):
+  - a wet slot takes its block: its water is lifted through the collapse's door (`ICollapseWater.Lift`) before the
+    write and returned up the slot's column (`ReturnUpTheColumn`, to the collapse's 64 m climb, stopping at solid or a
+    chunk whose water is not home), into the slot if the write is refused (`PutLiftedBack`), the rest displaced. The
+    lake band still refuses. `PileWaitedWet` is gone;
+  - the heap waits for the whole of its vault's water (`WaitsForItsWater`), counted as `PileWaitedWater`
+    (vault-boundaries), on the per-boundary line as `M waiting for their water` and first on the profile's `pile` line.
+    A lake's share never holds a heap back;
+  - the books: `PileLiftedMillilitres == PileReturnedMillilitres + PileDisplacedMillilitres`, in the dump's `Exact`, on
+    the per-boundary line (`… mL of water lifted`) and on the `pile` line. Tier B's lift line is unchanged.
+- **Two build choices, for his word** (the third, the heap in the same boundaries as its water, is what questions 2 and
+  3 replaced):
+  1. **The column, not the collapse's grown box first.** The box costs up to 729 returns a voxel in a full room, at 512
+     voxels a boundary; the column is one return in the common case, and the water rides up the heap. *The other arm:*
+     the collapse's order (box, vacated cells, columns).
+  2. **The climb stops at the first solid voxel.** A block under rock displaces its water rather than passing it
+     through the rock. In a sealed room the ball stands as a mound to the ceiling until the cells level it, so a heap
+     starting as its water ends displaces some lifted water, counted: 590 L of 50 m³ in the fixture's 4 m room.
+     *Revisit:* if a played dump in a closed working loses water he can see.
+- **Checked:**
+  - **Tests:** eight, the old `APileNeverWritesIntoWaterAndBuildsOnWhatIsDry` replaced. (c)'s five: its own water lifted
+    up its column; a wet floor no longer holds the blocks back; water under rock displaced and counted, none past the
+    rock; the climb stops at a chunk whose water is not home; a refused write puts its water back. And three for the
+    order: the heap piles nothing while its vault owes the cells water (red against the old order, all 400 blocks in
+    the first boundary); a ball resting in a full room still holds the heap back until room is dug, and then the water
+    lands first; a lake's share never holds a heap back.
+  - **The battery:** twenty-four recipes, (c)'s sixteen and (A2)'s eight, written before any ran, twenty-three red. Re-adding (A)'s exception is caught by the rest test; the survivor is (c)'s predicted identity (Exact's copy of the pile line, which the books assert directly). Each file was restored and compared byte for byte.
+  - **Suite 2,565**; zero warnings from both builds from scratch; r6 `2601 / 325 / 3446 at 411`. One run of the suite
+    on (c) failed `ChunkPipelineTests.MovingAwayCancelsWorkRatherThanLettingItRun`, a streaming race nowhere near the
+    pile; it passed three runs alone and every whole run since (TODO's owed checks).
+- **The windowed read's recipe, rerun headless on the merged build** (a copy of LakeTest3 again, deleted after,
+  `--measure=1200`): the fuse burnt at tick 230. The heap waited 436 boundaries, through 52 no-room rests, while all 499.83 m³ poured, out by about tick 675; the water sped up after tick 540, about 0.8 m³ a tick over its last 135 ticks, so the ten-minute estimate was long. Then all 32,000 voxels landed by tick 735, lifting 490 m³ and displacing none, and the vault went back to holding: about four minutes of game time from the fuse to the last block. Every line exact, zero ERROR lines. Later the recipe's siphon, still held, put 411 mL back into the emptied vault; its bill went unpaid, it fused again, and the 411 mL waits at the window's end, because the vault's own heap covers its mouth. A vault buried in its own pile keeps what it is given until it is dug out.
 
 ## Must not ship
 
