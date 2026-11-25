@@ -36,13 +36,18 @@ Every key is on F1 in the game, and in QUICKSTART.md beside this file. The short
 Your bare hands dig dirt, not stone. Press P, wear a battery pack (V until it's in hand, right-click), press
 Alt+P to charge it, then T to the quantum miner: that digs anything.
 
+A creative world starts with a kit, the quantum backpack on your back and 1 GJ in the first power cell you
+place, and has the test keys (P and the rest) off. Make one with a new world's name:
+  Overburden.exe -- "--world=My Creative" --mode=creative
+
 
 YOUR WORLDS AND THE LOG
 -----------------------
 Everything the game saves is in %APPDATA%\Overburden Alpha\ (paste that into File Explorer's address bar).
 You start in the world in worlds\default\. The log is logs\godot.log.
 Worlds move forward, not back: once a newer alpha has opened a world, an older one won't open it again
-(0.1.3 saves the hotbar, which 0.1.2 can't read).
+(0.1.3 saves the hotbar, which 0.1.2 can't read, and the alpha after 0.1.3 saves a world's mode, which 0.1.3
+can't read).
 
 
 FOUND A BUG?

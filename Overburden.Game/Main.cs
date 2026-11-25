@@ -286,6 +286,32 @@ public partial class Main : Node3D
     private ulong _seed;
     private bool _seedGiven;
     private bool _newWorld;
+
+    /// <summary><c>--mode=</c> (IM-6's pass, decision 21): the mode asked for, applied only to a world this run creates.</summary>
+    private WorldMode? _modeFlag;
+
+    /// <summary>The open world's mode (header v9): its header's, or <c>--mode=</c>'s for a new world, sandbox with no world at all.</summary>
+    /// <remarks>Never changed after the world is made. Core never reads it: the gate, the kit and the gift are the Game's doors.</remarks>
+    private WorldMode _mode = WorldMode.Sandbox;
+
+    /// <summary>The once-only doors this world has been through (header v9), with the kit's bit set the moment it is granted; the gift's bit is stamped at the write.</summary>
+    private WorldFlags _flags = WorldFlags.None;
+
+    /// <summary>The kit this session granted at creation, for the <c>M6c:</c> line's <c>granted</c>; null when none was.</summary>
+    private KitGrantPlan? _kitGranted;
+
+    /// <summary>Whether the pack the kit put on is the one <see cref="SetUpPack"/> finds, so its line says where it came from.</summary>
+    private bool _packFromKit;
+
+    /// <summary>Whether <see cref="SetUpPack"/> has run: until it has, the header carries the world file's pack, not a null.</summary>
+    private bool _packSetUp;
+
+    /// <summary>Whether the first cell's gift has been told this session (once, on the log and the message line).</summary>
+    private bool _giftTold;
+
+    /// <summary>The test keys that have said they are off this session — each says so once (decision 24).</summary>
+    private readonly HashSet<DebugKey> _keysTold = [];
+
     private bool _persist = true;
     private double _autosaveSeconds = DefaultAutosaveSeconds;
     private double _sinceAutosave;
@@ -1701,6 +1727,14 @@ public partial class Main : Node3D
         RestoreHotbar();
         RestoreCarriedPacks();
 
+        // IM-6c: a creative world's kit, once, before the write below, which carries its voxels and the bit that says
+        // they were given (decision 22). And the first cell's gift, armed while the header has not recorded it.
+        GrantKitIfDue();
+        if (_machines is not null)
+        {
+            _machines.Gift = FirstCellGift.For(_mode, _flags);
+        }
+
         // Before any chunk can be written, which is what replaces a world-spanning transaction:
         // numeric IDs are only allocated during content load, so the table on disk is already the
         // one every blob written after this points at. Rewritten on every open rather than only
@@ -2626,6 +2660,21 @@ public partial class Main : Node3D
 
                     break;
 
+                // IM-6's pass, decision 21: the mode of a world this run creates, profile or not — sandbox or creative.
+                // Refused out loud rather than falling through, for --seed's reason: a mistyped mode that read as an
+                // unknown flag would make a sandbox world and say nothing until the first P answered.
+                case "mode":
+                    if (WorldModes.TryParse(value, out WorldMode mode, out string? modeError))
+                    {
+                        _modeFlag = mode;
+                    }
+                    else
+                    {
+                        GD.PushError($"--mode='{value}': {modeError} Ignored.");
+                    }
+
+                    break;
+
                 case "reliefbase":
                     if (float.TryParse(value, out float floor) && floor >= 0.0f && float.IsFinite(floor))
                     {
@@ -3430,7 +3479,7 @@ public partial class Main : Node3D
 
         // After the world is open, so it says what was actually opened rather than what was
         // asked for. A run with no world file still shows one: its terrain reproduces too.
-        _hud.ShowSeed(_persist ? _worldName : "no world file", WorldSettings.Seed, _newWorld);
+        _hud.ShowSeed(_persist ? _worldName : "no world file", WorldSettings.Seed, _newWorld, _mode);
 
         // The panel with it, for the same reason and one more: it is added after the camera, so
         // it sees unhandled input first — which is nothing, since its frame stops the clicks it
@@ -3465,7 +3514,7 @@ public partial class Main : Node3D
         // The menu and the card over everything (layer 12): either can be opened over the map.
         _menu = new EscMenu { Name = "EscMenu" };
         AddChild(_menu);
-        _menu.CardText = ControlsCard.Text(_dev, Hud.VersionText);
+        _menu.CardText = ControlsCard.Text(_dev, Hud.VersionText, creative: _mode == WorldMode.Creative);
         _menu.Resumed += () =>
         {
             _camera?.CaptureMouse();
@@ -3487,6 +3536,12 @@ public partial class Main : Node3D
             {
                 OpenMenu("--openmenu");
             }
+        }
+        else if (_newWorld && _mode == WorldMode.Creative)
+        {
+            // IM-6's pass, decision 25: a creative world's first open shows the card in any binary, decision 55's line
+            // at its head, since nothing else says the test keys are off and what the kit holds.
+            OpenControls("a creative world's first open");
         }
         else if (_newWorld && ExportFolder is not null)
         {
@@ -3548,7 +3603,7 @@ public partial class Main : Node3D
             if (definition is { Kind: MachineKind.Storage, Carried: true })
             {
                 pack = new EquippedPack(saved.MaterialId, definition, saved.ChargeMillijoules, saved.Channel);
-                how = "from the world file";
+                how = _packFromKit ? "from the creative kit" : "from the world file";
                 if (pack.ChargeMillijoules != saved.ChargeMillijoules)
                 {
                     GD.Print($"M10: pack — the world file's charge of {EnergyText.Of(saved.ChargeMillijoules)} is over {Content.Materials.GetIdentifier(saved.MaterialId)}'s capacity and was clamped to {EnergyText.Of(pack.ChargeMillijoules)}");
@@ -3590,6 +3645,7 @@ public partial class Main : Node3D
         }
 
         HandOverPack(pack);
+        _packSetUp = true;
 
         if (pack is null)
         {
@@ -4320,6 +4376,7 @@ public partial class Main : Node3D
         // reconciles it; the hooks only queued.
         DrainMachines();
         PlaceAtsIfDue();
+        TellGiftIfGiven();
 
         // UNDO-PLAN: a step is a frame in which something was written, closed after the
         // drain so a dismantle and its bite are one step. A frame that wrote nothing closes
@@ -5657,16 +5714,10 @@ public partial class Main : Node3D
             return;
         }
 
-        // ALPHA-PLAN B7: both are developer keys. Gated after the latch, so the edge stays honest,
-        // and above Alt's branch, so one gate covers H and Alt+H.
-        if (!_dev)
+        // ALPHA-PLAN B7: both are developer keys, and IM-6's pass, decision 24: off in creative whatever --dev says.
+        // Gated after the latch, so the edge stays honest, and above Alt's branch, so one gate covers H and Alt+H.
+        if (!KeyAnswers(Input.IsKeyPressed(Key.Alt) ? DebugKey.AltH : DebugKey.H))
         {
-            if (!_printedDevKey)
-            {
-                _printedDevKey = true;
-                GD.Print("M8b: H and Alt+H are developer keys — start with --dev to use them");
-            }
-
             return;
         }
 
@@ -5713,6 +5764,13 @@ public partial class Main : Node3D
         bool edge = pressed && !_seedKeyHeld;
         _seedKeyHeld = pressed;
         if (!edge)
+        {
+            return;
+        }
+
+        // IM-6's pass, decision 24: all three are test keys, off in creative whatever --dev says. Asked after the
+        // latch, so the edge stays honest, and with the chord resolved as the branches below resolve it.
+        if (!KeyAnswers(Input.IsKeyPressed(Key.Alt) ? DebugKey.AltP : Input.IsKeyPressed(Key.Ctrl) ? DebugKey.CtrlP : DebugKey.P))
         {
             return;
         }
@@ -6754,6 +6812,9 @@ public partial class Main : Node3D
         _lampKeyHeld = pressed;
 
         if (!edge || _lampMaterialId < 0) return;
+
+        // IM-6's pass, decision 24: a free lamp at range is a test key, off in creative; --debuglamp stays a flag.
+        if (!KeyAnswers(DebugKey.L)) return;
 
         if (_mining.TryPlaceDebug(_lampMaterialId))
         {
@@ -9377,13 +9438,30 @@ public partial class Main : Node3D
         bool gatherEdge = gather && !_gatherKeyHeld && Input.IsKeyPressed(Key.Alt);
         _gatherKeyHeld = gather;
 
-        if (!(edge || gatherEdge) || !_mining.HasTarget)
+        if (!(edge || gatherEdge))
+        {
+            return;
+        }
+
+        // IM-6's pass, decision 24: all four are test keys, off in creative whatever --dev says, and asked before the
+        // aim so a press at the sky still says so. Ctrl+R's million litres is a developer key (ALPHA-PLAN B7): in
+        // sandbox without --dev, sprinting and pressing R is just R, as it always was.
+        DebugKey key = gatherEdge ? DebugKey.AltG
+            : Input.IsKeyPressed(Key.Alt) ? DebugKey.AltR
+            : Input.IsKeyPressed(Key.Ctrl) ? DebugKey.CtrlR
+            : DebugKey.R;
+        if (key == DebugKey.CtrlR && !DebugKeyGate.Allowed(DebugKey.CtrlR, _mode, _dev) && DebugKeyGate.Allowed(DebugKey.R, _mode, _dev))
+        {
+            key = DebugKey.R;
+        }
+
+        if (!KeyAnswers(key) || !_mining.HasTarget)
         {
             return;
         }
 
         VoxelPos at = _mining.Hit.Previous;
-        if (gatherEdge || Input.IsKeyPressed(Key.Alt))
+        if (key is DebugKey.AltG or DebugKey.AltR)
         {
             // Cancels the pour at once and takes at the boundary, where the grid is ours.
             _relayPendingMillilitres = 0;
@@ -9396,9 +9474,8 @@ public partial class Main : Node3D
         // A ball half in the ground delivers its top half at once and offers the rest every
         // boundary until it fits — the hose the pour's own remarks name, and at 1 ML the pour
         // loop is 53³ cells a boundary until it has.
-        // Ctrl+R's million litres is a developer key (ALPHA-PLAN B7): without --dev, sprinting and
-        // pressing R is just R.
-        long litres = _dev && Input.IsKeyPressed(Key.Ctrl) ? RelayBigLitres : RelayLitres;
+        // Ctrl+R's million litres only when the gate let Ctrl+R through (above).
+        long litres = key == DebugKey.CtrlR ? RelayBigLitres : RelayLitres;
         _relayAt = at;
         _relayPendingMillilitres += litres * FluidConstants.MillilitresPerLitre;
         _relayRadiusVoxels = RadiusVoxelsFor(_relayPendingMillilitres);
@@ -10049,7 +10126,8 @@ public partial class Main : Node3D
                      + $"given {EnergyText.Of(t.OwnChargeGivenMillijoules)}, returned {EnergyText.Of(t.OwnChargeReturnedMillijoules)}"
                    : string.Empty)
                + (t.SiphonPaidMillijoules > 0 ? $", siphon paid {EnergyText.Of(t.SiphonPaidMillijoules)}" : string.Empty)
-               + $" — pool == entering − leaving + generated − drawn − clamped − held + initial − taken − stowed{(t.PackDebugMillijoules > 0 ? " + debug" : string.Empty)}{(t.SiphonPaidMillijoules > 0 ? " − siphonPaid" : string.Empty)}: {(t.PowerExact ? "exact" : "*** NO ***")}";
+               + (t.GrantedMillijoules > 0 ? $", granted {EnergyText.Of(t.GrantedMillijoules)} (creative's first cell)" : string.Empty)
+               + $" — pool == entering − leaving{(t.GrantedMillijoules > 0 ? " + granted" : string.Empty)} + generated − drawn − clamped − held + initial − taken − stowed{(t.PackDebugMillijoules > 0 ? " + debug" : string.Empty)}{(t.SiphonPaidMillijoules > 0 ? " − siphonPaid" : string.Empty)}: {(t.PowerExact ? "exact" : "*** NO ***")}";
     }
 
     /// <summary>The profile's <c>machines</c> block, with the window's own denominators.</summary>
@@ -10134,8 +10212,8 @@ public partial class Main : Node3D
                + $"{t.StorageRows:N0} cell(s){(t.StorageRowsOff > 0 ? $" (+{t.StorageRowsOff:N0} off)" : "")} hold {t.StoredMillijoules:N0} mJ ({EnergyText.Of(t.StoredMillijoules)}), pack {(t.Pack is null ? "none" : $"{t.Pack.ChargeMillijoules:N0} mJ ({EnergyText.Of(t.Pack.ChargeMillijoules)})")}; "
                + $"{t.Converters:N0} panel(s), sampled {t.SolarSampled:N0} / unsampled {t.SolarUnsampled:N0} (sky answered {_solarSky?.Answered ?? 0:N0}, no column {_solarSky?.Unanswered ?? 0:N0}), "
                + $"open {(t.SolarSampled + t.SolarUnsampled > 0 ? t.OpenColumnsSum / (double)(t.SolarSampled + t.SolarUnsampled) : 0):F2}/16 mean, overcast {t.OvercastByte}/256 at the last boundary; "
-               + $"held {t.HeldMillijoules:N0} by vault bills, debug {t.PackDebugMillijoules:N0}, siphon paid {t.SiphonPaidMillijoules:N0}; "
-               + $"pool == entering − leaving + generated − drawn − clamped − held + initial + debug − taken − stowed − siphonPaid: {(t.PowerExact ? "exact" : "*** NO ***")}\n";
+               + $"held {t.HeldMillijoules:N0} by vault bills, debug {t.PackDebugMillijoules:N0}, siphon paid {t.SiphonPaidMillijoules:N0}, granted {t.GrantedMillijoules:N0}; "
+               + $"pool == entering − leaving + granted + generated − drawn − clamped − held + initial + debug − taken − stowed − siphonPaid: {(t.PowerExact ? "exact" : "*** NO ***")}\n";
     }
 
     private string PlacementLines()
@@ -10678,6 +10756,12 @@ public partial class Main : Node3D
             ? "carrying nothing"
             : $"{_inventory.TotalLitres:F0} L across {_inventory.MaterialCount} material(s)";
 
+        // IM-6's pass, decision 22: the kit's door into the pocket, a term printed on the session that opened it.
+        if (_kitGranted is { } kit)
+        {
+            held += $" | kit granted {kit.TotalVoxels:N0} voxel(s) of {kit.Voxels.Count} material(s) at creation (once)";
+        }
+
         if (_place is null) return held;
 
         return $"{held} | {_place.Placements} placement(s), {_place.VoxelsPlaced} voxel(s) placed, "
@@ -10749,6 +10833,16 @@ public partial class Main : Node3D
             }
 
             GD.Print("M6: no world file — nothing this run does will be saved");
+
+            // Decision 21: a run with no world has no mode to give one, so it is sandbox — and r6, which runs
+            // --nosave, can never meet creative by default (must-not-ship 12).
+            if (_modeFlag is { } asked && asked != WorldMode.Sandbox)
+            {
+                GD.PushWarning(
+                    $"--mode={WorldModes.Name(asked)} is ignored: this run makes no world (--nosave, or a profile without "
+                    + "--world=), so it plays as sandbox. Name a world that does not exist yet to make a creative one.");
+            }
+
             return true;
         }
 
@@ -10799,8 +10893,12 @@ public partial class Main : Node3D
                     throw new InvalidOperationException("the content did not load cleanly (see above)");
                 }
 
+                // IM-6's pass, decision 21: the one place a mode is chosen, as the one place a seed is drawn.
+                _mode = _modeFlag ?? WorldMode.Sandbox;
+                _flags = WorldFlags.None;
+
                 GD.Print(
-                    $"M6: new world at {path}, seed 0x{settings.Seed:X} "
+                    $"M6: new {WorldModes.Name(_mode)} world at {path}, seed 0x{settings.Seed:X} "
                     + $"(--seed={settings.Seed} builds this landscape again), relief "
                     + $"{settings.ReliefBaseVoxels:0.##}..{settings.SurfaceAmplitudeVoxels:0.##} "
                     + $"voxel(s), mountains {settings.ReliefRarity:P0} rare");
@@ -10815,6 +10913,16 @@ public partial class Main : Node3D
             _savedPlayer = world.Player;
             _restoredPack = world.Pack;
             _restoredCarriedPacks = world.CarriedPacks;
+            _mode = world.Mode;
+            _flags = world.Flags;
+
+            if (_modeFlag is { } askedMode)
+            {
+                // Decision 21, --seed's rule: a world's mode is chosen once, when it is made, and never changes.
+                GD.PushWarning(
+                    $"--mode={WorldModes.Name(askedMode)} is ignored for an existing world: {_worldName} was made "
+                    + $"{WorldModes.Name(world.Mode)} and stays so. Name a world that does not exist yet to choose a mode.");
+            }
 
             // The world's own clock replaces whatever --clock asked for, and that ordering is the
             // point rather than a precedence rule: this is the line that makes "time advances only
@@ -10866,7 +10974,9 @@ public partial class Main : Node3D
             }
 
             GD.Print(
-                $"M6: opened {path} — seed 0x{settings.Seed:X}, "
+                $"M6: opened {path} — a {WorldModes.Name(world.Mode)} world (header v{header[0]}"
+                + (world.Mode == WorldMode.Creative ? $", flags {FlagsText(world.Flags)}" : string.Empty)
+                + $"), seed 0x{settings.Seed:X}, "
                 + $"{world.MaterialIdTable.Count} material id(s) restored, "
                 + $"{world.Inventory.Count} material(s) carried, "
                 + (world.Player is null ? "no saved player" : "player restored")
@@ -10922,13 +11032,115 @@ public partial class Main : Node3D
         ElapsedMillis = _clock.ElapsedMillis,
         Player = SavedPlayer(),
         // M10c-3: the pack rides the header, so it rides the session's transaction (a-1) — what
-        // it holds at the instant of the write, through the world's own table.
-        Pack = _pack is null ? null : new PackSave(_pack.MaterialId, _pack.ChargeMillijoules, _pack.Channel),
+        // it holds at the instant of the write, through the world's own table. IM-6c: until the pack
+        // is set up, the world file's (or the kit's) — the write at open runs before SetUpPack, and
+        // until then it wrote no pack at all, so a crash before the first autosave lost the worn pack.
+        Pack = _packSetUp
+            ? _pack is null ? null : new PackSave(_pack.MaterialId, _pack.ChargeMillijoules, _pack.Channel)
+            : _restoredPack,
         // And the charges the carried packs keep beside their count (v5), in the save form's order.
         CarriedPacks = _carriedPacks.Entries,
         // Alpha session C: the row the player arranged (v8), slots at zero included.
         Hotbar = _inventory.Hotbar.ToArray(),
+        // IM-6c (v9): the mode, fixed at creation, and the flags — the kit's bit set when it was granted, the first
+        // cell's stamped here once the gift has gone, so the write that carries the gifted row's charge carries the bit.
+        Mode = _mode,
+        Flags = _machines?.Gift?.Stamp(_flags) ?? _flags,
     };
+
+    /// <summary>The flags as the open line prints them: <c>kit granted, first cell granted</c>, or <c>none</c>.</summary>
+    private static string FlagsText(WorldFlags flags) =>
+        flags == WorldFlags.None
+            ? "none"
+            : string.Join(", ", new[]
+            {
+                (flags & WorldFlags.KitGranted) != 0 ? "kit granted" : null,
+                (flags & WorldFlags.FirstCellGranted) != 0 ? "first cell granted" : null,
+            }.Where(text => text is not null));
+
+    /// <summary>
+    /// A creative world's kit (IM-6's pass, decision 22): every mod's kits, unioned, into the pocket as real counts, the
+    /// row they set, and the pack they put on — once, at creation, the header's bit 0 set for the write that follows.
+    /// Printed <c>granted</c>; the <c>M6c:</c> line carries the number for the session.
+    /// </summary>
+    private void GrantKitIfDue()
+    {
+        _flags = KitGrant.GrantIfDue(_mode, _flags, Content.Kits, Content.Materials, _inventory, out KitGrantPlan? plan);
+        if (plan is null)
+        {
+            return;
+        }
+
+        _kitGranted = plan;
+        if (plan.Pack is { } pack)
+        {
+            // Worn by SetUpPack as the world file's would be, empty, on the kit's channel; --pack= still wins.
+            _restoredPack = new PackSave(pack.MaterialId, 0, pack.Channel);
+            _packFromKit = true;
+        }
+
+        string kits = plan.Kits.Count == 0 ? "no kit is installed" : string.Join(", ", plan.Kits);
+        GD.Print(
+            $"M6c: kit granted — {plan.TotalVoxels:N0} voxel(s) of {plan.Voxels.Count} material(s) into the pocket from {kits}"
+            + (plan.Row is null ? string.Empty : ", the row set")
+            + (plan.Pack is { } worn ? $", {Content.Materials.GetIdentifier(worn.MaterialId)} worn on channel {worn.Channel}" : string.Empty)
+            + "; once, at creation (the header's bit 0 rides this open's write)");
+        if (plan.Voxels.Count > 0)
+        {
+            GD.Print(HotbarLine() + " (the kit's)");
+        }
+    }
+
+    /// <summary>
+    /// The first cell's gift (IM-6's pass, decision 23), told once when it has gone: on the log with its term, and on the
+    /// message line. The charge went in at the placement, through the set's own door; this only says so.
+    /// </summary>
+    private void TellGiftIfGiven()
+    {
+        if (_giftTold || _machines?.Gift is not { GivenTo: { } cell } gift)
+        {
+            return;
+        }
+
+        _giftTold = true;
+        GD.Print(
+            $"M10: grant — the first cell placed in this creative world, at {cell}, arrived holding {EnergyText.Of(gift.GivenMillijoules)}: "
+            + $"granted {EnergyText.Of(_machines.StoredMillijoulesGranted)} in all, a term of the pool, once (the header's bit 1 rides the next save)");
+        Tell($"Your first power cell arrived holding {EnergyText.Of(gift.GivenMillijoules)}. Don't go broke.");
+    }
+
+    /// <summary>
+    /// Whether a test key answers (IM-6's pass, decision 24), by Core's table: in creative none does, whatever
+    /// <c>--dev</c> says, and each says so once a session on the log and the message line; in sandbox only Ctrl+R, H
+    /// and Alt+H wait for <c>--dev</c>, with ALPHA-PLAN B7's line, as before.
+    /// </summary>
+    private bool KeyAnswers(DebugKey key)
+    {
+        if (DebugKeyGate.Allowed(key, _mode, _dev))
+        {
+            return true;
+        }
+
+        if (_mode == WorldMode.Sandbox)
+        {
+            if (!_printedDevKey)
+            {
+                _printedDevKey = true;
+                GD.Print("M8b: H and Alt+H are developer keys — start with --dev to use them");
+            }
+
+            return false;
+        }
+
+        if (_keysTold.Add(key))
+        {
+            string why = DebugKeyGate.Refusal(key, _mode, _dev)!;
+            GD.Print($"M10: {why} (it did nothing)");
+            Tell(why);
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Puts the world file's row back, emptying — and saying so — any slot naming a material no

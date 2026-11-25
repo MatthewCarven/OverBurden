@@ -9,7 +9,8 @@ There are no monsters. **It's an early alpha: far from complete, and things will
 1. **Look around** with the mouse and **move** with W A S D. You start on foot (**F** toggles flying).
 2. **Dig** with the left mouse button. Your bare-hands pick takes dirt, grass and clay, but not stone.
 3. **Press P** to get a kit: pumps, outlets, solar panels, power cells, clay, glass, computers and
-   battery packs, 100 of each. (P is a test key; the alpha's creative mode will replace it.)
+   battery packs, 100 of each. (P is a test key, and it's off in a creative world, which starts with a kit
+   of its own: see *A creative world* below.)
 4. **Wear a pack.** Press **V** until the **lithium ion pack** is in your hand (the kit's blocks and
    machines fill your hotbar; the computer and packs are a V away), then **right-click**. Press
    **Alt+P** to charge it.
@@ -20,6 +21,21 @@ There are no monsters. **It's an early alpha: far from complete, and things will
    quit, and every 30 seconds. The game doesn't pause while the menu is open.
 
 A line above the hotbar says what a key just did, or why it did nothing.
+
+## A creative world
+
+A creative world starts with a kit and has the test keys off. Make one by naming a world that doesn't exist yet
+and adding `--mode=creative` after a bare `--`: from the source, `start.cmd "--world=My Creative" --mode=creative`;
+from the alpha download, `Overburden.exe -- "--world=My Creative" --mode=creative` (a shortcut's Target can carry
+it). A world's mode is chosen when it's made and never changes; `--mode` on a world that exists is ignored.
+
+- **The kit**, once, in your pocket: two vacuum cells, eight solar panels, four pumps and four outlets, one
+  quantum vault of each grade and a crate, the computer, and 4,096 m³ each of stone, clay and glass. The hotbar
+  holds stone, clay, glass, the cell, the panel, the pump, the outlet, the high vault and the crate.
+- **You wear the quantum backpack** on channel 0: a window onto that channel's bank and store.
+- **The first vacuum cell you place arrives holding 1 GJ**, once. Undo that placement and the gift goes with it.
+- **The test keys are off**: P, Ctrl+P, Alt+P, R, Alt+R, Alt+G, L, Ctrl+R, H and Alt+H each say so and do nothing,
+  `--dev` or not. Power is real: everything you own runs off that one bank, so don't go broke.
 
 ## All the keys
 
@@ -44,11 +60,12 @@ Flying passes through rock.
 | Left mouse | dig with the tool in hand |
 | Alt + left mouse | dig a single small block |
 | Hold Q | keep digging with the tool in hand, no clicking |
-| T | next tool: hand pick, quantum miner (1 m cube), quantum tunneller (2 m cube), quantum excavator (whole 8 m chunk) |
+| T | next tool: hand pick, quantum miner (1 m cube), quantum tunneller (2 m cube), quantum excavator (whole 8 m chunk), then the three quantum siphons in the same sizes |
 
 The hand pick is free and takes the soft ground. The quantum tools take anything, at range, but each
 block costs energy from the pack you're wearing (50 J a small block). With no charged pack they take
-nothing.
+nothing. A **siphon** takes water into your store with the left mouse (1 kJ a litre, from the bank) and pours
+it back free with the right; it needs the quantum backpack.
 
 ### Building and the hotbar
 

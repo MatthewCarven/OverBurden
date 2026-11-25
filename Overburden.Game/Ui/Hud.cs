@@ -5,6 +5,7 @@ using Overburden.Core.Building;
 using Overburden.Core.Content;
 using Overburden.Core.Inventory;
 using Overburden.Core.Machines;
+using Overburden.Core.Persistence;
 using Overburden.Game.Player;
 using Overburden.Game.Rendering;
 
@@ -398,12 +399,13 @@ public sealed partial class Hud : CanvasLayer
     /// The seed is offered in decimal, in the form that goes back on the command line, because
     /// that is the only thing anybody wants to do with it. The log keeps the hex.
     /// </remarks>
-    public void ShowSeed(string worldName, ulong seed, bool newWorld)
+    public void ShowSeed(string worldName, ulong seed, bool newWorld, WorldMode mode = WorldMode.Sandbox)
     {
         if (_seed is null) return;
 
+        // IM-6's pass, decision 21: the banner names a creative world's mode; a sandbox world reads as it always did.
         _seed.Text =
-            $"{worldName}\n--seed={seed}"
+            $"{worldName}{(mode == WorldMode.Sandbox ? string.Empty : $" — {WorldModes.Name(mode)}")}\n--seed={seed}"
             + (newWorld ? "\nnew world — note it down to build this landscape again" : string.Empty);
         _seed.Modulate = Colors.White;
         _seed.Visible = true;

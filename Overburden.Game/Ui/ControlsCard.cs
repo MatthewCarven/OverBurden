@@ -5,7 +5,9 @@ namespace Overburden.Game.Ui;
 /// <summary>
 /// The controls card's words (ALPHA-PLAN B5): every key in plain words, the developer keys under
 /// their own heading and only under <c>--dev</c>, and the credits last. Shown by
-/// <see cref="EscMenu"/> from the menu, on F1, and once at a new world's first open in an export.
+/// <see cref="EscMenu"/> from the menu, on F1, and once at a new world's first open in an export —
+/// and at a creative world's first open in any binary, headed by decision 55's line (IM-6's pass,
+/// decision 25).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -24,10 +26,24 @@ public static class ControlsCard
     private const string HeadColour = "#e8e8ee";
     private const string NoteColour = "#adb3bd";
 
-    /// <summary>The card's text, with the developer keys when <paramref name="dev"/> is set.</summary>
-    public static string Text(bool dev, string version)
+    /// <summary>Decision 55's line, verbatim: the head of a creative world's card (IM-6's pass, decision 25).</summary>
+    public const string CreativeHead =
+        "You run a mine. Water wants in; the rock wants down. Everything you own runs off one bank. Don't go broke.";
+
+    /// <summary>
+    /// The card's text, with the developer keys when <paramref name="dev"/> is set. In a <paramref name="creative"/>
+    /// world it opens with decision 55's line and lists none of the sandbox's test keys (IM-6's pass, decision 25): they
+    /// are off there whatever <c>--dev</c> says (decision 24), so a card naming them would name keys that do nothing.
+    /// </summary>
+    public static string Text(bool dev, string version, bool creative = false)
     {
         var text = new StringBuilder();
+
+        if (creative)
+        {
+            text.Append($"[font_size=21][color={HeadColour}]{CreativeHead}[/color][/font_size]\n");
+            Note(text, "A creative world. Your kit is in your pocket: the row holds stone, clay, glass, a power cell, a solar panel, a pump, an outlet, the high vault and a crate, and V steps through the rest. You wear the quantum backpack on channel 0. The first power cell you place arrives holding 1 GJ, once. The test keys are off here.");
+        }
 
         Section(text, "Moving");
         text.Append("[table=3]");
@@ -47,9 +63,9 @@ public static class ControlsCard
         Row(text, "Left mouse", "dig with the tool in hand");
         Row(text, "Alt + left mouse", "dig a single small block");
         Row(text, "Hold Q", "keep digging with the tool in hand, no clicking");
-        Row(text, "T", "next tool: hand pick, quantum miner (1 m cube), quantum tunneller (2 m cube), quantum excavator (a whole 8 m chunk)");
+        Row(text, "T", "next tool: hand pick, quantum miner (1 m cube), quantum tunneller (2 m cube), quantum excavator (a whole 8 m chunk), then the three quantum siphons in the same sizes");
         text.Append("[/table]\n");
-        Note(text, "The hand pick is free and takes soft ground (dirt, grass, clay), not stone. The quantum tools take anything, at range, paid for from the pack you wear.");
+        Note(text, "The hand pick is free and takes soft ground (dirt, grass, clay), not stone. The quantum tools take anything, at range, paid for from the pack you wear. A siphon takes water into your store with the left mouse (1 kJ a litre, from the bank) and pours it back free with the right; it needs the quantum backpack.");
 
         Section(text, "Building and the hotbar");
         text.Append("[table=2]");
@@ -65,9 +81,13 @@ public static class ControlsCard
         Section(text, "Power and packs");
         text.Append("[table=2]");
         Row(text, "Right mouse, pack in hand", "wear it (the one you wore goes back in your pocket, with its charge)");
-        Row(text, "P", "a kit: 100 of every machine, material and pack (a test key)");
-        Row(text, "Ctrl+P", "one empty lithium-ion pack, in your hand, unless you already wear one (a test key)");
-        Row(text, "Alt+P", "fill every placed power cell, and the pack you wear (a test key)");
+        if (!creative)
+        {
+            Row(text, "P", "a kit: 100 of every machine, material and pack (a test key)");
+            Row(text, "Ctrl+P", "one empty lithium-ion pack, in your hand, unless you already wear one (a test key)");
+            Row(text, "Alt+P", "fill every placed power cell, and the pack you wear (a test key)");
+        }
+
         text.Append("[/table]\n");
         Note(text, "A worn pack recharges slowly from charged vacuum cells on its channel. Solar panels charge cells under open sky.");
 
@@ -78,12 +98,15 @@ public static class ControlsCard
         text.Append("[/table]\n");
         Note(text, "A relay pump takes water where it stands, and a relay outlet on the same channel lets it out elsewhere. Dig a machine with a quantum tool to pick it up.");
 
-        Section(text, "Water (test keys)");
-        text.Append("[table=2]");
-        Row(text, "R", "pour 10,000 litres where you're looking");
-        Row(text, "Alt+R or Alt+G", "take back the water within 2 m of where you're looking");
-        Row(text, "L", "place a free lamp");
-        text.Append("[/table]\n");
+        if (!creative)
+        {
+            Section(text, "Water (test keys)");
+            text.Append("[table=2]");
+            Row(text, "R", "pour 10,000 litres where you're looking");
+            Row(text, "Alt+R or Alt+G", "take back the water within 2 m of where you're looking");
+            Row(text, "L", "place a free lamp");
+            text.Append("[/table]\n");
+        }
 
         Section(text, "The view and the game");
         text.Append("[table=2]");
@@ -95,7 +118,7 @@ public static class ControlsCard
         text.Append("[/table]\n");
         Note(text, "The world saves when you quit, and every 30 seconds.");
 
-        if (dev)
+        if (dev && !creative)
         {
             Section(text, "Developer keys (--dev)");
             text.Append("[table=2]");
